@@ -34,7 +34,9 @@ static const char *TAG = "skeleton";
 
 static SemaphoreHandle_t lvgl_mux        = NULL;
 static SemaphoreHandle_t lvgl_flush_semap = NULL;
-static uint16_t         *lvgl_dma_buf    = NULL;
+/* Two DMA-capable strip buffers so the next strip can be transformed
+   while the prior strip's SPI DMA is still draining. */
+static uint16_t         *lvgl_dma_bufs[2] = { NULL, NULL };
 
 static volatile uint32_t fps_frame_count = 0;
 static lv_obj_t         *fps_label       = NULL;
@@ -98,14 +100,19 @@ static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t 
 
     int64_t t_frame_start = esp_timer_get_time();
     int64_t t_xform_total = 0;   /* per-pixel transform */
-    int64_t t_wait_total  = 0;   /* waiting for prior strip's SPI to finish */
+    int64_t t_wait_total  = 0;   /* waiting for a free DMA buffer */
     int64_t t_draw_total  = 0;   /* esp_lcd_panel_draw_bitmap submit time */
 
-    xSemaphoreGive(lvgl_flush_semap);
+    int buf_idx = 0;
     for (int i = 0; i < flush_count; i++) {
+        /* Take one slot from the counting semaphore -- we have 2 DMA
+           buffers and the SPI-done callback gives a slot back. So this
+           only blocks when both buffers are still in flight. */
         int64_t t_w0 = esp_timer_get_time();
         xSemaphoreTake(lvgl_flush_semap, portMAX_DELAY);
         t_wait_total += esp_timer_get_time() - t_w0;
+        uint16_t *lvgl_dma_buf = lvgl_dma_bufs[buf_idx];
+        buf_idx ^= 1;
         if (y2 > PH) y2 = PH;
         int rows = y2 - y1;
         int64_t t_x0 = esp_timer_get_time();
@@ -205,8 +212,14 @@ static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t 
         y1 += offgap;
         y2 += offgap;
     }
+    /* Drain both DMA buffers before reporting flush_ready to LVGL,
+       otherwise LVGL may swap framebuffers while SPI is still sending. */
     int64_t t_w1 = esp_timer_get_time();
     xSemaphoreTake(lvgl_flush_semap, portMAX_DELAY);
+    xSemaphoreTake(lvgl_flush_semap, portMAX_DELAY);
+    /* Restore both slots for the next flush. */
+    xSemaphoreGive(lvgl_flush_semap);
+    xSemaphoreGive(lvgl_flush_semap);
     t_wait_total += esp_timer_get_time() - t_w1;
     int64_t t_total = esp_timer_get_time() - t_frame_start;
     fps_frame_count++;
@@ -288,17 +301,10 @@ static void lvgl_touch_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
 static void lvgl_port_task(void *arg)
 {
     uint32_t delay_ms = EXAMPLE_LVGL_TASK_MAX_DELAY_MS;
-    static uint32_t big_delay_count = 0;
     for (;;) {
         if (lvgl_lock(-1)) {
             delay_ms = lv_timer_handler();
             lvgl_unlock();
-        }
-        if (delay_ms > 50) {
-            if ((big_delay_count++ % 8) == 0) {
-                ESP_LOGW(TAG, "lv_timer_handler returned delay=%lu ms (idle)",
-                         (unsigned long)delay_ms);
-            }
         }
         if (delay_ms > EXAMPLE_LVGL_TASK_MAX_DELAY_MS) delay_ms = EXAMPLE_LVGL_TASK_MAX_DELAY_MS;
         else if (delay_ms < EXAMPLE_LVGL_TASK_MIN_DELAY_MS) delay_ms = EXAMPLE_LVGL_TASK_MIN_DELAY_MS;
@@ -374,14 +380,27 @@ static void lvgl_init(esp_lcd_panel_handle_t panel)
     static lv_disp_drv_t      disp_drv;
     static lv_indev_drv_t     indev_drv;
 
-    lvgl_flush_semap = xSemaphoreCreateBinary();
+    /* Counting semaphore: 2 because we have 2 ping-pong DMA buffers.
+       Each completed SPI transfer "gives" one slot back. */
+    lvgl_flush_semap = xSemaphoreCreateCounting(2, 2);
     lv_init();
 
-    lvgl_dma_buf = (uint16_t *)heap_caps_malloc(LVGL_DMA_BUFF_LEN, MALLOC_CAP_DMA);
-    assert(lvgl_dma_buf);
-    lv_color_t *fb = (lv_color_t *)heap_caps_malloc(LVGL_SPIRAM_BUFF_LEN, MALLOC_CAP_SPIRAM);
-    assert(fb);
-    lv_disp_draw_buf_init(&disp_buf, fb, NULL, UI_CANVAS_W * UI_CANVAS_H);
+    lvgl_dma_bufs[0] = (uint16_t *)heap_caps_malloc(LVGL_DMA_BUFF_LEN, MALLOC_CAP_DMA);
+    lvgl_dma_bufs[1] = (uint16_t *)heap_caps_malloc(LVGL_DMA_BUFF_LEN, MALLOC_CAP_DMA);
+    assert(lvgl_dma_bufs[0] && lvgl_dma_bufs[1]);
+    /* Put the LVGL framebuffer in internal RAM. Rasterizing 110 KB of
+       16-bit pixels into internal RAM is ~10x faster than into SPIRAM,
+       which was the dominant cost in lv_timer_handler. We only have
+       headroom for one buffer here -- the other side is the SPI DMA
+       which is paced by panel bandwidth, not memory. */
+    lv_color_t *fb1 = (lv_color_t *)heap_caps_malloc(LVGL_SPIRAM_BUFF_LEN,
+                                                     MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!fb1) {
+        ESP_LOGW(TAG, "fb in internal RAM failed; falling back to SPIRAM");
+        fb1 = (lv_color_t *)heap_caps_malloc(LVGL_SPIRAM_BUFF_LEN, MALLOC_CAP_SPIRAM);
+    }
+    assert(fb1);
+    lv_disp_draw_buf_init(&disp_buf, fb1, NULL, UI_CANVAS_W * UI_CANVAS_H);
 
     lv_disp_drv_init(&disp_drv);
     disp_drv.hor_res      = canvas_w;
@@ -392,6 +411,12 @@ static void lvgl_init(esp_lcd_panel_handle_t panel)
     disp_drv.user_data    = panel;
     lv_disp_drv_register(&disp_drv);
     g_disp_drv = &disp_drv;
+    /* Force the LVGL refresh timer to fire every 5 ms so the flush rate is
+       paced by SPI/PSRAM instead of LVGL's default ~30 ms cadence. */
+    lv_disp_t *disp = lv_disp_get_default();
+    if (disp && disp->refr_timer) {
+        lv_timer_set_period(disp->refr_timer, 5);
+    }
 
     esp_timer_create_args_t tick_args = {};
     tick_args.callback = &lvgl_tick_inc_cb;
