@@ -96,43 +96,105 @@ static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t 
     uint16_t *src = (uint16_t *)color_map;
     int x1 = 0, y1 = 0, x2 = PW, y2 = offgap;
 
+    int64_t t_frame_start = esp_timer_get_time();
+    int64_t t_xform_total = 0;   /* per-pixel transform */
+    int64_t t_wait_total  = 0;   /* waiting for prior strip's SPI to finish */
+    int64_t t_draw_total  = 0;   /* esp_lcd_panel_draw_bitmap submit time */
+
     xSemaphoreGive(lvgl_flush_semap);
     for (int i = 0; i < flush_count; i++) {
+        int64_t t_w0 = esp_timer_get_time();
         xSemaphoreTake(lvgl_flush_semap, portMAX_DELAY);
+        t_wait_total += esp_timer_get_time() - t_w0;
         if (y2 > PH) y2 = PH;
         int rows = y2 - y1;
-        for (int r = 0; r < rows; r++) {
-            int py = y1 + r;
-            uint16_t *drow = lvgl_dma_buf + (size_t)r * PW;
-            for (int px = 0; px < PW; px++) {
-                int cx, cy;
-                switch (rs) {
-                    case 0:  /* 0deg:  panel(px,py) = canvas(px, py)              */
-                        cx = px;       cy = py;            break;
-                    case 1:  /* 90 CW: panel(px,py) = canvas(py, CH-1-px)         */
-                        cx = py;       cy = CH - 1 - px;   break;
-                    case 2:  /* 180:   panel(px,py) = canvas(CW-1-px, CH-1-py)    */
-                        cx = CW-1-px;  cy = CH - 1 - py;   break;
-                    default: /* 270 CW:panel(px,py) = canvas(CW-1-py, px)         */
-                        cx = CW-1-py;  cy = px;            break;
+        int64_t t_x0 = esp_timer_get_time();
+        /* Specialized inner loops per rotation. Landscape modes (90/270)
+           must iterate `r` (panel row -> canvas column) on the INNER loop
+           so each canvas row is read sequentially -- otherwise PSRAM
+           cache misses on every pixel drop landscape FPS to ~2. */
+        switch (rs) {
+            case 0: {  /* 0 deg: portrait, identity copy. */
+                int copy_w = (PW < CW ? PW : CW) * 2;
+                for (int r = 0; r < rows; r++) {
+                    int py = y1 + r;
+                    uint16_t *drow = lvgl_dma_buf + (size_t)r * PW;
+                    if (py < CH) {
+                        memcpy(drow, src + (size_t)py * CW, copy_w);
+                        if (PW > CW) memset(drow + CW, 0, (PW - CW) * 2);
+                    } else {
+                        memset(drow, 0, PW * 2);
+                    }
                 }
-                if ((unsigned)cx < (unsigned)CW && (unsigned)cy < (unsigned)CH) {
-                    drow[px] = src[(size_t)cy * CW + cx];
-                } else {
-                    drow[px] = 0;
+            } break;
+            case 1: {  /* 90 CW: drow[px] = src[(CH-1-px)*CW + py].
+                          Walk px sequentially over canvas rows. */
+                for (int px = 0; px < PW; px++) {
+                    int cy = CH - 1 - px;
+                    if ((unsigned)cy >= (unsigned)CH) {
+                        for (int r = 0; r < rows; r++)
+                            lvgl_dma_buf[(size_t)r * PW + px] = 0;
+                        continue;
+                    }
+                    const uint16_t *crow = src + (size_t)cy * CW;
+                    for (int r = 0; r < rows; r++) {
+                        int cx = y1 + r;
+                        lvgl_dma_buf[(size_t)r * PW + px] =
+                            ((unsigned)cx < (unsigned)CW) ? crow[cx] : 0;
+                    }
                 }
-            }
+            } break;
+            case 2: {  /* 180: drow[px] = src[(CH-1-py)*CW + (CW-1-px)]. */
+                for (int r = 0; r < rows; r++) {
+                    int py = y1 + r;
+                    int cy = CH - 1 - py;
+                    uint16_t *drow = lvgl_dma_buf + (size_t)r * PW;
+                    if ((unsigned)cy >= (unsigned)CH) {
+                        memset(drow, 0, PW * 2);
+                        continue;
+                    }
+                    const uint16_t *crow = src + (size_t)cy * CW;
+                    for (int px = 0; px < PW; px++) {
+                        int cx = CW - 1 - px;
+                        drow[px] = ((unsigned)cx < (unsigned)CW) ? crow[cx] : 0;
+                    }
+                }
+            } break;
+            default: { /* 270 CW: drow[px] = src[px*CW + (CW-1-py)]. */
+                for (int px = 0; px < PW; px++) {
+                    int cy = px;
+                    if ((unsigned)cy >= (unsigned)CH) {
+                        for (int r = 0; r < rows; r++)
+                            lvgl_dma_buf[(size_t)r * PW + px] = 0;
+                        continue;
+                    }
+                    const uint16_t *crow = src + (size_t)cy * CW;
+                    for (int r = 0; r < rows; r++) {
+                        int cx = CW - 1 - (y1 + r);
+                        lvgl_dma_buf[(size_t)r * PW + px] =
+                            ((unsigned)cx < (unsigned)CW) ? crow[cx] : 0;
+                    }
+                }
+            } break;
         }
+        t_xform_total += esp_timer_get_time() - t_x0;
+        int64_t t_d0 = esp_timer_get_time();
         esp_lcd_panel_draw_bitmap(panel, x1, y1, x2, y2, lvgl_dma_buf);
+        t_draw_total += esp_timer_get_time() - t_d0;
         y1 += offgap;
         y2 += offgap;
     }
+    int64_t t_w1 = esp_timer_get_time();
     xSemaphoreTake(lvgl_flush_semap, portMAX_DELAY);
+    t_wait_total += esp_timer_get_time() - t_w1;
+    int64_t t_total = esp_timer_get_time() - t_frame_start;
     fps_frame_count++;
-    if ((fps_frame_count % 60) == 1) {
-        ESP_LOGI(TAG, "flush #%lu  area x=%d..%d y=%d..%d",
-                 (unsigned long)fps_frame_count,
-                 (int)area->x1, (int)area->x2, (int)area->y1, (int)area->y2);
+    if ((fps_frame_count % 30) == 1) {
+        ESP_LOGI(TAG,
+                 "flush #%lu rs=%d C=%dx%d total=%lldus xform=%lldus draw=%lldus wait=%lldus",
+                 (unsigned long)fps_frame_count, rs, CW, CH,
+                 (long long)t_total, (long long)t_xform_total,
+                 (long long)t_draw_total, (long long)t_wait_total);
     }
     lv_disp_flush_ready(drv);
 }
@@ -198,10 +260,17 @@ static void lvgl_touch_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
 static void lvgl_port_task(void *arg)
 {
     uint32_t delay_ms = EXAMPLE_LVGL_TASK_MAX_DELAY_MS;
+    static uint32_t big_delay_count = 0;
     for (;;) {
         if (lvgl_lock(-1)) {
             delay_ms = lv_timer_handler();
             lvgl_unlock();
+        }
+        if (delay_ms > 50) {
+            if ((big_delay_count++ % 8) == 0) {
+                ESP_LOGW(TAG, "lv_timer_handler returned delay=%lu ms (idle)",
+                         (unsigned long)delay_ms);
+            }
         }
         if (delay_ms > EXAMPLE_LVGL_TASK_MAX_DELAY_MS) delay_ms = EXAMPLE_LVGL_TASK_MAX_DELAY_MS;
         else if (delay_ms < EXAMPLE_LVGL_TASK_MIN_DELAY_MS) delay_ms = EXAMPLE_LVGL_TASK_MIN_DELAY_MS;
@@ -362,7 +431,10 @@ static void build_hello_world_ui(const char *status_text)
 
     lv_obj_t *hello = lv_label_create(scr);
     lv_label_set_long_mode(hello, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_set_width(hello, canvas_w);
+    /* Force the label narrower than its text so it actually scrolls;
+       a non-scrolling label means LVGL has nothing to redraw and FPS
+       drops to whatever else happens to invalidate (the FPS counter). */
+    lv_obj_set_width(hello, canvas_w / 3);
     lv_label_set_text(hello, "Hello World  *  Hello World  *  Hello World  *  ");
     lv_obj_set_style_text_color(hello, lv_color_white(), 0);
     lv_obj_set_style_text_font(hello, &lv_font_montserrat_16, 0);
