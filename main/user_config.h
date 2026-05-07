@@ -22,11 +22,16 @@
 #define EXAMPLE_PIN_NUM_LCD_RST    (GPIO_NUM_21)
 #define EXAMPLE_PIN_NUM_BK_LIGHT   (GPIO_NUM_8) 
 
+/* Physical panel: 172 wide x 640 tall, portrait. */
 #define EXAMPLE_LCD_H_RES 172
 #define EXAMPLE_LCD_V_RES 640
+/* Logical LVGL canvas: 640 wide x 172 tall (landscape).
+   flush_cb rotates 90deg CW into the panel's portrait address window. */
+#define UI_CANVAS_W 640
+#define UI_CANVAS_H 172
 #define LVGL_FLUSH_STRIP_ROWS 64
 #define LVGL_DMA_BUFF_LEN (EXAMPLE_LCD_H_RES * LVGL_FLUSH_STRIP_ROWS * 2)
-#define LVGL_SPIRAM_BUFF_LEN (EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES * 2)
+#define LVGL_SPIRAM_BUFF_LEN (UI_CANVAS_W * UI_CANVAS_H * 2)
 
 
 #define EXAMPLE_PIN_NUM_TOUCH_ADDR        0x3b
