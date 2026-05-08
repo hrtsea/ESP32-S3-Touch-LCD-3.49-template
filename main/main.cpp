@@ -565,6 +565,12 @@ static void lvgl_init(esp_lcd_panel_handle_t panel)
     lv_indev_drv_init(&indev_drv);
     indev_drv.type    = LV_INDEV_TYPE_POINTER;
     indev_drv.read_cb = lvgl_touch_cb;
+    /* Touch is imprecise on the 172 px-tall canvas: a stationary tap can
+       drift several pixels before release. Lower scroll_limit so even a
+       small finger drag starts a scroll (which cancels the click), and
+       bump scroll_throw for a smoother fling. */
+    indev_drv.scroll_limit = 4;
+    indev_drv.scroll_throw = 20;
     lv_indev_drv_register(&indev_drv);
 
     lvgl_mux = xSemaphoreCreateMutex();
