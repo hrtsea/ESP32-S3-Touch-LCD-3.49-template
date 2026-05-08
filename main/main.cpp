@@ -1497,8 +1497,11 @@ static void kb_open_for_ssid(const char *ssid)
     lv_obj_add_event_cb(kb, kb_event_cb, LV_EVENT_CANCEL, NULL);
 }
 
+static bool menu_input_blocked(void);
+
 static void wifi_ap_clicked_cb(lv_event_t *e)
 {
+    if (menu_input_blocked()) return;
     int idx = (int)(intptr_t)lv_event_get_user_data(e);
     if (idx < 0 || idx >= (int)g_wifi_scan_n) return;
     const wifi_scan_ap_t *ap = &g_wifi_scan[idx];
@@ -1566,8 +1569,57 @@ static void scan_btn_cb(lv_event_t *e)
     (void)t;
 }
 
+/* Block touch-driven menu actions for a short window after a back press,
+   so the same gesture that pops a page doesn't also pick the item that
+   slides in under the finger. Stamped by the back-button click handler
+   below; tested by every action callback that mutates state. */
+static uint32_t g_menu_input_block_until_ms = 0;
+#define MENU_BACK_DEBOUNCE_MS  350
+
+static bool menu_input_blocked(void)
+{
+    uint32_t now = lv_tick_get();
+    /* lv_tick wraps at 2^32 ms; signed compare handles wrap gracefully. */
+    return (int32_t)(g_menu_input_block_until_ms - now) > 0;
+}
+
+/* Transparent shield placed above the menu for MENU_BACK_DEBOUNCE_MS
+   after a back-press. It eats every click that would otherwise reach
+   the menu item that scrolled in under the finger. */
+static lv_obj_t *g_menu_shield = NULL;
+
+static void menu_shield_drop_cb(lv_timer_t *t)
+{
+    if (g_menu_shield) {
+        lv_obj_del(g_menu_shield);
+        g_menu_shield = NULL;
+    }
+    lv_timer_del(t);
+}
+
+static void menu_back_clicked_cb(lv_event_t *e)
+{
+    (void)e;
+    g_menu_input_block_until_ms = lv_tick_get() + MENU_BACK_DEBOUNCE_MS;
+    if (g_menu_shield) return;  /* already shielded */
+    /* Parent to the active screen so the shield covers the menu and any
+       header/back-button that might still be sitting under the finger. */
+    g_menu_shield = lv_obj_create(lv_scr_act());
+    lv_obj_remove_style_all(g_menu_shield);
+    lv_obj_set_size(g_menu_shield, canvas_w, canvas_h);
+    lv_obj_align(g_menu_shield, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_bg_opa(g_menu_shield, LV_OPA_TRANSP, 0);
+    lv_obj_clear_flag(g_menu_shield, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(g_menu_shield, LV_OBJ_FLAG_CLICKABLE);
+    /* Move to top z-order so subsequent clicks land on the shield. */
+    lv_obj_move_foreground(g_menu_shield);
+    lv_timer_t *t = lv_timer_create(menu_shield_drop_cb, MENU_BACK_DEBOUNCE_MS, NULL);
+    (void)t;
+}
+
 static void tz_city_pick_cb(lv_event_t *e)
 {
+    if (menu_input_blocked()) return;
     /* user_data carries the city index packed into a void*. */
     uintptr_t idx = (uintptr_t)lv_event_get_user_data(e);
     if (idx >= TZ_CITY_COUNT) return;
@@ -1720,6 +1772,7 @@ static void wifi_ac_cb(lv_event_t *e)
 static void reset_confirm_cb(lv_event_t *e)
 {
     (void)e;
+    if (menu_input_blocked()) return;
     nvs_handle_t h;
     if (nvs_open(NVS_NS_CFG, NVS_READWRITE, &h) == ESP_OK) {
         nvs_erase_all(h);
@@ -2041,16 +2094,26 @@ static void build_settings_tile(lv_obj_t *parent)
     lv_obj_set_style_text_color(menu, pal.text, 0);
     lv_obj_set_style_text_font(menu, &lv_font_montserrat_12, 0);
 
-    /* Header bar: contrasting strip, back button anchored top-right. */
+    /* Header bar: title fills the middle, back button anchored right. */
     lv_obj_t *hdr = lv_menu_get_main_header(menu);
     if (hdr) {
         lv_obj_set_style_bg_color(hdr, pal.menu_hdr, 0);
         lv_obj_set_style_bg_opa(hdr, LV_OPA_COVER, 0);
         lv_obj_set_style_pad_all(hdr, 4, 0);
         lv_obj_set_style_pad_gap(hdr, 6, 0);
-        /* Default flex anchor is START; push children to the right edge. */
-        lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_END,
+        /* Children stay packed at the start; the title gets flex-grow so it
+           expands to fill the middle and the back button rides at the end. */
+        lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_START,
                               LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    }
+    lv_obj_t *title_lbl = lv_menu_get_main_header(menu)
+                            ? lv_obj_get_child(lv_menu_get_main_header(menu), 1)
+                            : NULL;
+    if (title_lbl) {
+        lv_obj_set_flex_grow(title_lbl, 1);
+        lv_obj_set_style_text_align(title_lbl, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_style_text_color(title_lbl, lv_color_white(), 0);
+        lv_obj_set_style_text_font(title_lbl, &lv_font_montserrat_14, 0);
     }
     lv_obj_t *back = lv_menu_get_main_header_back_btn(menu);
     if (back) {
@@ -2058,6 +2121,9 @@ static void build_settings_tile(lv_obj_t *parent)
         lv_obj_set_style_bg_color(back, pal.menu_btn, 0);
         lv_obj_set_style_bg_opa(back, LV_OPA_COVER, 0);
         lv_obj_set_style_radius(back, 4, 0);
+        /* Stamp a debounce window so the same touch that pops the page
+           doesn't also trigger the city/wifi/reset action it lands on. */
+        lv_obj_add_event_cb(back, menu_back_clicked_cb, LV_EVENT_CLICKED, NULL);
         /* lv_menu already added an lv_img arrow as the first child; hide it
            so we don't render two stacked arrows. */
         if (lv_obj_get_child_cnt(back) > 0) {
@@ -2082,7 +2148,7 @@ static void build_settings_tile(lv_obj_t *parent)
 
     /* Main (root) page: list of menu items. Scrolls vertically if
        there are more entries than fit on the 172 px tall canvas. */
-    lv_obj_t *main_page = lv_menu_page_create(menu, NULL);
+    lv_obj_t *main_page = lv_menu_page_create(menu, (char *)"==== MENU ====");
     lv_obj_set_scroll_dir(main_page, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(main_page, LV_SCROLLBAR_MODE_AUTO);
     struct { const char *icon_label; lv_obj_t *page; } rows[] = {
