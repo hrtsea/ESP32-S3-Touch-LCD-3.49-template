@@ -13,7 +13,6 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_heap_caps.h"
-#include "esp_memory_utils.h"
 
 #include "lvgl.h"
 #include "esp_lcd_axs15231b.h"
@@ -88,121 +87,147 @@ static void lvgl_tick_inc_cb(void *arg)
 static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map)
 {
     esp_lcd_panel_handle_t panel = (esp_lcd_panel_handle_t)drv->user_data;
-    const int PW = EXAMPLE_LCD_H_RES;       /* panel width  = 172 */
-    const int PH = EXAMPLE_LCD_V_RES;       /* panel height = 640 */
-    const int CW = canvas_w;
-    const int CH = canvas_h;
-    const int rs = rot_state;
+    const int flush_count = (EXAMPLE_LCD_V_RES + LVGL_FLUSH_STRIP_ROWS - 1) / LVGL_FLUSH_STRIP_ROWS;
+    const int offgap      = LVGL_FLUSH_STRIP_ROWS;
+    const int PW          = EXAMPLE_LCD_H_RES;     /* panel width  = 172 */
+    const int PH          = EXAMPLE_LCD_V_RES;     /* panel height = 640 */
+    const int CW          = canvas_w;
+    const int CH          = canvas_h;
+    const int rs          = rot_state;
 
-    /* Canvas-space rect that LVGL has rendered into color_map. */
-    const int ax1 = area->x1;
-    const int ay1 = area->y1;
-    const int aw  = area->x2 - area->x1 + 1;
-    const int ah  = area->y2 - area->y1 + 1;
     uint16_t *src = (uint16_t *)color_map;
-
-    /* Translate the canvas-space rect into the panel-space rect that
-       will receive pixels after the chosen rotation. */
-    int px1, py1, px2, py2;
-    switch (rs) {
-        case 0:  /* identity: panel = canvas */
-            px1 = ax1;          py1 = ay1;
-            px2 = ax1 + aw - 1; py2 = ay1 + ah - 1;
-            break;
-        case 1:  /* 90 CW: panel(px,py) = canvas(py, CH-1-px) */
-            px1 = CH - 1 - (ay1 + ah - 1);
-            py1 = ax1;
-            px2 = CH - 1 - ay1;
-            py2 = ax1 + aw - 1;
-            break;
-        case 2:  /* 180 */
-            px1 = CW - 1 - (ax1 + aw - 1);
-            py1 = CH - 1 - (ay1 + ah - 1);
-            px2 = CW - 1 - ax1;
-            py2 = CH - 1 - ay1;
-            break;
-        default: /* 270 CW: panel(px,py) = canvas(CW-1-py, px) */
-            px1 = ay1;
-            py1 = CW - 1 - (ax1 + aw - 1);
-            px2 = ay1 + ah - 1;
-            py2 = CW - 1 - ax1;
-            break;
-    }
-    /* Clamp to panel bounds (defensive). */
-    if (px1 < 0) px1 = 0;
-    if (py1 < 0) py1 = 0;
-    if (px2 >= PW) px2 = PW - 1;
-    if (py2 >= PH) py2 = PH - 1;
-    if (px2 < px1 || py2 < py1) { lv_disp_flush_ready(drv); return; }
-    const int rect_w = px2 - px1 + 1;
-    const int rect_h = py2 - py1 + 1;
+    int x1 = 0, y1 = 0, x2 = PW, y2 = offgap;
 
     int64_t t_frame_start = esp_timer_get_time();
-    int64_t t_xform_total = 0;
-    int64_t t_wait_total  = 0;
-    int64_t t_draw_total  = 0;
+    int64_t t_xform_total = 0;   /* per-pixel transform */
+    int64_t t_wait_total  = 0;   /* waiting for a free DMA buffer */
+    int64_t t_draw_total  = 0;   /* esp_lcd_panel_draw_bitmap submit time */
 
-    /* Process the panel rect in horizontal strips so each strip fits
-       in a DMA buffer. Strip height capped by LVGL_FLUSH_STRIP_ROWS,
-       width is the full rect_w. */
-    const int max_strip_h = LVGL_DMA_BUFF_LEN / 2 / rect_w;
-    const int strip_h = max_strip_h > LVGL_FLUSH_STRIP_ROWS
-                            ? LVGL_FLUSH_STRIP_ROWS : max_strip_h;
-    /* If rect is too wide to fit any strip, fall back to one row at a time. */
-    const int H = strip_h > 0 ? strip_h : 1;
     int buf_idx = 0;
-    for (int sy = 0; sy < rect_h; sy += H) {
-        int rows = (sy + H <= rect_h) ? H : (rect_h - sy);
+    for (int i = 0; i < flush_count; i++) {
+        /* Take one slot from the counting semaphore -- we have 2 DMA
+           buffers and the SPI-done callback gives a slot back. So this
+           only blocks when both buffers are still in flight. */
         int64_t t_w0 = esp_timer_get_time();
         xSemaphoreTake(lvgl_flush_semap, portMAX_DELAY);
         t_wait_total += esp_timer_get_time() - t_w0;
-        uint16_t *dma_buf = lvgl_dma_bufs[buf_idx];
+        uint16_t *lvgl_dma_buf = lvgl_dma_bufs[buf_idx];
         buf_idx ^= 1;
-
+        if (y2 > PH) y2 = PH;
+        int rows = y2 - y1;
         int64_t t_x0 = esp_timer_get_time();
-        for (int r = 0; r < rows; r++) {
-            int py = py1 + sy + r;        /* panel y */
-            uint16_t *drow = dma_buf + (size_t)r * rect_w;
-            for (int rx = 0; rx < rect_w; rx++) {
-                int px = px1 + rx;        /* panel x */
-                int cx, cy;
-                switch (rs) {
-                    case 0:  cx = px;            cy = py;            break;
-                    case 1:  cx = py;            cy = CH - 1 - px;   break;
-                    case 2:  cx = CW - 1 - px;   cy = CH - 1 - py;   break;
-                    default: cx = CW - 1 - py;   cy = px;            break;
+        /* Specialized inner loops per rotation. Landscape modes (90/270)
+           must iterate `r` (panel row -> canvas column) on the INNER loop
+           so each canvas row is read sequentially -- otherwise PSRAM
+           cache misses on every pixel drop landscape FPS to ~2. */
+        switch (rs) {
+            case 0: {  /* 0 deg: portrait, identity copy. */
+                int copy_w = (PW < CW ? PW : CW) * 2;
+                for (int r = 0; r < rows; r++) {
+                    int py = y1 + r;
+                    uint16_t *drow = lvgl_dma_buf + (size_t)r * PW;
+                    if (py < CH) {
+                        memcpy(drow, src + (size_t)py * CW, copy_w);
+                        if (PW > CW) memset(drow + CW, 0, (PW - CW) * 2);
+                    } else {
+                        memset(drow, 0, PW * 2);
+                    }
                 }
-                int axoff = cx - ax1;
-                int ayoff = cy - ay1;
-                if ((unsigned)axoff < (unsigned)aw &&
-                    (unsigned)ayoff < (unsigned)ah) {
-                    drow[rx] = src[(size_t)ayoff * aw + axoff];
-                } else {
-                    drow[rx] = 0;
+            } break;
+            case 1: {  /* 90 CW: drow[px] = src[(CH-1-px)*CW + py].
+                          Stage each canvas row span into internal RAM via
+                          a single memcpy (sequential PSRAM read), then
+                          scatter transposed into the DMA buffer. */
+                uint16_t span[LVGL_FLUSH_STRIP_ROWS];
+                for (int px = 0; px < PW; px++) {
+                    int cy = CH - 1 - px;
+                    if ((unsigned)cy >= (unsigned)CH) {
+                        for (int r = 0; r < rows; r++)
+                            lvgl_dma_buf[(size_t)r * PW + px] = 0;
+                        continue;
+                    }
+                    const uint16_t *crow = src + (size_t)cy * CW + y1;
+                    int span_n = (y1 + rows <= CW) ? rows : (CW - y1);
+                    if (span_n < 0) span_n = 0;
+                    if (span_n > 0) memcpy(span, crow, (size_t)span_n * 2);
+                    for (int r = 0; r < span_n; r++)
+                        lvgl_dma_buf[(size_t)r * PW + px] = span[r];
+                    for (int r = span_n; r < rows; r++)
+                        lvgl_dma_buf[(size_t)r * PW + px] = 0;
                 }
-            }
+            } break;
+            case 2: {  /* 180: drow[px] = src[(CH-1-py)*CW + (CW-1-px)]. */
+                for (int r = 0; r < rows; r++) {
+                    int py = y1 + r;
+                    int cy = CH - 1 - py;
+                    uint16_t *drow = lvgl_dma_buf + (size_t)r * PW;
+                    if ((unsigned)cy >= (unsigned)CH) {
+                        memset(drow, 0, PW * 2);
+                        continue;
+                    }
+                    const uint16_t *crow = src + (size_t)cy * CW;
+                    for (int px = 0; px < PW; px++) {
+                        int cx = CW - 1 - px;
+                        drow[px] = ((unsigned)cx < (unsigned)CW) ? crow[cx] : 0;
+                    }
+                }
+            } break;
+            default: { /* 270 CW: drow[px] = src[px*CW + (CW-1-(y1+r))].
+                          Stage canvas row span into internal RAM, then
+                          scatter transposed in reverse order. */
+                uint16_t span[LVGL_FLUSH_STRIP_ROWS];
+                for (int px = 0; px < PW; px++) {
+                    int cy = px;
+                    if ((unsigned)cy >= (unsigned)CH) {
+                        for (int r = 0; r < rows; r++)
+                            lvgl_dma_buf[(size_t)r * PW + px] = 0;
+                        continue;
+                    }
+                    int cx_end_excl = CW - y1;            /* exclusive */
+                    int cx_start    = cx_end_excl - rows; /* may be < 0 */
+                    int span_n = rows;
+                    int dst_skip = 0;
+                    if (cx_start < 0) {
+                        dst_skip = -cx_start;
+                        span_n -= dst_skip;
+                        cx_start = 0;
+                    }
+                    if (span_n > 0) {
+                        const uint16_t *crow = src + (size_t)cy * CW + cx_start;
+                        memcpy(span, crow, (size_t)span_n * 2);
+                    }
+                    /* span[0..span_n) holds canvas pixels in increasing cx;
+                       we need decreasing cx, so write in reverse. */
+                    for (int r = 0; r < dst_skip; r++)
+                        lvgl_dma_buf[(size_t)r * PW + px] = 0;
+                    for (int r = 0; r < span_n; r++)
+                        lvgl_dma_buf[(size_t)(dst_skip + r) * PW + px] = span[span_n - 1 - r];
+                }
+            } break;
         }
         t_xform_total += esp_timer_get_time() - t_x0;
-
         int64_t t_d0 = esp_timer_get_time();
-        esp_lcd_panel_draw_bitmap(panel, px1, py1 + sy,
-                                  px2 + 1, py1 + sy + rows, dma_buf);
+        esp_lcd_panel_draw_bitmap(panel, x1, y1, x2, y2, lvgl_dma_buf);
         t_draw_total += esp_timer_get_time() - t_d0;
+        y1 += offgap;
+        y2 += offgap;
     }
-
+    /* Drain both DMA buffers before reporting flush_ready to LVGL,
+       otherwise LVGL may swap framebuffers while SPI is still sending. */
     int64_t t_w1 = esp_timer_get_time();
     xSemaphoreTake(lvgl_flush_semap, portMAX_DELAY);
     xSemaphoreTake(lvgl_flush_semap, portMAX_DELAY);
+    /* Restore both slots for the next flush. */
     xSemaphoreGive(lvgl_flush_semap);
     xSemaphoreGive(lvgl_flush_semap);
     t_wait_total += esp_timer_get_time() - t_w1;
     int64_t t_total = esp_timer_get_time() - t_frame_start;
     fps_frame_count++;
     static uint32_t flush_log_div = 0;
-    if ((flush_log_div++ % 120) == 0) {
+    if ((flush_log_div++ % 120) == 0) {  /* ~every 5s at 24 FPS */
         ESP_LOGI(TAG,
-                 "flush rs=%d rect=%dx%d total=%lldus xform=%lldus draw=%lldus wait=%lldus",
-                 rs, rect_w, rect_h,
+                 "flush rs=%d C=%dx%d total=%lldus xform=%lldus draw=%lldus wait=%lldus",
+                 rs, CW, CH,
                  (long long)t_total, (long long)t_xform_total,
                  (long long)t_draw_total, (long long)t_wait_total);
     }
@@ -225,7 +250,7 @@ static void fps_timer_cb(lv_timer_t *t)
                               (unsigned long)(fps_x10 % 10));
     }
     static uint32_t print_div = 0;
-    if ((print_div++ & 7) == 0) {  /* ~every 4s */
+    if ((print_div++ & 3) == 0) {  /* ~every 2s */
         ESP_LOGI(TAG, "fps=%lu.%lu  (frames=%lu in %lu ms)",
                  (unsigned long)(fps_x10 / 10), (unsigned long)(fps_x10 % 10),
                  (unsigned long)frames, (unsigned long)dt);
@@ -363,33 +388,26 @@ static void lvgl_init(esp_lcd_panel_handle_t panel)
     lvgl_dma_bufs[0] = (uint16_t *)heap_caps_malloc(LVGL_DMA_BUFF_LEN, MALLOC_CAP_DMA);
     lvgl_dma_bufs[1] = (uint16_t *)heap_caps_malloc(LVGL_DMA_BUFF_LEN, MALLOC_CAP_DMA);
     assert(lvgl_dma_bufs[0] && lvgl_dma_bufs[1]);
-    /* Two small partial buffers (one strip each). Disabling full_refresh
-       means LVGL only renders dirty rectangles -- typically just the FPS
-       label and the scrolling text, a few KB instead of 220 KB. The
-       buffers sit in internal RAM where the rasterizer is fastest. */
-    const size_t partial_pix = (size_t)UI_CANVAS_W * LVGL_FLUSH_STRIP_ROWS;
-    lv_color_t *fb1 = (lv_color_t *)heap_caps_malloc(partial_pix * sizeof(lv_color_t),
+    /* Put the LVGL framebuffer in internal RAM. Rasterizing 110 KB of
+       16-bit pixels into internal RAM is ~10x faster than into SPIRAM,
+       which was the dominant cost in lv_timer_handler. We only have
+       headroom for one buffer here -- the other side is the SPI DMA
+       which is paced by panel bandwidth, not memory. */
+    lv_color_t *fb1 = (lv_color_t *)heap_caps_malloc(LVGL_SPIRAM_BUFF_LEN,
                                                      MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    lv_color_t *fb2 = (lv_color_t *)heap_caps_malloc(partial_pix * sizeof(lv_color_t),
-                                                     MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    if (!fb1 || !fb2) {
-        ESP_LOGW(TAG, "partial fbs in internal RAM failed; falling back to SPIRAM");
-        if (fb1) heap_caps_free(fb1);
-        if (fb2) heap_caps_free(fb2);
-        fb1 = (lv_color_t *)heap_caps_malloc(partial_pix * sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
-        fb2 = (lv_color_t *)heap_caps_malloc(partial_pix * sizeof(lv_color_t), MALLOC_CAP_SPIRAM);
+    if (!fb1) {
+        ESP_LOGW(TAG, "fb in internal RAM failed; falling back to SPIRAM");
+        fb1 = (lv_color_t *)heap_caps_malloc(LVGL_SPIRAM_BUFF_LEN, MALLOC_CAP_SPIRAM);
     }
-    assert(fb1 && fb2);
-    ESP_LOGI(TAG, "fb1=%p fb2=%p (internal=%d) partial_pix=%u",
-             fb1, fb2, (int)esp_ptr_internal(fb1), (unsigned)partial_pix);
-    lv_disp_draw_buf_init(&disp_buf, fb1, fb2, partial_pix);
+    assert(fb1);
+    lv_disp_draw_buf_init(&disp_buf, fb1, NULL, UI_CANVAS_W * UI_CANVAS_H);
 
     lv_disp_drv_init(&disp_drv);
     disp_drv.hor_res      = canvas_w;
     disp_drv.ver_res      = canvas_h;
     disp_drv.flush_cb     = lvgl_flush_cb;
     disp_drv.draw_buf     = &disp_buf;
-    disp_drv.full_refresh = 0;
+    disp_drv.full_refresh = 1;
     disp_drv.user_data    = panel;
     lv_disp_drv_register(&disp_drv);
     g_disp_drv = &disp_drv;
