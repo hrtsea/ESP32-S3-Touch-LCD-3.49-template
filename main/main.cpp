@@ -1097,14 +1097,58 @@ extern "C" void app_main(void)
     button_Init();
     pos += snprintf(status + pos, sizeof(status) - pos, "SD/Btn OK");
 
-    /* Seed system time from the PCF85063 RTC so gettimeofday() returns
-       wall-clock UTC. The RTC's stored time is treated as UTC; the
-       display layer applies TZ_OFFSET_HOURS at format time. setenv TZ=UTC
-       so mktime treats the broken-down time as UTC. */
+    /* If the RTC is older than the firmware's build time, write the
+       build time into the RTC. Each rebuild therefore reseeds the
+       clock to within a few seconds of wall time (treated as UTC),
+       which avoids the year-2000 default and means the user does
+       not have to set the clock manually after a flash. A real-time
+       source (NTP, GPS) can later overwrite this. */
+    setenv("TZ", "UTC0", 1);
+    tzset();
     {
+        /* Parse __DATE__ ("Mmm dd yyyy") and __TIME__ ("hh:mm:ss"). */
+        const char *bdate = __DATE__;
+        const char *btime = __TIME__;
+        static const char k_months[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
+        int b_y = 0, b_d = 0, b_h = 0, b_mi = 0, b_s = 0;
+        char mon3[4] = { bdate[0], bdate[1], bdate[2], 0 };
+        const char *p = strstr(k_months, mon3);
+        int b_mo = p ? ((int)(p - k_months) / 3 + 1) : 1;
+        b_d = atoi(bdate + 4);          /* day, possibly leading space */
+        b_y = atoi(bdate + 7);          /* 4-digit year */
+        b_h  = (btime[0]-'0')*10 + (btime[1]-'0');
+        b_mi = (btime[3]-'0')*10 + (btime[4]-'0');
+        b_s  = (btime[6]-'0')*10 + (btime[7]-'0');
+
+        struct tm bt = {};
+        bt.tm_year = b_y - 1900;
+        bt.tm_mon  = b_mo - 1;
+        bt.tm_mday = b_d;
+        bt.tm_hour = b_h;
+        bt.tm_min  = b_mi;
+        bt.tm_sec  = b_s;
+        time_t build_epoch = mktime(&bt);
+
         RtcDateTime_t r = i2c_rtc_get();
-        setenv("TZ", "UTC0", 1);
-        tzset();
+        struct tm rt = {};
+        rt.tm_year = (int)r.year - 1900;
+        rt.tm_mon  = (int)r.month - 1;
+        rt.tm_mday = r.day;
+        rt.tm_hour = r.hour;
+        rt.tm_min  = r.minute;
+        rt.tm_sec  = r.second;
+        time_t rtc_epoch = mktime(&rt);
+
+        if (rtc_epoch < build_epoch) {
+            ESP_LOGI(TAG, "RTC (%04d-%02d-%02d %02d:%02d:%02d) older than build "
+                          "(%04d-%02d-%02d %02d:%02d:%02d), reseeding",
+                     r.year, r.month, r.day, r.hour, r.minute, r.second,
+                     b_y, b_mo, b_d, b_h, b_mi, b_s);
+            i2c_rtc_setTime((uint16_t)b_y, (uint8_t)b_mo, (uint8_t)b_d,
+                            (uint8_t)b_h, (uint8_t)b_mi, (uint8_t)b_s);
+            r = i2c_rtc_get();
+        }
+
         struct tm tm = {};
         tm.tm_year = (int)r.year - 1900;
         tm.tm_mon  = (int)r.month - 1;
