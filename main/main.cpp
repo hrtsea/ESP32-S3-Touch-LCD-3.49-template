@@ -614,12 +614,13 @@ static void rotate_btn_event_cb(lv_event_t *e)
    values on the next flash instead of keeping stale NVS data. */
 #define CFG_VERSION  3u
 
-/* Optional compiled-in default Wi-Fi credential. Leave empty in
-   committed source -- override at build time with
-   `idf.py build -DDEFAULT_WIFI_SSID=... -DDEFAULT_WIFI_PASS=...`
-   or define them in a local, gitignored header before this point.
-   When empty the device starts with no SSID and waits for the user
-   to enter one through the settings tile (NVS retains it after that). */
+/* Optional compiled-in default Wi-Fi credential. The committed source
+   defines empty defaults; if main/wifi_secret.h exists locally
+   (gitignored, see wifi_secret.example.h) its values override them so
+   the board auto-connects without on-screen-keyboard input. */
+#if __has_include("wifi_secret.h")
+#  include "wifi_secret.h"
+#endif
 #ifndef DEFAULT_WIFI_SSID
 #define DEFAULT_WIFI_SSID  ""
 #endif

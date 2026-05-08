@@ -6,3 +6,6 @@ sdkconfig
 sdkconfig.old
 *.bak
 .DS_Store
+
+# Local Wi-Fi credentials (per-developer; copy from wifi_secret.example.h)
+main/wifi_secret.h
