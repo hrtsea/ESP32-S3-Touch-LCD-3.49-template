@@ -1450,35 +1450,25 @@ static void off_s_cb(lv_event_t *e)
     if (lv_event_get_code(e) == LV_EVENT_RELEASED) cfg_save();
 }
 
-static void build_settings_tile(lv_obj_t *parent)
+/* Build a sub-page that the menu can navigate to. Returns the page so
+   the caller can attach it via lv_menu_set_load_page_event. */
+
+static lv_obj_t *build_subpage_wifi(lv_obj_t *menu)
 {
-    lv_obj_set_style_bg_color(parent, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
-    lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_pad_all(parent, 4, 0);
+    lv_obj_t *page = lv_menu_page_create(menu, (char *)"Wi-Fi");
 
-    /* Vertically scrollable column. */
-    lv_obj_t *col = lv_obj_create(parent);
-    lv_obj_remove_style_all(col);
-    lv_obj_set_size(col, lv_pct(100), lv_pct(100));
-    lv_obj_set_layout(col, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(col, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(col, 4, 0);
-    lv_obj_set_scroll_dir(col, LV_DIR_VER);
+    lv_obj_t *cont = lv_menu_cont_create(page);
+    lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(cont, 4, 0);
 
-    /* --- Wi-Fi --- */
-    lv_obj_t *h_wifi = lv_label_create(col);
-    lv_label_set_text(h_wifi, "Wi-Fi");
-    lv_obj_set_style_text_color(h_wifi, lv_color_make(0x80, 0xc0, 0xff), 0);
-    lv_obj_set_style_text_font(h_wifi, &lv_font_montserrat_16, 0);
-
-    g_set_wifi_status = lv_label_create(col);
+    g_set_wifi_status = lv_label_create(cont);
     lv_label_set_text_fmt(g_set_wifi_status, "%s",
                           g_wifi_connected ? g_wifi_curr_ssid : "Not connected");
     lv_obj_set_style_text_color(g_set_wifi_status, lv_color_make(0xc0, 0xc0, 0xc0), 0);
     lv_obj_set_style_text_font(g_set_wifi_status, &lv_font_montserrat_12, 0);
 
-    lv_obj_t *scan_btn = lv_btn_create(col);
+    lv_obj_t *scan_btn = lv_btn_create(cont);
     lv_obj_set_height(scan_btn, 26);
     lv_obj_set_width(scan_btn, 110);
     lv_obj_t *scan_l = lv_label_create(scan_btn);
@@ -1487,7 +1477,7 @@ static void build_settings_tile(lv_obj_t *parent)
     lv_obj_center(scan_l);
     lv_obj_add_event_cb(scan_btn, scan_btn_cb, LV_EVENT_CLICKED, NULL);
 
-    g_set_wifi_list = lv_obj_create(col);
+    g_set_wifi_list = lv_obj_create(cont);
     lv_obj_set_width(g_set_wifi_list, lv_pct(100));
     lv_obj_set_height(g_set_wifi_list, 100);
     lv_obj_set_layout(g_set_wifi_list, LV_LAYOUT_FLEX);
@@ -1497,72 +1487,146 @@ static void build_settings_tile(lv_obj_t *parent)
     lv_obj_set_scroll_dir(g_set_wifi_list, LV_DIR_VER);
     set_render_wifi_list();
 
-    /* --- Time --- */
-    lv_obj_t *h_time = lv_label_create(col);
-    lv_label_set_text(h_time, "Time");
-    lv_obj_set_style_text_color(h_time, lv_color_make(0x80, 0xc0, 0xff), 0);
-    lv_obj_set_style_text_font(h_time, &lv_font_montserrat_16, 0);
+    return page;
+}
 
-    lv_obj_t *tz_row = lv_obj_create(col);
-    lv_obj_remove_style_all(tz_row);
-    lv_obj_set_width(tz_row, lv_pct(100));
-    lv_obj_set_height(tz_row, 30);
-    lv_obj_t *tz_lbl = lv_label_create(tz_row);
+static lv_obj_t *build_subpage_tz(lv_obj_t *menu)
+{
+    lv_obj_t *page = lv_menu_page_create(menu, (char *)"Time zone");
+    lv_obj_t *cont = lv_menu_cont_create(page);
+    lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW);
+    lv_obj_set_style_pad_column(cont, 8, 0);
+
+    lv_obj_t *tz_lbl = lv_label_create(cont);
     lv_label_set_text_fmt(tz_lbl, "UTC%+d", g_cfg.tz_h);
     lv_obj_set_style_text_color(tz_lbl, lv_color_white(), 0);
     lv_obj_set_style_text_font(tz_lbl, &lv_font_montserrat_16, 0);
-    lv_obj_align(tz_lbl, LV_ALIGN_LEFT_MID, 0, 0);
-    lv_obj_t *tz_minus = lv_btn_create(tz_row);
-    lv_obj_set_size(tz_minus, 30, 26);
-    lv_obj_align(tz_minus, LV_ALIGN_LEFT_MID, 80, 0);
+
+    lv_obj_t *tz_minus = lv_btn_create(cont);
+    lv_obj_set_size(tz_minus, 36, 28);
     lv_obj_t *tm_l = lv_label_create(tz_minus);
-    lv_label_set_text(tm_l, "-"); lv_obj_center(tm_l);
+    lv_label_set_text(tm_l, "-");
+    lv_obj_center(tm_l);
     lv_obj_add_event_cb(tz_minus, tz_dec_cb, LV_EVENT_CLICKED, tz_lbl);
-    lv_obj_t *tz_plus = lv_btn_create(tz_row);
-    lv_obj_set_size(tz_plus, 30, 26);
-    lv_obj_align(tz_plus, LV_ALIGN_LEFT_MID, 116, 0);
+
+    lv_obj_t *tz_plus = lv_btn_create(cont);
+    lv_obj_set_size(tz_plus, 36, 28);
     lv_obj_t *tp_l = lv_label_create(tz_plus);
-    lv_label_set_text(tp_l, "+"); lv_obj_center(tp_l);
+    lv_label_set_text(tp_l, "+");
+    lv_obj_center(tp_l);
     lv_obj_add_event_cb(tz_plus, tz_inc_cb, LV_EVENT_CLICKED, tz_lbl);
 
-    /* --- Display --- */
-    lv_obj_t *h_disp = lv_label_create(col);
-    lv_label_set_text(h_disp, "Display");
-    lv_obj_set_style_text_color(h_disp, lv_color_make(0x80, 0xc0, 0xff), 0);
-    lv_obj_set_style_text_font(h_disp, &lv_font_montserrat_16, 0);
+    return page;
+}
 
-    lv_obj_t *bri_row = lv_label_create(col);
-    lv_label_set_text(bri_row, "Brightness");
-    lv_obj_set_style_text_color(bri_row, lv_color_white(), 0);
-    lv_obj_set_style_text_font(bri_row, &lv_font_montserrat_12, 0);
-    lv_obj_t *bri_s = lv_slider_create(col);
+static lv_obj_t *build_subpage_brightness(lv_obj_t *menu)
+{
+    lv_obj_t *page = lv_menu_page_create(menu, (char *)"Brightness");
+    lv_obj_t *cont = lv_menu_cont_create(page);
+    lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(cont, 6, 0);
+
+    lv_obj_t *l = lv_label_create(cont);
+    lv_label_set_text(l, "Backlight level");
+    lv_obj_set_style_text_color(l, lv_color_white(), 0);
+    lv_obj_set_style_text_font(l, &lv_font_montserrat_12, 0);
+
+    lv_obj_t *bri_s = lv_slider_create(cont);
     lv_obj_set_width(bri_s, lv_pct(95));
     lv_slider_set_range(bri_s, 8, 255);
     lv_slider_set_value(bri_s, g_cfg.brightness, LV_ANIM_OFF);
     lv_obj_add_event_cb(bri_s, bri_slider_cb, LV_EVENT_VALUE_CHANGED, NULL);
     lv_obj_add_event_cb(bri_s, bri_slider_cb, LV_EVENT_RELEASED,      NULL);
 
-    lv_obj_t *dim_lbl = lv_label_create(col);
+    return page;
+}
+
+static lv_obj_t *build_subpage_autodim(lv_obj_t *menu)
+{
+    lv_obj_t *page = lv_menu_page_create(menu, (char *)"Auto-dim");
+    lv_obj_t *cont = lv_menu_cont_create(page);
+    lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(cont, 6, 0);
+
+    lv_obj_t *dim_lbl = lv_label_create(cont);
     lv_label_set_text_fmt(dim_lbl, "Dim after %us", g_cfg.dim_s);
     lv_obj_set_style_text_color(dim_lbl, lv_color_white(), 0);
     lv_obj_set_style_text_font(dim_lbl, &lv_font_montserrat_12, 0);
-    lv_obj_t *dim_s = lv_slider_create(col);
+    lv_obj_t *dim_s = lv_slider_create(cont);
     lv_obj_set_width(dim_s, lv_pct(95));
     lv_slider_set_range(dim_s, 5, 600);
     lv_slider_set_value(dim_s, g_cfg.dim_s, LV_ANIM_OFF);
     lv_obj_add_event_cb(dim_s, dim_s_cb, LV_EVENT_VALUE_CHANGED, dim_lbl);
     lv_obj_add_event_cb(dim_s, dim_s_cb, LV_EVENT_RELEASED,      dim_lbl);
 
-    lv_obj_t *off_lbl = lv_label_create(col);
+    lv_obj_t *off_lbl = lv_label_create(cont);
     lv_label_set_text_fmt(off_lbl, "Off after %us", g_cfg.off_s);
     lv_obj_set_style_text_color(off_lbl, lv_color_white(), 0);
     lv_obj_set_style_text_font(off_lbl, &lv_font_montserrat_12, 0);
-    lv_obj_t *off_s = lv_slider_create(col);
+    lv_obj_t *off_s = lv_slider_create(cont);
     lv_obj_set_width(off_s, lv_pct(95));
     lv_slider_set_range(off_s, 10, 1800);
     lv_slider_set_value(off_s, g_cfg.off_s, LV_ANIM_OFF);
     lv_obj_add_event_cb(off_s, off_s_cb, LV_EVENT_VALUE_CHANGED, off_lbl);
     lv_obj_add_event_cb(off_s, off_s_cb, LV_EVENT_RELEASED,      off_lbl);
+
+    return page;
+}
+
+static void build_settings_tile(lv_obj_t *parent)
+{
+    lv_obj_set_style_bg_color(parent, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
+    lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(parent, 0, 0);
+
+    lv_obj_t *menu = lv_menu_create(parent);
+    lv_obj_set_size(menu, lv_pct(100), lv_pct(100));
+    lv_menu_set_mode_root_back_btn(menu, LV_MENU_ROOT_BACK_BTN_DISABLED);
+    lv_obj_set_style_bg_color(menu, lv_color_black(), 0);
+    lv_obj_set_style_text_font(menu, &lv_font_montserrat_12, 0);
+
+    /* Build sub-pages first; the main page links them. */
+    lv_obj_t *p_wifi = build_subpage_wifi(menu);
+    lv_obj_t *p_tz   = build_subpage_tz(menu);
+    lv_obj_t *p_bri  = build_subpage_brightness(menu);
+    lv_obj_t *p_dim  = build_subpage_autodim(menu);
+
+    /* Main (root) page: list of menu items. */
+    lv_obj_t *main_page = lv_menu_page_create(menu, NULL);
+    {
+        lv_obj_t *cont = lv_menu_cont_create(main_page);
+        lv_obj_t *l    = lv_label_create(cont);
+        lv_label_set_text(l, LV_SYMBOL_WIFI "  Wi-Fi");
+        lv_obj_set_style_text_font(l, &lv_font_montserrat_16, 0);
+        lv_menu_set_load_page_event(menu, cont, p_wifi);
+    }
+    {
+        lv_obj_t *cont = lv_menu_cont_create(main_page);
+        lv_obj_t *l    = lv_label_create(cont);
+        lv_label_set_text(l, LV_SYMBOL_BELL "  Time zone");
+        lv_obj_set_style_text_font(l, &lv_font_montserrat_16, 0);
+        lv_menu_set_load_page_event(menu, cont, p_tz);
+    }
+    {
+        lv_obj_t *cont = lv_menu_cont_create(main_page);
+        lv_obj_t *l    = lv_label_create(cont);
+        lv_label_set_text(l, LV_SYMBOL_EYE_OPEN "  Brightness");
+        lv_obj_set_style_text_font(l, &lv_font_montserrat_16, 0);
+        lv_menu_set_load_page_event(menu, cont, p_bri);
+    }
+    {
+        lv_obj_t *cont = lv_menu_cont_create(main_page);
+        lv_obj_t *l    = lv_label_create(cont);
+        lv_label_set_text(l, LV_SYMBOL_POWER "  Auto-dim");
+        lv_obj_set_style_text_font(l, &lv_font_montserrat_16, 0);
+        lv_menu_set_load_page_event(menu, cont, p_dim);
+    }
+
+    lv_menu_set_page(menu, main_page);
 }
 
 /* ---------------------- Top-level UI builder ---------------------- */
