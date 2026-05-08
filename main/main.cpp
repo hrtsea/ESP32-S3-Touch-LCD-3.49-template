@@ -1008,7 +1008,7 @@ static void build_main_ui(const char *status_text)
     lv_obj_clear_flag(fps_label, LV_OBJ_FLAG_CLICKABLE);
 
     if (!fps_timer_created) {
-        lv_timer_create(fps_timer_cb, 500, NULL);
+        lv_timer_create(fps_timer_cb, 3000, NULL);
         fps_timer_created = true;
     }
 
