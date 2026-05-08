@@ -33,6 +33,9 @@
 
 static const char *TAG = "skeleton";
 
+/* Custom JetBrains Mono Bold @ 64 px, generated via lv_font_conv. */
+extern "C" const lv_font_t font_jbmono_64;
+
 #define LCD_BIT_PER_PIXEL (16)
 
 static SemaphoreHandle_t lvgl_mux        = NULL;
@@ -561,12 +564,13 @@ static void build_clock_tile(lv_obj_t *parent)
     lv_obj_set_style_bg_color(parent, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
     lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(parent, 0, 0);
 
-    /* Daylight map fills the tile as background. Size to 3:1 aspect
-       up to the available canvas. */
+    /* Daylight map: stretch to fill the full screen as the clock
+       background. Aspect may not match 2:1 (real Earth) -- we accept
+       the squash because the map's job here is mostly atmospheric. */
     int W = canvas_w;
-    int H = W / 3;
-    if (H > canvas_h) { H = canvas_h; W = H * 3; }
+    int H = canvas_h;
     g_sunmap_w = W;
     g_sunmap_h = H;
     if (g_sunmap_buf) { lv_mem_free(g_sunmap_buf); g_sunmap_buf = NULL; }
@@ -581,33 +585,36 @@ static void build_clock_tile(lv_obj_t *parent)
         }
     }
 
-    /* Date line above the time -- unscii at 1x. */
-    g_clock_date_label = lv_label_create(parent);
-    lv_label_set_text(g_clock_date_label, "----.--.--");
-    lv_obj_set_style_text_color(g_clock_date_label, lv_color_make(0xc0, 0xc0, 0xc0), 0);
-    lv_obj_set_style_text_font(g_clock_date_label, &lv_font_unscii_16, 0);
-    /* Subtle dark backdrop so the date is readable over the map. */
-    lv_obj_set_style_bg_color(g_clock_date_label, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(g_clock_date_label, LV_OPA_60, 0);
-    lv_obj_set_style_pad_hor(g_clock_date_label, 4, 0);
-    lv_obj_align(g_clock_date_label, LV_ALIGN_TOP_MID, 0, 6);
-
-    /* Big monospaced time -- unscii_16 scaled 2x via LVGL transform. */
+    /* Big centered time in JetBrains Mono Bold 64. */
     g_clock_time_label = lv_label_create(parent);
     lv_label_set_text(g_clock_time_label, "--:--:--");
     lv_obj_set_style_text_color(g_clock_time_label, lv_color_white(), 0);
-    lv_obj_set_style_text_font(g_clock_time_label, &lv_font_unscii_16, 0);
-    lv_obj_set_style_transform_zoom(g_clock_time_label, 2 * 256, 0);  /* 256 = 1.0x */
+    lv_obj_set_style_text_font(g_clock_time_label, &font_jbmono_64, 0);
     lv_obj_set_style_bg_color(g_clock_time_label, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(g_clock_time_label, LV_OPA_60, 0);
-    lv_obj_set_style_pad_hor(g_clock_time_label, 6, 0);
-    lv_obj_align(g_clock_time_label, LV_ALIGN_CENTER, 0, 8);
+    lv_obj_set_style_bg_opa(g_clock_time_label, LV_OPA_70, 0);
+    lv_obj_set_style_pad_hor(g_clock_time_label, 8, 0);
+    lv_obj_set_style_pad_ver(g_clock_time_label, 2, 0);
+    lv_obj_set_style_radius(g_clock_time_label, 4, 0);
+    lv_obj_align(g_clock_time_label, LV_ALIGN_CENTER, 0, 0);
+
+    /* Date below time, smaller and dimmer. Same font for consistency
+       so the columns line up. */
+    g_clock_date_label = lv_label_create(parent);
+    lv_label_set_text(g_clock_date_label, "----.--.--");
+    lv_obj_set_style_text_color(g_clock_date_label, lv_color_make(0xd0, 0xd0, 0xd0), 0);
+    lv_obj_set_style_text_font(g_clock_date_label, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_bg_color(g_clock_date_label, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(g_clock_date_label, LV_OPA_70, 0);
+    lv_obj_set_style_pad_hor(g_clock_date_label, 6, 0);
+    lv_obj_set_style_radius(g_clock_date_label, 3, 0);
+    lv_obj_align_to(g_clock_date_label, g_clock_time_label,
+                    LV_ALIGN_OUT_BOTTOM_MID, 0, 4);
 
     /* Timezone hint, bottom right. */
     lv_obj_t *tz = lv_label_create(parent);
     lv_label_set_text_fmt(tz, "UTC%+d", TZ_OFFSET_HOURS);
     lv_obj_set_style_text_color(tz, lv_color_make(0xa0, 0xa0, 0xa0), 0);
-    lv_obj_set_style_text_font(tz, &lv_font_unscii_16, 0);
+    lv_obj_set_style_text_font(tz, &lv_font_montserrat_12, 0);
     lv_obj_set_style_bg_color(tz, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(tz, LV_OPA_60, 0);
     lv_obj_set_style_pad_hor(tz, 4, 0);
@@ -917,8 +924,6 @@ static void sunmap_update_cb(lv_timer_t *t)
 
 static void build_hello_tile(lv_obj_t *parent, const char *status_text)
 {
-    static bool fps_timer_created = false;
-
     lv_obj_set_style_bg_color(parent, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
     lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
@@ -932,12 +937,6 @@ static void build_hello_tile(lv_obj_t *parent, const char *status_text)
     lv_obj_set_style_anim_speed(hello, 40, 0);
     lv_obj_set_style_text_align(hello, LV_TEXT_ALIGN_LEFT, 0);
     lv_obj_align(hello, LV_ALIGN_TOP_MID, 0, 8);
-
-    fps_label = lv_label_create(parent);
-    lv_label_set_text(fps_label, "FPS --");
-    lv_obj_set_style_text_color(fps_label, lv_color_make(0x00, 0xff, 0x80), 0);
-    lv_obj_set_style_text_font(fps_label, &lv_font_montserrat_12, 0);
-    lv_obj_align(fps_label, LV_ALIGN_TOP_RIGHT, -4, 4);
 
     lv_obj_t *status = lv_label_create(parent);
     lv_label_set_long_mode(status, LV_LABEL_LONG_WRAP);
@@ -974,16 +973,14 @@ static void build_hello_tile(lv_obj_t *parent, const char *status_text)
     lv_obj_set_style_text_font(rot_label, &lv_font_montserrat_16, 0);
     lv_obj_center(rot_label);
 
-    if (!fps_timer_created) {
-        lv_timer_create(fps_timer_cb, 500, NULL);
-        fps_timer_created = true;
-    }
 }
 
 /* ---------------------- Top-level UI builder ---------------------- */
 
 static void build_main_ui(const char *status_text)
 {
+    static bool fps_timer_created = false;
+
     lv_obj_t *scr = lv_scr_act();
     lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
@@ -1001,6 +998,23 @@ static void build_main_ui(const char *status_text)
 
     build_clock_tile(t_clock);
     build_hello_tile(t_hello, status_text);
+
+    /* FPS overlay: parented to the screen (not the tileview) so it
+       floats above every tile. */
+    fps_label = lv_label_create(scr);
+    lv_label_set_text(fps_label, "FPS --");
+    lv_obj_set_style_text_color(fps_label, lv_color_make(0x00, 0xff, 0x80), 0);
+    lv_obj_set_style_text_font(fps_label, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_bg_color(fps_label, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(fps_label, LV_OPA_60, 0);
+    lv_obj_set_style_pad_hor(fps_label, 3, 0);
+    lv_obj_align(fps_label, LV_ALIGN_TOP_RIGHT, -4, 4);
+    lv_obj_clear_flag(fps_label, LV_OBJ_FLAG_CLICKABLE);
+
+    if (!fps_timer_created) {
+        lv_timer_create(fps_timer_cb, 500, NULL);
+        fps_timer_created = true;
+    }
 
     /* Start on the clock. */
     lv_obj_set_tile_id(g_tileview, 0, 0, LV_ANIM_OFF);

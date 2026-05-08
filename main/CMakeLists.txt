@@ -1,4 +1,4 @@
-idf_component_register(SRCS "main.cpp"
+idf_component_register(SRCS "main.cpp" "font_jbmono_64.c"
                     INCLUDE_DIRS "."
                     REQUIRES audio_min esp_timer esp_lcd driver
                              i2c_bsp i2c_equipment lcd_bl_pwm_bsp adc_bsp
