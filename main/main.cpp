@@ -372,7 +372,7 @@ static esp_lcd_panel_handle_t lcd_init(void)
     io_config.cs_gpio_num         = EXAMPLE_PIN_NUM_LCD_CS;
     io_config.dc_gpio_num         = -1;
     io_config.spi_mode            = 3;
-    io_config.pclk_hz             = 80 * 1000 * 1000;
+    io_config.pclk_hz             = 60 * 1000 * 1000;
     io_config.trans_queue_depth   = 10;
     io_config.on_color_trans_done = notify_lvgl_flush_ready;
     io_config.lcd_cmd_bits        = 32;
