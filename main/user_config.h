@@ -50,9 +50,6 @@
 
 #define EXAMPLE_IMU_ADDR 0x6b
 
-/* Timezone offset from UTC, in hours. 0 = UTC. Set later for local tz. */
-#define TZ_OFFSET_HOURS 0
-
 /* World sunlight map recompute interval (ms). */
 #define SUNMAP_RECOMPUTE_MS (5 * 60 * 1000)
 

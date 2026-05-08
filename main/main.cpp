@@ -38,6 +38,7 @@
 #include "button_bsp.h"
 #include "audio_min.h"
 #include "landmask.h"
+#include "tz_cities.h"
 
 static const char *TAG = "skeleton";
 
@@ -71,7 +72,7 @@ static char              g_status_text[256];
 /* ---------------------- Settings (NVS-backed) ---------------------- */
 
 typedef struct {
-    int8_t   tz_h;          /* hours offset from UTC, -12..14 */
+    uint16_t tz_idx;        /* index into k_tz_cities (see tz_cities.h) */
     uint8_t  brightness;    /* 0..255, applied to setUpduty (after invert) */
     uint16_t dim_s;         /* idle seconds before dim */
     uint16_t off_s;         /* idle seconds before backlight off */
@@ -79,7 +80,7 @@ typedef struct {
 } app_cfg_t;
 
 static app_cfg_t g_cfg = {
-    .tz_h       = TZ_OFFSET_HOURS,
+    .tz_idx     = TZ_DEFAULT_CITY_INDEX,
     .brightness = 255,
     .dim_s      = 8 * 3600,    /* 8 hours; 0 = never */
     .off_s      = 8 * 3600,    /* 8 hours; 0 = never */
@@ -134,6 +135,7 @@ static lv_obj_t  *g_tileview         = NULL;
 static lv_obj_t  *g_clock_time_label = NULL;
 static lv_obj_t  *g_clock_ms_label   = NULL;
 static lv_obj_t  *g_clock_date_label = NULL;
+static lv_obj_t  *g_clock_tz_label   = NULL;
 static lv_obj_t  *g_sunmap_canvas    = NULL;
 static lv_color_t *g_sunmap_buf      = NULL;
 static int        g_sunmap_w         = 0;
@@ -590,6 +592,7 @@ static void rotate_btn_event_cb(lv_event_t *e)
     g_clock_time_label = NULL;
     g_clock_ms_label = NULL;
     g_clock_date_label = NULL;
+    g_clock_tz_label = NULL;
     g_sunmap_canvas = NULL;
     g_set_wifi_status = NULL;
     g_set_wifi_list   = NULL;
@@ -613,7 +616,7 @@ static void rotate_btn_event_cb(lv_event_t *e)
 
 /* Bump when defaults change so existing devices pick up the new
    values on the next flash instead of keeping stale NVS data. */
-#define CFG_VERSION  3u
+#define CFG_VERSION  4u
 
 /* Optional compiled-in default Wi-Fi credential. The committed source
    defines empty defaults; if main/wifi_secret.h exists locally
@@ -634,26 +637,32 @@ static void cfg_load(void)
     nvs_handle_t h;
     if (nvs_open(NVS_NS_CFG, NVS_READONLY, &h) != ESP_OK) return;
     uint8_t  ver = 0;
-    int8_t   tz  = g_cfg.tz_h;
+    uint16_t tzi = g_cfg.tz_idx;
+    int8_t   tz_h_legacy = 0;
+    bool     have_legacy_tz_h = false;
     uint8_t  br  = g_cfg.brightness;
     uint16_t ds  = g_cfg.dim_s;
     uint16_t os  = g_cfg.off_s;
     size_t   sl  = sizeof(g_cfg.last_ssid);
     nvs_get_u8 (h, "ver",       &ver);
-    nvs_get_i8 (h, "tz_h",      &tz);
+    if (nvs_get_u16(h, "tz_idx", &tzi) != ESP_OK) {
+        if (nvs_get_i8(h, "tz_h", &tz_h_legacy) == ESP_OK) have_legacy_tz_h = true;
+    }
     nvs_get_u8 (h, "bri",       &br);
     nvs_get_u16(h, "dim_s",     &ds);
     nvs_get_u16(h, "off_s",     &os);
     nvs_get_str(h, "last_ssid", g_cfg.last_ssid, &sl);
     nvs_close(h);
+    if (tzi >= TZ_CITY_COUNT) tzi = TZ_DEFAULT_CITY_INDEX;
     if (ver < CFG_VERSION) {
-        /* Migrate: keep brightness, tz; reset timeouts to defaults.
-           Seed the compiled-in Wi-Fi credentials only if both macros
-           were overridden at build time (the in-source defaults are
-           empty so committed source doesn't ship a password). */
         ESP_LOGI(TAG, "cfg: migrating from v%u -> v%u",
                  (unsigned)ver, (unsigned)CFG_VERSION);
-        g_cfg.tz_h       = tz;
+        if (have_legacy_tz_h) {
+            ESP_LOGI(TAG, "cfg: dropping legacy tz_h=%d, defaulting to city %s",
+                     (int)tz_h_legacy, k_tz_cities[TZ_DEFAULT_CITY_INDEX].name);
+            tzi = TZ_DEFAULT_CITY_INDEX;
+        }
+        g_cfg.tz_idx     = tzi;
         g_cfg.brightness = br;
         if (DEFAULT_WIFI_SSID[0] && DEFAULT_WIFI_PASS[0]) {
             strncpy(g_cfg.last_ssid, DEFAULT_WIFI_SSID, sizeof(g_cfg.last_ssid) - 1);
@@ -662,7 +671,7 @@ static void cfg_load(void)
         cfg_save();
         return;
     }
-    g_cfg.tz_h       = tz;
+    g_cfg.tz_idx     = tzi;
     g_cfg.brightness = br;
     g_cfg.dim_s      = ds;
     g_cfg.off_s      = os;
@@ -673,7 +682,7 @@ static void cfg_save(void)
     nvs_handle_t h;
     if (nvs_open(NVS_NS_CFG, NVS_READWRITE, &h) != ESP_OK) return;
     nvs_set_u8 (h, "ver",       CFG_VERSION);
-    nvs_set_i8 (h, "tz_h",      g_cfg.tz_h);
+    nvs_set_u16(h, "tz_idx",    g_cfg.tz_idx);
     nvs_set_u8 (h, "bri",       g_cfg.brightness);
     nvs_set_u16(h, "dim_s",     g_cfg.dim_s);
     nvs_set_u16(h, "off_s",     g_cfg.off_s);
@@ -980,12 +989,27 @@ static void dim_timer_cb(lv_timer_t *t)
 
 /* ---------------------- Clock tile ---------------------- */
 
+static void tz_apply_current(void)
+{
+    uint16_t i = g_cfg.tz_idx;
+    if (i >= TZ_CITY_COUNT) i = TZ_DEFAULT_CITY_INDEX;
+    setenv("TZ", k_tz_cities[i].posix_tz, 1);
+    tzset();
+}
+
+static const char *tz_current_city_name(void)
+{
+    uint16_t i = g_cfg.tz_idx;
+    if (i >= TZ_CITY_COUNT) i = TZ_DEFAULT_CITY_INDEX;
+    return k_tz_cities[i].name;
+}
+
 static void get_display_time(struct tm *out)
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    time_t t = tv.tv_sec + (time_t)(TZ_OFFSET_HOURS * 3600);
-    gmtime_r(&t, out);
+    time_t t = tv.tv_sec;
+    localtime_r(&t, out);
 }
 
 static void clock_ms_update_cb(lv_timer_t *t)
@@ -1093,15 +1117,15 @@ static void build_clock_tile(lv_obj_t *parent)
     lv_obj_align_to(g_clock_ms_label, g_clock_time_label,
                     LV_ALIGN_OUT_RIGHT_BOTTOM, 0, -8);
 
-    /* Timezone hint, bottom right. */
-    lv_obj_t *tz = lv_label_create(parent);
-    lv_label_set_text_fmt(tz, "UTC%+d", TZ_OFFSET_HOURS);
-    lv_obj_set_style_text_color(tz, lv_color_make(0xa0, 0xa0, 0xa0), 0);
-    lv_obj_set_style_text_font(tz, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_bg_color(tz, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(tz, LV_OPA_60, 0);
-    lv_obj_set_style_pad_hor(tz, 4, 0);
-    lv_obj_align(tz, LV_ALIGN_BOTTOM_RIGHT, -6, -4);
+    /* Timezone hint, bottom right -- shows the active city name. */
+    g_clock_tz_label = lv_label_create(parent);
+    lv_label_set_text(g_clock_tz_label, tz_current_city_name());
+    lv_obj_set_style_text_color(g_clock_tz_label, lv_color_make(0xa0, 0xa0, 0xa0), 0);
+    lv_obj_set_style_text_font(g_clock_tz_label, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_bg_color(g_clock_tz_label, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(g_clock_tz_label, LV_OPA_60, 0);
+    lv_obj_set_style_pad_hor(g_clock_tz_label, 4, 0);
+    lv_obj_align(g_clock_tz_label, LV_ALIGN_BOTTOM_RIGHT, -6, -4);
 
     /* Wi-Fi + BT icons, top right (left of FPS pill which sits at -4,4). */
     g_clock_wifi_icon = lv_label_create(parent);
@@ -1404,12 +1428,18 @@ static void scan_btn_cb(lv_event_t *e)
     (void)t;
 }
 
-static void tz_dec_cb(lv_event_t *e) { (void)e; if (g_cfg.tz_h > -12) { g_cfg.tz_h--; cfg_save();
-    lv_obj_t *lbl = (lv_obj_t *)lv_event_get_user_data(e);
-    if (lbl) lv_label_set_text_fmt(lbl, "UTC%+d", g_cfg.tz_h); } }
-static void tz_inc_cb(lv_event_t *e) { (void)e; if (g_cfg.tz_h <  14) { g_cfg.tz_h++; cfg_save();
-    lv_obj_t *lbl = (lv_obj_t *)lv_event_get_user_data(e);
-    if (lbl) lv_label_set_text_fmt(lbl, "UTC%+d", g_cfg.tz_h); } }
+static void tz_city_pick_cb(lv_event_t *e)
+{
+    /* user_data carries the city index packed into a void*. */
+    uintptr_t idx = (uintptr_t)lv_event_get_user_data(e);
+    if (idx >= TZ_CITY_COUNT) return;
+    g_cfg.tz_idx = (uint16_t)idx;
+    tz_apply_current();
+    cfg_save();
+    if (g_clock_tz_label) lv_label_set_text(g_clock_tz_label, tz_current_city_name());
+    /* Force an immediate clock-face refresh so the user sees the change. */
+    clock_update_cb(NULL);
+}
 
 static void bri_slider_cb(lv_event_t *e)
 {
@@ -1507,33 +1537,45 @@ static lv_obj_t *build_subpage_wifi(lv_obj_t *menu)
     return page;
 }
 
+static lv_obj_t *build_subpage_tz_city_list(lv_obj_t *menu, uint16_t first, uint16_t last,
+                                              const char *title)
+{
+    lv_obj_t *page = lv_menu_page_create(menu, (char *)title);
+    lv_obj_set_scroll_dir(page, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(page, LV_SCROLLBAR_MODE_AUTO);
+    for (uint16_t i = first; i < last; i++) {
+        lv_obj_t *cont = lv_menu_cont_create(page);
+        lv_obj_t *l    = lv_label_create(cont);
+        lv_label_set_text(l, k_tz_cities[i].name);
+        lv_obj_set_style_text_font(l, &lv_font_montserrat_12, 0);
+        if (i == g_cfg.tz_idx) {
+            lv_obj_set_style_text_color(l, lv_color_make(0x40, 0xc0, 0x80), 0);
+        }
+        lv_obj_add_flag(cont, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_event_cb(cont, tz_city_pick_cb, LV_EVENT_CLICKED,
+                            (void *)(uintptr_t)i);
+    }
+    return page;
+}
+
 static lv_obj_t *build_subpage_tz(lv_obj_t *menu)
 {
+    /* Build the per-continent city pages first, then a continent-list
+       root page that links to them. Two-level navigation matches the
+       OpenWRT-style "Continent / City" picker. */
     lv_obj_t *page = lv_menu_page_create(menu, (char *)"Time zone");
-    lv_obj_t *cont = lv_menu_cont_create(page);
-    lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW);
-    lv_obj_set_style_pad_column(cont, 8, 0);
-
-    lv_obj_t *tz_lbl = lv_label_create(cont);
-    lv_label_set_text_fmt(tz_lbl, "UTC%+d", g_cfg.tz_h);
-    lv_obj_set_style_text_color(tz_lbl, lv_color_white(), 0);
-    lv_obj_set_style_text_font(tz_lbl, &lv_font_montserrat_16, 0);
-
-    lv_obj_t *tz_minus = lv_btn_create(cont);
-    lv_obj_set_size(tz_minus, 36, 28);
-    lv_obj_t *tm_l = lv_label_create(tz_minus);
-    lv_label_set_text(tm_l, "-");
-    lv_obj_center(tm_l);
-    lv_obj_add_event_cb(tz_minus, tz_dec_cb, LV_EVENT_CLICKED, tz_lbl);
-
-    lv_obj_t *tz_plus = lv_btn_create(cont);
-    lv_obj_set_size(tz_plus, 36, 28);
-    lv_obj_t *tp_l = lv_label_create(tz_plus);
-    lv_label_set_text(tp_l, "+");
-    lv_obj_center(tp_l);
-    lv_obj_add_event_cb(tz_plus, tz_inc_cb, LV_EVENT_CLICKED, tz_lbl);
-
+    lv_obj_set_scroll_dir(page, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(page, LV_SCROLLBAR_MODE_AUTO);
+    for (uint16_t c = 0; c < TZ_CONTINENT_COUNT; c++) {
+        lv_obj_t *city_page = build_subpage_tz_city_list(menu,
+            k_tz_continents[c].first, k_tz_continents[c].last,
+            k_tz_continents[c].name);
+        lv_obj_t *cont = lv_menu_cont_create(page);
+        lv_obj_t *l    = lv_label_create(cont);
+        lv_label_set_text(l, k_tz_continents[c].name);
+        lv_obj_set_style_text_font(l, &lv_font_montserrat_16, 0);
+        lv_menu_set_load_page_event(menu, cont, city_page);
+    }
     return page;
 }
 
@@ -1615,8 +1657,39 @@ static void build_settings_tile(lv_obj_t *parent)
     /* Show a back button on sub-pages, none on the root list. */
     lv_menu_set_mode_header(menu, LV_MENU_HEADER_TOP_FIXED);
     lv_menu_set_mode_root_back_btn(menu, LV_MENU_ROOT_BACK_BTN_DISABLED);
-    lv_obj_set_style_bg_color(menu, lv_color_black(), 0);
+    /* Lighter menu surface so items are easier to read. */
+    lv_obj_set_style_bg_color(menu, lv_color_make(0x20, 0x20, 0x28), 0);
+    lv_obj_set_style_text_color(menu, lv_color_white(), 0);
     lv_obj_set_style_text_font(menu, &lv_font_montserrat_12, 0);
+
+    /* Header bar: contrasting strip, back button anchored top-right. */
+    lv_obj_t *hdr = lv_menu_get_main_header(menu);
+    if (hdr) {
+        lv_obj_set_style_bg_color(hdr, lv_color_make(0x30, 0x30, 0x3c), 0);
+        lv_obj_set_style_bg_opa(hdr, LV_OPA_COVER, 0);
+        lv_obj_set_style_pad_all(hdr, 4, 0);
+        lv_obj_set_style_pad_gap(hdr, 6, 0);
+        /* Default flex anchor is START; push children to the right edge. */
+        lv_obj_set_flex_align(hdr, LV_FLEX_ALIGN_END,
+                              LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    }
+    lv_obj_t *back = lv_menu_get_main_header_back_btn(menu);
+    if (back) {
+        lv_obj_set_size(back, 60, 32);
+        lv_obj_set_style_bg_color(back, lv_color_make(0x50, 0x50, 0x60), 0);
+        lv_obj_set_style_bg_opa(back, LV_OPA_COVER, 0);
+        lv_obj_set_style_radius(back, 4, 0);
+        /* lv_menu already added an lv_img arrow as the first child; hide it
+           so we don't render two stacked arrows. */
+        if (lv_obj_get_child_cnt(back) > 0) {
+            lv_obj_add_flag(lv_obj_get_child(back, 0), LV_OBJ_FLAG_HIDDEN);
+        }
+        lv_obj_t *txt = lv_label_create(back);
+        lv_label_set_text(txt, LV_SYMBOL_LEFT " Back");
+        lv_obj_set_style_text_color(txt, lv_color_white(), 0);
+        lv_obj_set_style_text_font(txt, &lv_font_montserrat_14, 0);
+        lv_obj_center(txt);
+    }
 
     /* Build sub-pages first; the main page links them. */
     lv_obj_t *p_wifi = build_subpage_wifi(menu);
@@ -1754,8 +1827,9 @@ extern "C" void app_main(void)
         ESP_ERROR_CHECK(er);
     }
     cfg_load();
-    ESP_LOGI(TAG, "cfg: tz=%+d bri=%u dim=%us off=%us last_ssid=%s",
-             g_cfg.tz_h, g_cfg.brightness, g_cfg.dim_s, g_cfg.off_s,
+    ESP_LOGI(TAG, "cfg: tz=%s (%s) bri=%u dim=%us off=%us last_ssid=%s",
+             tz_current_city_name(), k_tz_cities[g_cfg.tz_idx].posix_tz,
+             g_cfg.brightness, g_cfg.dim_s, g_cfg.off_s,
              g_cfg.last_ssid[0] ? g_cfg.last_ssid : "(none)");
     ESP_LOGI(TAG, "===== 12_HelloWorld_Skeleton boot =====");
     ESP_LOGI(TAG, "H_RES=%d V_RES=%d  DMA=%d SPIRAM=%d",
@@ -1873,6 +1947,10 @@ extern "C" void app_main(void)
         ESP_LOGI(TAG, "RTC seed: %04d-%02d-%02d %02d:%02d:%02d UTC -> epoch %lld",
                  r.year, r.month, r.day, r.hour, r.minute, r.second, (long long)t);
     }
+
+    /* Switch from the UTC0 used during RTC seeding to the user's selected
+       city; localtime_r() now returns local wall-clock for the clock face. */
+    tz_apply_current();
 
     show_main_ui(status);
     ESP_LOGI(TAG, "===== All drivers initialized =====");
