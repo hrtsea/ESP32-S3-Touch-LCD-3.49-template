@@ -586,18 +586,7 @@ static void build_clock_tile(lv_obj_t *parent)
         }
     }
 
-    /* Big time in JetBrains Mono Bold 96, anchored to the top of the
-       screen with a transparent background. */
-    g_clock_time_label = lv_label_create(parent);
-    lv_label_set_text(g_clock_time_label, "--:--:--");
-    lv_obj_set_style_text_color(g_clock_time_label, lv_color_white(), 0);
-    lv_obj_set_style_text_font(g_clock_time_label, &font_jbmono_96, 0);
-    lv_obj_set_style_bg_opa(g_clock_time_label, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_pad_all(g_clock_time_label, 0, 0);
-    lv_obj_align(g_clock_time_label, LV_ALIGN_TOP_MID, 0, -6);
-
-    /* Date below time, smaller and dimmer. Same font for consistency
-       so the columns line up. */
+    /* Date at the top center, transparent bar over the map. */
     g_clock_date_label = lv_label_create(parent);
     lv_label_set_text(g_clock_date_label, "----.--.--");
     lv_obj_set_style_text_color(g_clock_date_label, lv_color_make(0xd0, 0xd0, 0xd0), 0);
@@ -606,8 +595,16 @@ static void build_clock_tile(lv_obj_t *parent)
     lv_obj_set_style_bg_opa(g_clock_date_label, LV_OPA_70, 0);
     lv_obj_set_style_pad_hor(g_clock_date_label, 6, 0);
     lv_obj_set_style_radius(g_clock_date_label, 3, 0);
-    lv_obj_align_to(g_clock_date_label, g_clock_time_label,
-                    LV_ALIGN_OUT_BOTTOM_MID, 0, 4);
+    lv_obj_align(g_clock_date_label, LV_ALIGN_TOP_MID, 0, 4);
+
+    /* Big time in JetBrains Mono Bold 96, dead center of the screen. */
+    g_clock_time_label = lv_label_create(parent);
+    lv_label_set_text(g_clock_time_label, "--:--:--");
+    lv_obj_set_style_text_color(g_clock_time_label, lv_color_white(), 0);
+    lv_obj_set_style_text_font(g_clock_time_label, &font_jbmono_96, 0);
+    lv_obj_set_style_bg_opa(g_clock_time_label, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_pad_all(g_clock_time_label, 0, 0);
+    lv_obj_align(g_clock_time_label, LV_ALIGN_CENTER, 0, 0);
 
     /* Timezone hint, bottom right. */
     lv_obj_t *tz = lv_label_create(parent);
