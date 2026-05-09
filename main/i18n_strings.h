@@ -77,7 +77,7 @@ static const char *const k_i18n_lang_names[I18N_LANG_COUNT] = {
 /* All translated strings, indexed [lang][key]. Stored as UTF-8. */
 static const char *const k_i18n_strings[I18N_LANG_COUNT][I18N_KEY_COUNT] = {
     /* en */ {
-        [I18N_MENU_TITLE] = "==== MENU ====",
+        [I18N_MENU_TITLE] = "Menu",
         [I18N_SET_WIFI] = "Wi-Fi",
         [I18N_SET_TZ] = "Time zone",
         [I18N_SET_DISPLAY] = "Display",
@@ -135,7 +135,7 @@ static const char *const k_i18n_strings[I18N_LANG_COUNT][I18N_KEY_COUNT] = {
         [I18N_VOL_N] = "Vol %d",
     },
     /* zh */ {
-        [I18N_MENU_TITLE] = "==== \xe8\x8f\x9c\xe5\x8d\x95 ====",
+        [I18N_MENU_TITLE] = "\xe8\x8f\x9c\xe5\x8d\x95",
         [I18N_SET_WIFI] = "Wi-Fi",
         [I18N_SET_TZ] = "\xe6\x97\xb6\xe5\x8c\xba",
         [I18N_SET_DISPLAY] = "\xe6\x98\xbe\xe7\xa4\xba",
@@ -193,7 +193,7 @@ static const char *const k_i18n_strings[I18N_LANG_COUNT][I18N_KEY_COUNT] = {
         [I18N_VOL_N] = "\xe9\x9f\xb3\xe9\x87\x8f %d",
     },
     /* ja */ {
-        [I18N_MENU_TITLE] = "==== \xe3\x83\xa1\xe3\x83\x8b\xe3\x83\xa5\xe3\x83\xbc ====",
+        [I18N_MENU_TITLE] = "\xe3\x83\xa1\xe3\x83\x8b\xe3\x83\xa5\xe3\x83\xbc",
         [I18N_SET_WIFI] = "Wi-Fi",
         [I18N_SET_TZ] = "\xe3\x82\xbf\xe3\x82\xa4\xe3\x83\xa0\xe3\x82\xbe\xe3\x83\xbc\xe3\x83\xb3",
         [I18N_SET_DISPLAY] = "\xe8\xa1\xa8\xe7\xa4\xba",
@@ -251,7 +251,7 @@ static const char *const k_i18n_strings[I18N_LANG_COUNT][I18N_KEY_COUNT] = {
         [I18N_VOL_N] = "\xe9\x9f\xb3\xe9\x87\x8f %d",
     },
     /* ko */ {
-        [I18N_MENU_TITLE] = "==== \xeb\xa9\x94\xeb\x89\xb4 ====",
+        [I18N_MENU_TITLE] = "\xeb\xa9\x94\xeb\x89\xb4",
         [I18N_SET_WIFI] = "Wi-Fi",
         [I18N_SET_TZ] = "\xec\x8b\x9c\xea\xb0\x84\xeb\x8c\x80",
         [I18N_SET_DISPLAY] = "\xeb\x94\x94\xec\x8a\xa4\xed\x94\x8c\xeb\xa0\x88\xec\x9d\xb4",

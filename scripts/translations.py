@@ -17,7 +17,7 @@ LANGS = [
 # (key, en, zh, ja, ko)
 TRANSLATIONS = [
     # Settings root
-    ("menu_title",        "==== MENU ====",    "==== 菜单 ====",     "==== メニュー ====", "==== 메뉴 ===="),
+    ("menu_title",        "Menu",              "菜单",               "メニュー",           "메뉴"),
     ("set_wifi",          "Wi-Fi",             "Wi-Fi",              "Wi-Fi",              "Wi-Fi"),
     ("set_tz",            "Time zone",         "时区",               "タイムゾーン",       "시간대"),
     ("set_display",       "Display",           "显示",               "表示",               "디스플레이"),

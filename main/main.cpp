@@ -602,9 +602,9 @@ static void lvgl_init(esp_lcd_panel_handle_t panel)
          tap doesn't trigger the tileview swipe gesture.
        - long_press_time slightly raised so a finger that stays pressed
          a beat too long doesn't trigger auto-repeat. */
-    indev_drv.scroll_limit            = 8;
+    indev_drv.scroll_limit            = 18;
     indev_drv.scroll_throw            = 25;
-    indev_drv.gesture_limit           = 60;
+    indev_drv.gesture_limit           = 80;
     indev_drv.long_press_time         = 500;
     indev_drv.long_press_repeat_time  = 100;
     lv_indev_drv_register(&indev_drv);
@@ -2855,6 +2855,39 @@ static void build_main_ui(const char *status_text)
             lv_obj_set_tile_id(tv, 2, 0, LV_ANIM_OFF);
         }
     }, LV_EVENT_GESTURE, NULL);
+
+    /* iOS-style commit threshold: hold the tileview at its current snap
+       position until the X drift exceeds 50 px. Up to that point, every
+       SCROLL event is reverted to the locked-in tile so a sloppy tap or a
+       small accidental drift can never drag the page. Once the drift is
+       large enough, the user is clearly committing to a swipe and we let
+       LVGL's native snap take over. */
+    lv_obj_add_event_cb(g_tileview, [](lv_event_t *e) {
+        static lv_coord_t s_press_x = 0;
+        static lv_coord_t s_locked_x = 0;
+        static bool       s_committed = false;
+        lv_event_code_t c = lv_event_get_code(e);
+        lv_obj_t *tv = lv_event_get_target(e);
+        if (c == LV_EVENT_PRESSED) {
+            lv_indev_t *id = lv_indev_get_act();
+            lv_point_t p; lv_indev_get_point(id, &p);
+            s_press_x = p.x;
+            s_locked_x = lv_obj_get_scroll_x(tv);
+            s_committed = false;
+        } else if (c == LV_EVENT_SCROLL && !s_committed) {
+            lv_indev_t *id = lv_indev_get_act();
+            lv_point_t p; lv_indev_get_point(id, &p);
+            int dx = (int)p.x - (int)s_press_x;
+            if (dx > 50 || dx < -50) {
+                s_committed = true;
+            } else {
+                /* Snap back to the locked tile mid-drag. */
+                lv_obj_scroll_to_x(tv, s_locked_x, LV_ANIM_OFF);
+            }
+        } else if (c == LV_EVENT_RELEASED || c == LV_EVENT_PRESS_LOST) {
+            s_committed = false;
+        }
+    }, LV_EVENT_ALL, NULL);
 
     /* FPS overlay: parented to the screen (not the tileview) so it
        floats above every tile. */

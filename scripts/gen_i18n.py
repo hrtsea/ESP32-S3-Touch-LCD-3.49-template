@@ -101,9 +101,24 @@ def emit_font(cps):
         ranges.append((start, prev))
         start = prev = cp
     ranges.append((start, prev))
+    # We *don't* subset to just the cps used by the translations -- we
+    # want broad CJK coverage so dynamic / future text (typed input,
+    # ICY metadata, station names) renders too. The fixed ranges below
+    # cover GBK, Hangul Syllables, and Japanese kana + punctuation.
+    fixed_ranges = [
+        (0x0020, 0x007E),  # Basic Latin
+        (0x00A0, 0x00FF),  # Latin-1 supplement
+        (0x2010, 0x2027),  # General punctuation
+        (0x3000, 0x303F),  # CJK punctuation
+        (0x3040, 0x309F),  # Hiragana
+        (0x30A0, 0x30FF),  # Katakana
+        (0x4E00, 0x9FFF),  # CJK unified ideographs (covers GBK + JP kanji)
+        (0xAC00, 0xD7A3),  # Hangul syllables
+        (0xFF00, 0xFFEF),  # Halfwidth/fullwidth forms
+    ]
     range_args = []
-    for a, b in ranges:
-        range_args += ["-r", f"0x{a:04X}-0x{b:04X}" if a != b else f"0x{a:04X}"]
+    for a, b in fixed_ranges:
+        range_args += ["-r", f"0x{a:04X}-0x{b:04X}"]
 
     # NotoSansCJK.ttc covers all of CJK + Hangul. Extract a single face
     # (Regular) once and cache so re-runs are fast.
