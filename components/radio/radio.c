@@ -39,6 +39,9 @@ static esp_asp_handle_t        s_player     = NULL;
 static volatile esp_asp_state_t s_state     = ESP_ASP_STATE_NONE;
 static int                     s_cur_idx    = -1;
 static int                     s_volume     = 70;  /* 0..100 */
+static uint32_t                s_cur_rate   = 44100;  /* last codec_dev_open sample rate */
+static uint8_t                 s_cur_bits   = 16;
+static uint8_t                 s_cur_ch     = 2;
 
 static int radio_out_cb(uint8_t *data, int data_size, void *ctx)
 {
@@ -47,6 +50,8 @@ static int radio_out_cb(uint8_t *data, int data_size, void *ctx)
     int err = esp_codec_dev_write(s_codec, data, data_size);
     return err == ESP_CODEC_DEV_OK ? data_size : 0;
 }
+
+static void codec_vol_ramp(int from, int to, int step_ms);
 
 static int radio_event_cb(esp_asp_event_pkt_t *pkt, void *ctx)
 {
@@ -62,18 +67,28 @@ static int radio_event_cb(esp_asp_event_pkt_t *pkt, void *ctx)
         ESP_LOGI(TAG, "music info: rate=%d ch=%d bits=%d",
                  info.sample_rate, info.channels, info.bits);
         if (s_codec) {
-            esp_codec_dev_sample_info_t fs = {
-                .bits_per_sample = info.bits,
-                .channel         = info.channels,
-                .channel_mask    = 0,
-                .sample_rate     = (uint32_t)info.sample_rate,
-            };
-            /* Mute around the close/reopen so the codec doesn't audibly
-               click while the I2S clock retunes for the new sample rate. */
-            esp_codec_dev_set_out_mute(s_codec, true);
-            esp_codec_dev_close(s_codec);
-            esp_codec_dev_open(s_codec, &fs);
-            esp_codec_dev_set_out_mute(s_codec, false);
+            uint32_t r = (uint32_t)info.sample_rate;
+            uint8_t  b = (uint8_t)info.bits;
+            uint8_t  c = (uint8_t)info.channels;
+            /* Only retune the codec if the format actually changed. Most
+               station-to-station switches are 44.1->44.1 or 48->48 stereo;
+               skipping the close/open in that case eliminates the audible
+               click that the I2S clock retune produces. */
+            if (r != s_cur_rate || b != s_cur_bits || c != s_cur_ch) {
+                esp_codec_dev_sample_info_t fs = {
+                    .bits_per_sample = b,
+                    .channel         = c,
+                    .channel_mask    = 0,
+                    .sample_rate     = r,
+                };
+                esp_codec_dev_close(s_codec);
+                esp_codec_dev_open(s_codec, &fs);
+                s_cur_rate = r;
+                s_cur_bits = b;
+                s_cur_ch   = c;
+            }
+            /* Fade volume back up now that audio is flowing. */
+            codec_vol_ramp(0, s_volume, 5);
         }
     }
     return 0;
@@ -190,17 +205,37 @@ static void codec_drain_silence(void)
     }
 }
 
+/* Soft volume ramp: walk from `from` to `to` in `step_ms` ms steps. This
+   masks the DAC zipper-noise that you get from a hard 0 -> 70 jump. */
+static void codec_vol_ramp(int from, int to, int step_ms)
+{
+    if (!s_codec) return;
+    if (from == to) {
+        esp_codec_dev_set_out_vol(s_codec, to);
+        return;
+    }
+    int dir = (to > from) ? 1 : -1;
+    for (int v = from; v != to; v += dir) {
+        esp_codec_dev_set_out_vol(s_codec, v);
+        vTaskDelay(pdMS_TO_TICKS(step_ms));
+    }
+    esp_codec_dev_set_out_vol(s_codec, to);
+}
+
 esp_err_t radio_play(const char *uri)
 {
     if (!s_player) return ESP_ERR_INVALID_STATE;
     if (!uri || !*uri) return ESP_ERR_INVALID_ARG;
-    /* Mute first so any junk that bleeds out while tearing down the old
-       pipeline doesn't reach the speaker. radio_event_cb will reopen the
-       codec when the new stream's MUSIC_INFO arrives. */
-    if (s_codec) esp_codec_dev_set_out_mute(s_codec, true);
+    /* Fade out the current stream (if any) before tearing down the
+       pipeline. radio_event_cb fades back up when the new stream's
+       MUSIC_INFO arrives so the user hears a clean cross-fade rather
+       than a "zzz" tail + click + ramp. The codec stays open, the I2S
+       channel stays running -- no hardware re-init around the transition. */
+    if (s_codec) {
+        codec_vol_ramp(s_volume, 0, 5);  /* ~5*70 = 350 ms fade-out */
+    }
     esp_audio_simple_player_stop(s_player);
     codec_drain_silence();
-    if (s_codec) esp_codec_dev_set_out_mute(s_codec, false);
     ESP_LOGI(TAG, "play: %s", uri);
     esp_gmf_err_t err = esp_audio_simple_player_run(s_player, uri, NULL);
     return (err == ESP_OK) ? ESP_OK : ESP_FAIL;
@@ -209,13 +244,14 @@ esp_err_t radio_play(const char *uri)
 esp_err_t radio_stop(void)
 {
     if (!s_player) return ESP_ERR_INVALID_STATE;
-    /* Mute -> stop the pipeline -> push silence so the DMA ring is clean ->
-       unmute. Without this the codec keeps draining whatever was last in
-       the buffer and you hear a brief "zzz" tail. */
-    if (s_codec) esp_codec_dev_set_out_mute(s_codec, true);
+    /* Fade out, then stop the decoder pipeline. The codec stays open and
+       at volume 0; next radio_play() resumes from there and ramps up
+       when audio starts flowing. No mute toggle, no codec close. */
+    if (s_codec) {
+        codec_vol_ramp(s_volume, 0, 5);
+    }
     esp_audio_simple_player_stop(s_player);
     codec_drain_silence();
-    /* Stay muted on stop; play() unmutes when the next stream starts. */
     return ESP_OK;
 }
 
@@ -253,7 +289,12 @@ void radio_set_volume(int v)
     if (v < 0) v = 0;
     if (v > 100) v = 100;
     s_volume = v;
-    if (s_codec) esp_codec_dev_set_out_vol(s_codec, v);
+    /* Only push the new volume to the codec if we're actively playing.
+       When stopped the codec sits at 0 (faded out by radio_stop); the
+       MUSIC_INFO handler ramps to s_volume next time playback starts. */
+    if (s_codec && s_state == ESP_ASP_STATE_RUNNING) {
+        esp_codec_dev_set_out_vol(s_codec, v);
+    }
 }
 
 int radio_get_volume(void) { return s_volume; }
