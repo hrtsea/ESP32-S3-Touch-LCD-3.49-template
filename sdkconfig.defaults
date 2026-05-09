@@ -29,9 +29,7 @@ CONFIG_LV_FONT_MONTSERRAT_16=y
 CONFIG_LV_FONT_MONTSERRAT_48=y
 CONFIG_LV_FONT_UNSCII_16=y
 CONFIG_LV_FONT_FMT_TXT_LARGE=y
-# Enable FATFS long filename support, heap-allocated. Without this,
-# mounting some SD cards fails with EACCES because FATFS short-name
-# parser chokes on volumes containing LFN entries.
+# FATFS long filename support, heap-allocated.
 CONFIG_FATFS_LFN_HEAP=y
 CONFIG_FATFS_LFN_HEAP_SIZE=255
 # Primary console = USB-Serial-JTAG (same port as idf.py monitor on this board)

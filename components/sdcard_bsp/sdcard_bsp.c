@@ -26,24 +26,32 @@ sdmmc_card_t *card_host = NULL;
 void _sdcard_init(void)
 {
   sdcard_even_ = xEventGroupCreate();
-  esp_vfs_fat_sdmmc_mount_config_t mount_config = 
+  esp_vfs_fat_sdmmc_mount_config_t mount_config =
   {
-    .format_if_mount_failed = false,       //如果挂靠失败，创建分区表并格式化SD卡
-    .max_files = 5,                        //打开文件最大数
-    .allocation_unit_size = 16 * 1024 *3,  //类似扇区大小
+    /* IDF 5.2 FATFS doesn't support exFAT, and 64GB+ SDXC cards ship
+       pre-formatted as exFAT. Auto-format to FAT32 on first mount so
+       the user doesn't need a third-party tool to reformat on PC.
+       After the first boot the card is FAT32 and remounts cleanly. */
+    .format_if_mount_failed = true,
+    .max_files = 5,
+    .allocation_unit_size = 16 * 1024,
   };
 
   sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-  /* Drop from highspeed (40 MHz) to default (20 MHz). High-speed needs
-     clean signal integrity that the on-board mux + 1-bit wiring may not
-     deliver, and the card_init -> EACCES failure is typical of this. */
   host.max_freq_khz = SDMMC_FREQ_DEFAULT;
 
   sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-  slot_config.width = 1;           //1线
+  slot_config.width = 1;
   slot_config.clk = SDMMC_CLK_PIN;
   slot_config.cmd = SDMMC_CMD_PIN;
   slot_config.d0 = SDMMC_D0_PIN;
+  /* SOC_SDMMC_USE_GPIO_MATRIX boards (ESP32-S3 with SDMMC routed through
+     the GPIO matrix) need internal pull-ups on CMD/D0 unless the board
+     has external ones. Without this, mount fails with EACCES (errno 13)
+     because the card never responds correctly on CMD. */
+  slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
+  slot_config.cd = SDMMC_SLOT_NO_CD;
+  slot_config.wp = SDMMC_SLOT_NO_WP;
 
   ESP_ERROR_CHECK_WITHOUT_ABORT(esp_vfs_fat_sdmmc_mount(SDlist, &host, &slot_config, &mount_config, &card_host));
 
