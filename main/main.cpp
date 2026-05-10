@@ -3108,7 +3108,7 @@ static void rec_poll_cb(lv_timer_t *t)
                 for (const char *p = uri; *p; p++) if (*p == '/') slash = p;
                 if (slash) base = slash + 1;
             }
-            lv_label_set_text_fmt(g_rec_status, LV_SYMBOL_PLAY " %s", base);
+            lv_label_set_text_fmt(g_rec_status, LV_SYMBOL_PLAY " Playing %s", base);
             lv_obj_set_style_text_color(g_rec_status, lv_color_make(0x40, 0xc0, 0xff), 0);
         } else {
             lv_label_set_text(g_rec_status, "Idle");
