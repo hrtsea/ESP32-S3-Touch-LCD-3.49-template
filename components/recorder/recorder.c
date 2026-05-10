@@ -36,29 +36,34 @@
 
 #include "recorder.h"
 #include "radio.h"
+#include "sdcard_bsp.h"
 
 static const char *TAG = "recorder";
 
 #define REC_DIR        "/sdcard/recordings"
 /* Match the radio engine's clock so the shared I2S BCLK isn't fought
-   over (peer-mode conflict). The radio runs at 44.1 kHz stereo by
-   default; we capture at the same rate but mono. */
+   over (peer-mode conflict). 44.1 kHz / 16-bit / stereo so the L/R VU
+   bars track real left and right input levels. ~10.6 MB/min. */
 #define REC_RATE       44100
 #define REC_BITS       16
-#define REC_CHANNELS   1
-#define REC_CHUNK      1024  /* PCM samples per read iteration (mono) */
+#define REC_CHANNELS   2
+#define REC_CHUNK      512   /* stereo frames per read; total samples = 2*512 */
 
 static esp_codec_dev_handle_t   s_codec_in   = NULL;
-static volatile bool            s_recording  = false;
+static volatile bool            s_recording  = false;   /* writing to file */
+static volatile bool            s_monitor    = false;   /* worker running for VU only */
 static volatile bool            s_init_done  = false;
 static FILE                    *s_fp         = NULL;
 static uint32_t                 s_pcm_bytes  = 0;
 static uint32_t                 s_started_ms = 0;
 static char                     s_cur_path[96] = {0};
 static TaskHandle_t             s_worker     = NULL;
-/* VU meter: peak abs sample seen since the UI last read it. The worker
-   updates this on every chunk; recorder_peak_level() reads-and-resets. */
-static volatile uint16_t        s_peak       = 0;
+/* VU meter: peak abs sample per channel since the UI last read it.
+   Stereo capture, two channels interleaved (L, R, L, R...). */
+static volatile uint16_t        s_peak_l     = 0;
+static volatile uint16_t        s_peak_r     = 0;
+
+static esp_err_t worker_spawn(void);
 
 static void wav_write_header(FILE *f, uint32_t pcm_bytes,
                              uint32_t rate, uint16_t bits, uint16_t channels)
@@ -85,40 +90,56 @@ static void wav_write_header(FILE *f, uint32_t pcm_bytes,
 static void recorder_task(void *arg)
 {
     (void)arg;
-    int16_t *buf = malloc(REC_CHUNK * sizeof(int16_t));
-    if (!buf) { ESP_LOGE(TAG, "no mem for chunk"); s_recording = false; vTaskDelete(NULL); return; }
-    while (s_recording) {
-        /* esp_codec_dev_read returns 0 on success and the byte count is
-           filled in via the bytes parameter being equal to what we asked.
-           Some IDF versions return the byte count directly. Treat any
-           negative value as failure, anything else as a full read of the
-           requested size. */
-        int rc = esp_codec_dev_read(s_codec_in, buf, REC_CHUNK * sizeof(int16_t));
-        if (rc != 0 && rc != REC_CHUNK * (int)sizeof(int16_t)) {
+    /* Stereo: REC_CHUNK frames * 2 channels * sizeof(int16_t). */
+    int total_samples = REC_CHUNK * REC_CHANNELS;
+    int buf_bytes     = total_samples * sizeof(int16_t);
+    int16_t *buf = malloc(buf_bytes);
+    if (!buf) {
+        ESP_LOGE(TAG, "no mem for chunk");
+        s_recording = false; s_monitor = false;
+        s_worker = NULL;
+        vTaskDeleteWithCaps(NULL);
+        return;
+    }
+    while (s_recording || s_monitor) {
+        int rc = esp_codec_dev_read(s_codec_in, buf, buf_bytes);
+        if (rc != 0 && rc != buf_bytes) {
             ESP_LOGW(TAG, "codec_read rc=%d", rc);
             vTaskDelay(pdMS_TO_TICKS(5));
             continue;
         }
-        int n = REC_CHUNK * sizeof(int16_t);
-        /* Track peak sample for the VU meter. Doing it here (per-chunk,
-           on the recording task) keeps the UI poll cheap. */
-        uint16_t peak = 0;
+        uint16_t peak_l = 0, peak_r = 0;
         for (int i = 0; i < REC_CHUNK; i++) {
-            int s = buf[i];
-            if (s < 0) s = -s;
-            if (s > peak) peak = (uint16_t)s;
+            int l = buf[2 * i];
+            int r = buf[2 * i + 1];
+            if (l < 0) l = -l;
+            if (r < 0) r = -r;
+            if (l > peak_l) peak_l = (uint16_t)l;
+            if (r > peak_r) peak_r = (uint16_t)r;
         }
-        if (peak > s_peak) s_peak = peak;
-        if (s_fp) {
-            size_t w = fwrite(buf, 1, n, s_fp);
-            if (w == (size_t)n) s_pcm_bytes += n;
+        if (peak_l > s_peak_l) s_peak_l = peak_l;
+        if (peak_r > s_peak_r) s_peak_r = peak_r;
+        if (s_recording && s_fp) {
+            size_t w = fwrite(buf, 1, buf_bytes, s_fp);
+            if (w == (size_t)buf_bytes) s_pcm_bytes += buf_bytes;
         }
     }
     free(buf);
     s_worker = NULL;
-    /* Pair with xTaskCreatePinnedToCoreWithCaps so the PSRAM stack is
-       freed too. Plain vTaskDelete would leak it. */
     vTaskDeleteWithCaps(NULL);
+}
+
+static esp_err_t worker_spawn(void)
+{
+    if (s_worker) return ESP_OK;
+    BaseType_t r = xTaskCreatePinnedToCoreWithCaps(
+        recorder_task, "recorder", 4 * 1024, NULL, 5, &s_worker, 1,
+        MALLOC_CAP_SPIRAM);
+    if (r != pdPASS) {
+        ESP_LOGE(TAG, "xTaskCreate recorder rc=%d", (int)r);
+        return ESP_FAIL;
+    }
+    return ESP_OK;
 }
 
 esp_err_t recorder_init(void)
@@ -208,36 +229,56 @@ esp_err_t recorder_start(const char **out_path)
 
     s_started_ms = (uint32_t)(esp_log_timestamp());
     s_recording  = true;
-    if (!s_worker) {
-        /* Internal RAM is fragmented after LVGL is up; a 4KB internal-RAM
-           stack alloc fails with rc=-1. Use *WithCaps to put the stack
-           in PSRAM, which has plenty of room. The TCB stays in internal
-           RAM (required by FreeRTOS). */
-        BaseType_t r = xTaskCreatePinnedToCoreWithCaps(
-            recorder_task, "recorder", 4 * 1024, NULL, 5, &s_worker, 1,
-            MALLOC_CAP_SPIRAM);
-        if (r != pdPASS) {
-            ESP_LOGE(TAG, "xTaskCreate recorder rc=%d", (int)r);
-            s_recording = false;
-            fclose(s_fp); s_fp = NULL;
-            return ESP_FAIL;
-        }
+    if (worker_spawn() != ESP_OK) {
+        s_recording = false;
+        fclose(s_fp); s_fp = NULL;
+        return ESP_FAIL;
     }
     if (out_path) *out_path = s_cur_path;
     ESP_LOGI(TAG, "recording -> %s", s_cur_path);
     return ESP_OK;
 }
 
+esp_err_t recorder_monitor_start(void)
+{
+    if (!s_init_done) {
+        esp_err_t er = recorder_init();
+        if (er != ESP_OK) return er;
+    }
+    if (s_monitor || s_recording) return ESP_OK;
+    s_monitor = true;
+    if (worker_spawn() != ESP_OK) {
+        s_monitor = false;
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
+void recorder_monitor_stop(void)
+{
+    if (s_recording) return;   /* keep the worker; recording owns it */
+    s_monitor = false;
+    /* Worker exits on its own next loop iteration. */
+}
+
 esp_err_t recorder_stop(void)
 {
     if (!s_recording) return ESP_OK;
     s_recording = false;
-    /* Wait briefly for the worker to drain its current read. */
-    for (int i = 0; i < 50 && s_worker != NULL; i++) {
-        vTaskDelay(pdMS_TO_TICKS(20));
+    /* If monitor isn't keeping the worker alive, wait for it to drain
+       its current codec read before we patch the WAV header (otherwise
+       the worker could fwrite *after* we've rewritten the header). */
+    if (!s_monitor) {
+        for (int i = 0; i < 50 && s_worker != NULL; i++) {
+            vTaskDelay(pdMS_TO_TICKS(20));
+        }
+    } else {
+        /* Worker is still running but recording flag is false, so it
+           won't fwrite anymore. One short delay to clear the in-flight
+           chunk it may already be writing. */
+        vTaskDelay(pdMS_TO_TICKS(40));
     }
     if (s_fp) {
-        /* Patch in the real sizes. */
         fflush(s_fp);
         fseek(s_fp, 0, SEEK_SET);
         wav_write_header(s_fp, s_pcm_bytes, REC_RATE, REC_BITS, REC_CHANNELS);
@@ -258,6 +299,9 @@ unsigned recorder_elapsed_s(void)
 
 int recorder_list(char buf[][64], int max_n)
 {
+    /* Don't opendir on a missing/unmounted card -- the FATFS driver
+       will spam read errors trying to read the boot sector. */
+    if (!sdcard_is_mounted()) return 0;
     DIR *d = opendir(REC_DIR);
     if (!d) return 0;
     int n = 0;
@@ -301,7 +345,14 @@ esp_err_t recorder_delete(const char *name)
 
 uint16_t recorder_peak_level(void)
 {
-    uint16_t v = s_peak;
-    s_peak = 0;
-    return v;
+    uint16_t l = s_peak_l, r = s_peak_r;
+    s_peak_l = 0; s_peak_r = 0;
+    return l > r ? l : r;
+}
+
+void recorder_peak_lr(uint16_t *out_l, uint16_t *out_r)
+{
+    if (out_l) *out_l = s_peak_l;
+    if (out_r) *out_r = s_peak_r;
+    s_peak_l = 0; s_peak_r = 0;
 }

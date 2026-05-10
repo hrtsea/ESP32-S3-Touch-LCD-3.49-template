@@ -37,11 +37,22 @@ void        recorder_full_path(char *out, size_t cap, const char *name);
 /* Delete a file under /sdcard/recordings/<name>. */
 esp_err_t   recorder_delete(const char *name);
 
-/* Peak absolute sample seen since the last call (0..32767). Reading also
-   resets the internal peak so successive calls show fresh levels. Use
-   this to drive a VU meter from the UI. Returns 0 when not recording. */
+/* Peak absolute sample (max of L/R) since the last call. Reading
+   resets the internal peaks. */
 #include <stdint.h>
 uint16_t    recorder_peak_level(void);
+
+/* Stereo peak readout: per-channel peaks since last call. Both reads
+   and resets in one shot to keep L/R aligned. */
+void        recorder_peak_lr(uint16_t *out_l, uint16_t *out_r);
+
+/* Start/stop "monitor" mode: keep the codec read loop alive without
+   writing to a file. Use this to drive a live VU meter when the
+   recorder tile is visible but not recording. Recording implies
+   monitoring; stopping recording while monitor is on keeps the worker
+   running. */
+esp_err_t   recorder_monitor_start(void);
+void        recorder_monitor_stop(void);
 
 #ifdef __cplusplus
 }

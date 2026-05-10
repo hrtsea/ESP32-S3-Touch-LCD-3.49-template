@@ -2754,14 +2754,11 @@ static lv_obj_t *build_subpage_storage(lv_obj_t *menu)
     lv_obj_t *info = lv_label_create(cont);
     lv_obj_set_style_text_font(info, i18n_font(), 0);
     lv_obj_set_style_text_color(info, lv_color_white(), 0);
-    uint64_t total = 0, free = 0;
-    if (esp_vfs_fat_info("/sdcard", &total, &free) == ESP_OK && total > 0) {
-        lv_label_set_text_fmt(info, "SD: %llu MB free of %llu MB",
-                              (unsigned long long)(free / (1024 * 1024)),
-                              (unsigned long long)(total / (1024 * 1024)));
-    } else {
-        lv_label_set_text(info, "SD: not mounted");
-    }
+    /* Don't call esp_vfs_fat_info at tile-build time -- on some cards it
+       hangs the SDMMC driver for many seconds, blocking the LVGL task
+       and wedging boot. Show a placeholder; the recorder tile's poll
+       refreshes the live SD state once boot is past LVGL setup. */
+    lv_label_set_text(info, sdcard_is_mounted() ? "SD: mounted" : "SD: not mounted");
 
     /* Clear button wipes every file under /sdcard/recordings without
        reformatting the FS. The bsp doesn't expose a real
@@ -3031,15 +3028,20 @@ static void rec_poll_cb(lv_timer_t *t)
         else g_rec_vu_smoothed = (g_rec_vu_smoothed * 7 + target) / 8;
         lv_bar_set_value(g_rec_vu_bar, g_rec_vu_smoothed, LV_ANIM_OFF);
     }
-    /* SD info: cheap to query, refresh every poll. */
+    /* SD info: gate on sdcard_is_mounted() so we don't drive a missing
+       or unmounted card with esp_vfs_fat_info on every poll -- that
+       triggers a hardware retry that floods serial with sdmmc errors
+       and starves LVGL until the card comes back. */
     if (g_rec_sd_lbl) {
-        uint64_t total = 0, free = 0;
-        if (esp_vfs_fat_info("/sdcard", &total, &free) == ESP_OK && total > 0) {
-            uint64_t total_mb = total / (1024 * 1024);
-            uint64_t free_mb  = free  / (1024 * 1024);
-            lv_label_set_text_fmt(g_rec_sd_lbl, "SD %llu/%llu MB",
-                                  (unsigned long long)free_mb,
-                                  (unsigned long long)total_mb);
+        if (sdcard_is_mounted()) {
+            uint64_t total = 0, free = 0;
+            if (esp_vfs_fat_info("/sdcard", &total, &free) == ESP_OK && total > 0) {
+                lv_label_set_text_fmt(g_rec_sd_lbl, "SD %llu/%llu MB",
+                                      (unsigned long long)(free / (1024 * 1024)),
+                                      (unsigned long long)(total / (1024 * 1024)));
+            } else {
+                lv_label_set_text(g_rec_sd_lbl, "SD: read err");
+            }
         } else {
             lv_label_set_text(g_rec_sd_lbl, "SD: not present");
         }

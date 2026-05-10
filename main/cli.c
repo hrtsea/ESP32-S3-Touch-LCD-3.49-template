@@ -29,6 +29,7 @@
 #include "audio_min.h"
 #include "radio.h"
 #include "recorder.h"
+#include "sdcard_bsp.h"
 #include "cli.h"
 
 #include <sys/stat.h>
@@ -193,21 +194,12 @@ static int cmd_sd_info(int argc, char **argv)
 static int cmd_sd_format(int argc, char **argv)
 {
     (void)argc; (void)argv;
-    /* Wipe everything in /sdcard/recordings; we don't actually re-format
-       the FAT (that would need esp_vfs_fat_sdmmc_format which the bsp
-       doesn't expose). Good enough for "clear out my clips". */
-    DIR *d = opendir("/sdcard/recordings");
-    if (!d) { printf("nothing to clear\n"); return 0; }
-    int n = 0;
-    struct dirent *e;
-    while ((e = readdir(d)) != NULL) {
-        if (e->d_name[0] == '.') continue;
-        char p[300]; snprintf(p, sizeof(p), "/sdcard/recordings/%s", e->d_name);
-        if (unlink(p) == 0) n++;
-    }
-    closedir(d);
-    printf("cleared %d files\n", n);
-    return 0;
+    if (recorder_is_recording()) recorder_stop();
+    printf("formatting SD (this can take 30-90s)...\n");
+    esp_err_t r = sdcard_format();
+    mkdir("/sdcard/recordings", 0775);
+    printf("format -> %s\n", esp_err_to_name(r));
+    return r == ESP_OK ? 0 : 1;
 }
 
 static int cmd_wifi_connect(int argc, char **argv)

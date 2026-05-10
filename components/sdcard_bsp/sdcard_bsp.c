@@ -28,11 +28,11 @@ void _sdcard_init(void)
   sdcard_even_ = xEventGroupCreate();
   esp_vfs_fat_sdmmc_mount_config_t mount_config =
   {
-    /* IDF 5.2 FATFS doesn't support exFAT, and 64GB+ SDXC cards ship
-       pre-formatted as exFAT. Auto-format to FAT32 on first mount so
-       the user doesn't need a third-party tool to reformat on PC.
-       After the first boot the card is FAT32 and remounts cleanly. */
-    .format_if_mount_failed = true,
+    /* Don't auto-format on mount failure: a half-formatted or
+       hot-removed card can keep the format routine looping for
+       minutes, blocking the UI. The Storage settings page exposes a
+       "Format SD card" button for explicit reformat. */
+    .format_if_mount_failed = false,
     .max_files = 5,
     .allocation_unit_size = 16 * 1024,
   };
@@ -53,14 +53,43 @@ void _sdcard_init(void)
   slot_config.cd = SDMMC_SLOT_NO_CD;
   slot_config.wp = SDMMC_SLOT_NO_WP;
 
-  ESP_ERROR_CHECK_WITHOUT_ABORT(esp_vfs_fat_sdmmc_mount(SDlist, &host, &slot_config, &mount_config, &card_host));
-
-  if(card_host != NULL)
-  {
-    sdmmc_card_print_info(stdout, card_host); //把卡的信息打印出来
-    user_sdcard_bsp.sdcard_size = (float)(card_host->csd.capacity)/2048/1024; //G
-    xEventGroupSetBits(sdcard_even_,0x01);
+  esp_err_t mr = esp_vfs_fat_sdmmc_mount(SDlist, &host, &slot_config, &mount_config, &card_host);
+  if (mr != ESP_OK) {
+    ESP_LOGE(TAG, "mount failed: %s", esp_err_to_name(mr));
+    /* esp_vfs_fat_sdmmc_mount can leave card_host set even on failure.
+       Force NULL so callers don't poll a dead card. */
+    card_host = NULL;
+    return;
   }
+  if (card_host != NULL) {
+    sdmmc_card_print_info(stdout, card_host);
+    user_sdcard_bsp.sdcard_size = (float)(card_host->csd.capacity)/2048/1024;
+    xEventGroupSetBits(sdcard_even_, 0x01);
+  }
+}
+
+bool sdcard_is_mounted(void)
+{
+  return card_host != NULL && !sdcard_busy;
+}
+
+/* Visible to other components that touch /sdcard via opendir/statvfs/etc.
+   They should bail when this is set to avoid spamming "Failed to get
+   number of free clusters" while the volume is unmounted. */
+volatile bool sdcard_busy = false;
+
+esp_err_t sdcard_format(void)
+{
+  if (card_host == NULL) {
+    ESP_LOGE(TAG, "format: card not mounted");
+    return ESP_ERR_INVALID_STATE;
+  }
+  ESP_LOGW(TAG, "formatting %s -- this can take 30-90s on a 64GB card", SDlist);
+  sdcard_busy = true;
+  esp_err_t r = esp_vfs_fat_sdcard_format(SDlist, card_host);
+  sdcard_busy = false;
+  ESP_LOGI(TAG, "format -> %s", esp_err_to_name(r));
+  return r;
 }
 
 
