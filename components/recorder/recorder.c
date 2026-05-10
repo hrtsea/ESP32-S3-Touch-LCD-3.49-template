@@ -334,31 +334,45 @@ int recorder_list(char buf[][64], int max_n)
     if (!sdcard_is_mounted()) return 0;
     DIR *d = opendir(REC_DIR);
     if (!d) return 0;
-    int n = 0;
+    /* readdir() returns entries in FATFS internal order, NOT sorted by
+       filename. If we hit max_n while iterating, we may keep older
+       files and drop the newest. Read everything (up to a cap), then
+       sort descending by filename, then return the first max_n. */
+    enum { MAX_SCAN = 64 };
+    static char scan[MAX_SCAN][64];
+    int total = 0;
     struct dirent *e;
-    while ((e = readdir(d)) != NULL && n < max_n) {
+    while ((e = readdir(d)) != NULL && total < MAX_SCAN) {
         if (e->d_name[0] == '.') continue;
         size_t len = strlen(e->d_name);
         if (len < 5) continue;
-        /* Accept .wav (and .opus / .mp3 if/when the encoder lands). */
         if (strcasecmp(e->d_name + len - 4, ".wav") == 0 ||
             strcasecmp(e->d_name + len - 4, ".mp3") == 0 ||
             (len >= 5 && strcasecmp(e->d_name + len - 5, ".opus") == 0)) {
-            strncpy(buf[n], e->d_name, 63);
-            buf[n][63] = 0;
-            n++;
+            strncpy(scan[total], e->d_name, 63);
+            scan[total][63] = 0;
+            total++;
         }
     }
     closedir(d);
-    /* Reverse-sort so newest is first (timestamps make filenames sort
-       lexicographically by date already). */
-    for (int i = 0; i < n / 2; i++) {
-        char tmp[64];
-        memcpy(tmp, buf[i], 64);
-        memcpy(buf[i], buf[n-1-i], 64);
-        memcpy(buf[n-1-i], tmp, 64);
+    /* Sort descending by filename. Filenames are timestamps
+       (YYYYMMDD-HHMMSS.wav), so lexicographic descending == newest
+       first. Insertion sort is fine for ~64 entries. */
+    for (int i = 1; i < total; i++) {
+        char key[64];
+        memcpy(key, scan[i], 64);
+        int j = i - 1;
+        while (j >= 0 && strcmp(scan[j], key) < 0) {
+            memcpy(scan[j + 1], scan[j], 64);
+            j--;
+        }
+        memcpy(scan[j + 1], key, 64);
     }
-    return n;
+    int out_n = total < max_n ? total : max_n;
+    for (int i = 0; i < out_n; i++) {
+        memcpy(buf[i], scan[i], 64);
+    }
+    return out_n;
 }
 
 void recorder_full_path(char *out, size_t cap, const char *name)
