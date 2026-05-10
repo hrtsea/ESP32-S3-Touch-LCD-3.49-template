@@ -44,6 +44,7 @@
 #include "audio_min.h"
 #include "radio.h"
 #include "recorder.h"
+#include "webui.h"
 #include "cli.h"
 #include "i18n.h"
 #include "landmask.h"
@@ -560,6 +561,8 @@ static void lvgl_init(esp_lcd_panel_handle_t panel)
         fb1 = (lv_color_t *)heap_caps_malloc(LVGL_SPIRAM_BUFF_LEN, MALLOC_CAP_SPIRAM);
     }
     assert(fb1);
+    /* Hand the framebuffer to the web UI so /screen.bmp can read it. */
+    webui_set_framebuffer(fb1, UI_CANVAS_W, UI_CANVAS_H);
     lv_disp_draw_buf_init(&disp_buf, fb1, NULL, UI_CANVAS_W * UI_CANVAS_H);
 
     lv_disp_drv_init(&disp_drv);
@@ -895,7 +898,8 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
             default: break;
         }
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
-        ESP_LOGI(TAG, "wifi: got IP");
+        ip_event_got_ip_t *ev = (ip_event_got_ip_t *)data;
+        ESP_LOGI(TAG, "wifi: got IP " IPSTR, IP2STR(&ev->ip_info.ip));
         /* Start SNTP once we actually have routable network. */
         sntp_start_once();
     }
@@ -3617,6 +3621,15 @@ extern "C" void app_main(void)
        and the menu's many sub-pages it ran out of buffers if we initialised
        LVGL first. The connect itself still happens later. */
     wifi_init_once();
+
+    /* Start the web control panel BEFORE LVGL builds the widget tree.
+       After LVGL is up the internal heap is fragmented and httpd
+       fails to allocate its task stack (ESP_ERR_HTTPD_TASK). The
+       server doesn't need an IP to start -- it just listens on
+       socket(80) and routes when traffic arrives. */
+    if (webui_start() != ESP_OK) {
+        ESP_LOGW(TAG, "webui_start failed");
+    }
 
     show_main_ui(status);
     ESP_LOGI(TAG, "===== All drivers initialized =====");
