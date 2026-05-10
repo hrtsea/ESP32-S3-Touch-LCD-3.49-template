@@ -38,6 +38,7 @@ static i2s_chan_handle_t       s_i2s_rx     = NULL;   /* shared with recorder */
 static esp_codec_dev_handle_t  s_codec      = NULL;
 static const audio_codec_ctrl_if_t *s_ctrl_if = NULL;     /* shared */
 static const audio_codec_data_if_t *s_data_if_in = NULL;  /* shared */
+static const audio_codec_if_t *s_codec_if   = NULL;       /* shared, single ES8311 driver instance */
 static esp_asp_handle_t        s_player     = NULL;
 static volatile esp_asp_state_t s_state     = ESP_ASP_STATE_NONE;
 static int                     s_cur_idx    = -1;
@@ -171,8 +172,9 @@ esp_err_t radio_init(void)
         .master_mode = false,
         .use_mclk  = true,
     };
-    const audio_codec_if_t *codec_if = es8311_codec_new(&es_cfg);
-    if (!codec_if) { ESP_LOGE(TAG, "es8311_codec_new failed"); return ESP_FAIL; }
+    s_codec_if = es8311_codec_new(&es_cfg);
+    if (!s_codec_if) { ESP_LOGE(TAG, "es8311_codec_new failed"); return ESP_FAIL; }
+    const audio_codec_if_t *codec_if = s_codec_if;
 
     ESP_LOGI(TAG, "init step 6/8: esp_codec_dev_new");
     esp_codec_dev_cfg_t dev_cfg = {
@@ -320,3 +322,4 @@ int radio_get_volume(void) { return s_volume; }
 void *radio_get_i2s_rx_handle(void)     { return (void *)s_i2s_rx; }
 void *radio_get_codec_ctrl_if(void)     { return (void *)s_ctrl_if; }
 void *radio_get_codec_data_if_in(void)  { return (void *)s_data_if_in; }
+void *radio_get_codec_if(void)          { return (void *)s_codec_if; }

@@ -33,7 +33,9 @@
 
 #include "esp_codec_dev_defaults.h"
 #include "esp_codec_dev.h"
+#include "es7210_adc.h"
 
+#include "i2c_bsp.h"
 #include "recorder.h"
 #include "radio.h"
 #include "sdcard_bsp.h"
@@ -147,31 +149,40 @@ esp_err_t recorder_init(void)
     if (s_init_done) return ESP_OK;
     mkdir(REC_DIR, 0775);
 
-    /* Reuse the radio engine's RX channel + codec interfaces. The radio
-       already allocated I2S TX+RX as a duplex pair and put ES8311 in
-       BOTH (DAC+ADC) mode. Allocating a second I2S channel or a second
-       ES8311 codec instance here would race with the radio over the
-       same I2C device and the same I2S controller. */
+    /* The MIC on this board is wired to a SEPARATE codec chip (ES7210
+       at I2C 7-bit 0x40 / 8-bit 0x80), not to the ES8311 ADC that
+       audio_codec_dev exposes by default. Reading from ES8311 in IN
+       mode returns silent zeros because no mic signal is wired to its
+       ADC inputs. Use the radio's RX I2S (the chip pin layout is
+       shared via TDM) but instantiate ES7210 as the input codec_if
+       so the right device is configured for capture. */
     void *rx = radio_get_i2s_rx_handle();
-    void *ctrl_if_v = radio_get_codec_ctrl_if();
     void *data_if_in_v = radio_get_codec_data_if_in();
-    if (!rx || !ctrl_if_v || !data_if_in_v) {
-        ESP_LOGE(TAG, "radio engine not up (rx=%p ctrl=%p data=%p)",
-                 rx, ctrl_if_v, data_if_in_v);
+    if (!rx || !data_if_in_v) {
+        ESP_LOGE(TAG, "radio engine not up (rx=%p data=%p)", rx, data_if_in_v);
         return ESP_ERR_INVALID_STATE;
     }
-    const audio_codec_ctrl_if_t *ctrl_if = (const audio_codec_ctrl_if_t *)ctrl_if_v;
     const audio_codec_data_if_t *data_if = (const audio_codec_data_if_t *)data_if_in_v;
 
-    es8311_codec_cfg_t es_cfg = {
-        .ctrl_if     = ctrl_if,
-        .gpio_if     = audio_codec_new_gpio(),
-        .codec_mode  = ESP_CODEC_DEV_WORK_MODE_BOTH,
-        .master_mode = false,
-        .use_mclk    = true,
+    /* Dedicated I2C ctrl_if for the ES7210 (different address than ES8311). */
+    audio_codec_i2c_cfg_t i2c_cfg = {
+        .addr       = 0x80,                /* ES7210 default 8-bit addr */
+        .bus_handle = esp_i2c_bus_handle,
     };
-    const audio_codec_if_t *codec_if = es8311_codec_new(&es_cfg);
-    if (!codec_if) return ESP_FAIL;
+    const audio_codec_ctrl_if_t *es7210_ctrl_if = audio_codec_new_i2c_ctrl(&i2c_cfg);
+    if (!es7210_ctrl_if) {
+        ESP_LOGE(TAG, "es7210 i2c ctrl create failed");
+        return ESP_FAIL;
+    }
+    es7210_codec_cfg_t es7210_cfg = {
+        .ctrl_if      = es7210_ctrl_if,
+        .mic_selected = ES7210_SEL_MIC1 | ES7210_SEL_MIC3,
+    };
+    const audio_codec_if_t *codec_if = es7210_codec_new(&es7210_cfg);
+    if (!codec_if) {
+        ESP_LOGE(TAG, "es7210_codec_new failed -- mic chip not present?");
+        return ESP_FAIL;
+    }
 
     esp_codec_dev_cfg_t dev_cfg = {
         .dev_type = ESP_CODEC_DEV_TYPE_IN,
@@ -191,7 +202,7 @@ esp_err_t recorder_init(void)
     if (rc != ESP_CODEC_DEV_OK) { ESP_LOGE(TAG, "codec_dev_open(in): %d", rc); return ESP_FAIL; }
 
     s_init_done = true;
-    ESP_LOGI(TAG, "recorder ready (sharing radio's I2S RX + codec)");
+    ESP_LOGI(TAG, "recorder ready (ES7210 mic, sharing I2S RX from radio)");
     return ESP_OK;
 }
 

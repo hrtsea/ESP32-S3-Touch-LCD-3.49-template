@@ -48,6 +48,7 @@ typedef struct i2s_chan_obj_t *i2s_chan_handle_t_fwd;  /* opaque */
 void  *radio_get_i2s_rx_handle(void);
 void  *radio_get_codec_ctrl_if(void);
 void  *radio_get_codec_data_if_in(void);  /* IN-direction data_if */
+void  *radio_get_codec_if(void);          /* shared ES8311 codec_if */
 
 #ifdef __cplusplus
 }

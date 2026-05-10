@@ -5,6 +5,7 @@
 #include <sys/time.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include "esp_vfs_fat.h"
 
 #include "nvs_flash.h"
@@ -2722,23 +2723,63 @@ static lv_obj_t *build_subpage_reset(lv_obj_t *menu)
     return page;
 }
 
-static void sd_clear_cb(lv_event_t *e)
+/* Storage page widgets we update after a format finishes. */
+static lv_obj_t *g_storage_info_lbl = NULL;
+static lv_obj_t *g_storage_btn_lbl  = NULL;
+
+static void storage_info_refresh(void)
+{
+    if (!g_storage_info_lbl) return;
+    if (!sdcard_is_mounted()) {
+        lv_label_set_text(g_storage_info_lbl, "SD: not mounted");
+        return;
+    }
+    uint64_t total = 0, free = 0;
+    if (esp_vfs_fat_info("/sdcard", &total, &free) == ESP_OK && total > 0) {
+        lv_label_set_text_fmt(g_storage_info_lbl, "SD: %llu MB free of %llu MB",
+                              (unsigned long long)(free / (1024 * 1024)),
+                              (unsigned long long)(total / (1024 * 1024)));
+    } else {
+        lv_label_set_text(g_storage_info_lbl, "SD: read err");
+    }
+}
+
+static void sd_format_worker(void *arg)
+{
+    (void)arg;
+    /* Stop any ongoing recording first; the file handle would be invalid
+       across an unmount/reformat. */
+    if (recorder_is_recording()) recorder_stop();
+    esp_err_t r = sdcard_format();
+    ESP_LOGI(TAG, "sd format result: %s", esp_err_to_name(r));
+    /* mkdir the recordings folder back; format leaves the root empty. */
+    mkdir("/sdcard/recordings", 0775);
+    /* LVGL touch: must run on the LVGL task. We borrow the safe
+       cross-task path by setting flags and letting the LVGL timer pick
+       them up. Simpler: just call from the worker since lv_label_set
+       is OK if no-one is reading on the LVGL side simultaneously --
+       but the cleanest is to set a "needs refresh" flag and let the
+       recorder tile's poll handle it. We log here and let the next
+       poll repaint. */
+    storage_info_refresh();
+    if (g_storage_btn_lbl) {
+        lv_label_set_text(g_storage_btn_lbl,
+                          r == ESP_OK ? "Format SD card"
+                                      : "Format failed");
+    }
+    recorder_refresh_list();
+    vTaskDelete(NULL);
+}
+
+static void sd_format_cb(lv_event_t *e)
 {
     (void)e;
     if (menu_input_blocked()) return;
-    DIR *d = opendir("/sdcard/recordings");
-    int n = 0;
-    if (d) {
-        struct dirent *de;
-        while ((de = readdir(d)) != NULL) {
-            if (de->d_name[0] == '.') continue;
-            char p[300]; snprintf(p, sizeof(p), "/sdcard/recordings/%s", de->d_name);
-            if (unlink(p) == 0) n++;
-        }
-        closedir(d);
-    }
-    ESP_LOGI(TAG, "sd_clear: removed %d files", n);
-    recorder_refresh_list();
+    if (g_storage_btn_lbl) lv_label_set_text(g_storage_btn_lbl, "Formatting...");
+    /* Format on a worker so the LVGL task keeps drawing. 64GB FAT32
+       format takes ~30-60s on this controller. */
+    xTaskCreatePinnedToCore(sd_format_worker, "sd_fmt", 4 * 1024,
+                            NULL, 4, NULL, 1);
 }
 
 static lv_obj_t *build_subpage_storage(lv_obj_t *menu)
@@ -2749,29 +2790,28 @@ static lv_obj_t *build_subpage_storage(lv_obj_t *menu)
     lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_row(cont, 6, 0);
 
-    /* Live SD info: total/free space. Updated when this page is shown
-       via a one-shot statvfs call, no polling timer. */
-    lv_obj_t *info = lv_label_create(cont);
-    lv_obj_set_style_text_font(info, i18n_font(), 0);
-    lv_obj_set_style_text_color(info, lv_color_white(), 0);
+    g_storage_info_lbl = lv_label_create(cont);
+    lv_obj_set_style_text_font(g_storage_info_lbl, i18n_font(), 0);
+    lv_obj_set_style_text_color(g_storage_info_lbl, lv_color_white(), 0);
     /* Don't call esp_vfs_fat_info at tile-build time -- on some cards it
-       hangs the SDMMC driver for many seconds, blocking the LVGL task
-       and wedging boot. Show a placeholder; the recorder tile's poll
-       refreshes the live SD state once boot is past LVGL setup. */
-    lv_label_set_text(info, sdcard_is_mounted() ? "SD: mounted" : "SD: not mounted");
+       hangs the SDMMC driver for many seconds and wedges boot. Show a
+       static placeholder; storage_info_refresh() is invoked from the
+       sd_format_worker after a format completes. */
+    lv_label_set_text(g_storage_info_lbl,
+                      sdcard_is_mounted() ? "SD: mounted" : "SD: not mounted");
 
-    /* Clear button wipes every file under /sdcard/recordings without
-       reformatting the FS. The bsp doesn't expose a real
-       esp_vfs_fat_sdmmc_format entry point. */
-    lv_obj_t *clear_btn = lv_btn_create(cont);
-    lv_obj_set_size(clear_btn, 200, 32);
-    lv_obj_set_style_bg_color(clear_btn, lv_color_make(0xa0, 0x20, 0x20), 0);
-    lv_obj_t *bl = lv_label_create(clear_btn);
-    lv_label_set_text(bl, "Clear all recordings");
-    lv_obj_set_style_text_color(bl, lv_color_white(), 0);
-    lv_obj_set_style_text_font(bl, i18n_font(), 0);
-    lv_obj_center(bl);
-    lv_obj_add_event_cb(clear_btn, sd_clear_cb, LV_EVENT_CLICKED, NULL);
+    /* Format button: full FAT32 reformat via esp_vfs_fat_sdcard_format.
+       Wipes everything on the card. Runs on a worker task so the UI
+       stays responsive (~30-60s for 64GB). */
+    lv_obj_t *fmt_btn = lv_btn_create(cont);
+    lv_obj_set_size(fmt_btn, 200, 32);
+    lv_obj_set_style_bg_color(fmt_btn, lv_color_make(0xa0, 0x20, 0x20), 0);
+    g_storage_btn_lbl = lv_label_create(fmt_btn);
+    lv_label_set_text(g_storage_btn_lbl, "Format SD card");
+    lv_obj_set_style_text_color(g_storage_btn_lbl, lv_color_white(), 0);
+    lv_obj_set_style_text_font(g_storage_btn_lbl, i18n_font(), 0);
+    lv_obj_center(g_storage_btn_lbl);
+    lv_obj_add_event_cb(fmt_btn, sd_format_cb, LV_EVENT_CLICKED, NULL);
     return page;
 }
 
@@ -2894,13 +2934,24 @@ static void build_settings_tile(lv_obj_t *parent)
 
 /* ---------------------- Recorder tile ---------------------- */
 
-static lv_obj_t *g_rec_status   = NULL;
-static lv_obj_t *g_rec_btn_lbl  = NULL;
-static lv_obj_t *g_rec_list     = NULL;
-static lv_obj_t *g_rec_sd_lbl   = NULL;   /* "SD: 12.4/30.0 GB" */
-static lv_obj_t *g_rec_vu_bar   = NULL;
-static lv_timer_t *g_rec_poll   = NULL;
-static int        g_rec_vu_smoothed = 0;  /* 0..100 with peak-decay */
+/* Recorder tile widgets. Single full-width view:
+   - Top: status text ("Idle" / "Recording  Ns")
+   - Middle: big round REC/STOP button
+   - Below button: "Recordings ▶" button to open the list overlay
+   - Bottom row: stereo VU bars  L |||||||----    ----|||||||| R
+   The list of recordings is a separate full-tile overlay shown over
+   the parent tile when the user taps "Recordings"; closes on a
+   "Back" button. No split screen. */
+static lv_obj_t *g_rec_tile         = NULL;
+static lv_obj_t *g_rec_status       = NULL;
+static lv_obj_t *g_rec_btn_lbl      = NULL;
+static lv_obj_t *g_rec_vu_l         = NULL;   /* left bar (grows toward left) */
+static lv_obj_t *g_rec_vu_r         = NULL;   /* right bar (grows toward right) */
+static lv_obj_t *g_rec_list_overlay = NULL;
+static lv_obj_t *g_rec_list         = NULL;
+static lv_timer_t *g_rec_poll       = NULL;
+static int        g_rec_vu_l_smooth = 0;
+static int        g_rec_vu_r_smooth = 0;
 
 static void recorder_refresh_list(void);
 
@@ -2978,24 +3029,43 @@ static void recorder_refresh_list(void)
 static void rec_btn_cb(lv_event_t *e)
 {
     (void)e;
-    ESP_LOGI(TAG, "rec_btn: clicked, blocked=%d recording=%d",
+    ESP_LOGI(TAG, "rec_btn tap: blocked=%d recording=%d",
              (int)menu_input_blocked(), (int)recorder_is_recording());
     if (menu_input_blocked()) return;
     if (recorder_is_recording()) {
         esp_err_t r = recorder_stop();
-        ESP_LOGI(TAG, "rec_btn: stop -> %s", esp_err_to_name(r));
-        recorder_refresh_list();
+        ESP_LOGI(TAG, "rec_btn stop -> %s", esp_err_to_name(r));
+        recorder_refresh_list();   /* no-op if overlay isn't open */
     } else {
         const char *path = NULL;
         esp_err_t r = recorder_start(&path);
-        ESP_LOGI(TAG, "rec_btn: start -> %s path=%s",
+        ESP_LOGI(TAG, "rec_btn start -> %s path=%s",
                  esp_err_to_name(r), path ? path : "(null)");
     }
+}
+
+static int peak_to_pct(uint16_t peak)
+{
+    if (peak == 0) return 0;
+    int log2v = 0;
+    uint32_t v = peak;
+    while (v >>= 1) log2v++;          /* log2(32767) ~= 15 */
+    int t = (log2v * 100) / 15;
+    return t > 100 ? 100 : t;
 }
 
 static void rec_poll_cb(lv_timer_t *t)
 {
     (void)t;
+    /* Retry monitor start: at boot time the radio engine is warmed
+       *after* show_main_ui, so build_recorder_tile's first call to
+       recorder_monitor_start() fails (radio engine not yet up). The
+       worker is what feeds peak data to the VU; without it the bars
+       sit at zero. recorder_monitor_start is idempotent. */
+    static bool s_monitor_running = false;
+    if (!s_monitor_running) {
+        if (recorder_monitor_start() == ESP_OK) s_monitor_running = true;
+    }
     bool recording = recorder_is_recording();
     if (g_rec_btn_lbl) {
         lv_label_set_text(g_rec_btn_lbl, recording ? LV_SYMBOL_STOP : "REC");
@@ -3008,113 +3078,115 @@ static void rec_poll_cb(lv_timer_t *t)
             lv_label_set_text(g_rec_status, "Idle");
         }
     }
-    /* VU meter: drive an lv_bar from peak abs sample. Decay slowly when
-       silent so the bar doesn't strobe. Mapping log2(peak) instead of
-       linear because mic input is logarithmic to the ear. */
-    if (g_rec_vu_bar) {
-        int target = 0;
-        if (recording) {
-            uint16_t peak = recorder_peak_level();   /* 0..32767 */
-            if (peak > 0) {
-                /* log2(32767) ~= 15. Scale 0..15 -> 0..100. */
-                int log2v = 0;
-                uint32_t v = peak;
-                while (v >>= 1) log2v++;
-                target = (log2v * 100) / 15;
-                if (target > 100) target = 100;
-            }
-        }
-        if (target > g_rec_vu_smoothed) g_rec_vu_smoothed = target;
-        else g_rec_vu_smoothed = (g_rec_vu_smoothed * 7 + target) / 8;
-        lv_bar_set_value(g_rec_vu_bar, g_rec_vu_smoothed, LV_ANIM_OFF);
-    }
-    /* SD info: gate on sdcard_is_mounted() so we don't drive a missing
-       or unmounted card with esp_vfs_fat_info on every poll -- that
-       triggers a hardware retry that floods serial with sdmmc errors
-       and starves LVGL until the card comes back. */
-    if (g_rec_sd_lbl) {
-        if (sdcard_is_mounted()) {
-            uint64_t total = 0, free = 0;
-            if (esp_vfs_fat_info("/sdcard", &total, &free) == ESP_OK && total > 0) {
-                lv_label_set_text_fmt(g_rec_sd_lbl, "SD %llu/%llu MB",
-                                      (unsigned long long)(free / (1024 * 1024)),
-                                      (unsigned long long)(total / (1024 * 1024)));
-            } else {
-                lv_label_set_text(g_rec_sd_lbl, "SD: read err");
-            }
-        } else {
-            lv_label_set_text(g_rec_sd_lbl, "SD: not present");
-        }
+    /* Stereo L/R VU. Monitor mode keeps the codec read loop alive
+       whether recording or not. Smooth with peak-attack / slow-decay. */
+    uint16_t pl = 0, pr = 0;
+    recorder_peak_lr(&pl, &pr);
+    int tl = peak_to_pct(pl);
+    int tr = peak_to_pct(pr);
+    if (tl > g_rec_vu_l_smooth) g_rec_vu_l_smooth = tl;
+    else g_rec_vu_l_smooth = (g_rec_vu_l_smooth * 7 + tl) / 8;
+    if (tr > g_rec_vu_r_smooth) g_rec_vu_r_smooth = tr;
+    else g_rec_vu_r_smooth = (g_rec_vu_r_smooth * 7 + tr) / 8;
+    if (g_rec_vu_l) lv_bar_set_value(g_rec_vu_l, g_rec_vu_l_smooth, LV_ANIM_OFF);
+    if (g_rec_vu_r) lv_bar_set_value(g_rec_vu_r, g_rec_vu_r_smooth, LV_ANIM_OFF);
+}
+
+static void rec_list_close_cb(lv_event_t *e)
+{
+    (void)e;
+    if (g_rec_list_overlay) {
+        lv_obj_del(g_rec_list_overlay);
+        g_rec_list_overlay = NULL;
+        g_rec_list = NULL;
     }
 }
 
-static void build_recorder_tile(lv_obj_t *parent)
+static void rec_list_open_cb(lv_event_t *e)
 {
-    lv_obj_set_style_bg_color(parent, lv_color_make(0x10, 0x10, 0x18), 0);
-    lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
-    lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_pad_all(parent, 0, 0);
+    (void)e;
+    if (menu_input_blocked()) return;
+    if (g_rec_list_overlay || !g_rec_tile) return;
+    /* Full-tile overlay: created on top of the recorder tile, deleted
+       on Back. Same parent so swipe gestures still travel back through
+       the tileview. */
+    g_rec_list_overlay = lv_obj_create(g_rec_tile);
+    lv_obj_remove_style_all(g_rec_list_overlay);
+    lv_obj_set_size(g_rec_list_overlay, lv_pct(100), lv_pct(100));
+    lv_obj_set_style_bg_color(g_rec_list_overlay, lv_color_make(0x10, 0x10, 0x18), 0);
+    lv_obj_set_style_bg_opa(g_rec_list_overlay, LV_OPA_COVER, 0);
+    lv_obj_clear_flag(g_rec_list_overlay, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(g_rec_list_overlay, 4, 0);
 
-    /* Left column: list of recordings (60% width). */
-    g_rec_list = lv_obj_create(parent);
+    lv_obj_t *back = lv_btn_create(g_rec_list_overlay);
+    lv_obj_set_size(back, 56, 22);
+    lv_obj_align(back, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_set_style_bg_color(back, lv_color_make(0x40, 0x40, 0x60), 0);
+    lv_obj_t *bl = lv_label_create(back);
+    lv_label_set_text(bl, LV_SYMBOL_LEFT " Back");
+    lv_obj_set_style_text_color(bl, lv_color_white(), 0);
+    lv_obj_set_style_text_font(bl, i18n_font(), 0);
+    lv_obj_center(bl);
+    lv_obj_add_event_cb(back, rec_list_close_cb, LV_EVENT_CLICKED, NULL);
+
+    g_rec_list = lv_obj_create(g_rec_list_overlay);
     lv_obj_remove_style_all(g_rec_list);
-    lv_obj_set_size(g_rec_list, lv_pct(60), lv_pct(100));
-    lv_obj_align(g_rec_list, LV_ALIGN_LEFT_MID, 0, 0);
+    /* Fill the overlay below the back bar (back is 22 px + 4 px pad). */
+    lv_obj_set_size(g_rec_list, lv_pct(100), lv_pct(85));
+    lv_obj_align(g_rec_list, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_set_layout(g_rec_list, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(g_rec_list, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_row(g_rec_list, 2, 0);
     lv_obj_set_style_pad_all(g_rec_list, 4, 0);
-    lv_obj_set_style_bg_color(g_rec_list, lv_color_make(0x10, 0x10, 0x18), 0);
-    lv_obj_set_style_bg_opa(g_rec_list, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_opa(g_rec_list, LV_OPA_TRANSP, 0);
     lv_obj_set_scroll_dir(g_rec_list, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(g_rec_list, LV_SCROLLBAR_MODE_AUTO);
     recorder_refresh_list();
+}
 
-    /* Right column: status + record button. */
-    lv_obj_t *side = lv_obj_create(parent);
-    lv_obj_remove_style_all(side);
-    lv_obj_set_size(side, lv_pct(38), lv_pct(100));
-    lv_obj_align(side, LV_ALIGN_RIGHT_MID, 0, 0);
-    lv_obj_set_style_bg_color(side, lv_color_make(0x18, 0x18, 0x24), 0);
-    lv_obj_set_style_bg_opa(side, LV_OPA_COVER, 0);
-    lv_obj_clear_flag(side, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_pad_all(side, 6, 0);
+static void build_recorder_tile(lv_obj_t *parent)
+{
+    g_rec_tile = parent;
+    lv_obj_set_style_bg_color(parent, lv_color_make(0x10, 0x10, 0x18), 0);
+    lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
+    lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(parent, 4, 0);
 
-    lv_obj_t *header = lv_label_create(side);
-    lv_label_set_text(header, LV_SYMBOL_AUDIO "  Recorder");
-    lv_obj_set_style_text_color(header, lv_color_make(0xa0, 0xa0, 0xc0), 0);
-    lv_obj_set_style_text_font(header, i18n_font(), 0);
-    lv_obj_align(header, LV_ALIGN_TOP_LEFT, 0, 0);
+    /* Tile is 172 px wide (rotated) x 640 px tall in our LVGL coord
+       system. Layout from top: status, REC button, recordings button,
+       VU at the very bottom. */
 
-    g_rec_status = lv_label_create(side);
+    /* The display is rotated landscape: 640 wide x 172 tall. We lay
+       the recorder tile out left -> right:
+         [ status + Recordings button ]   [ big REC ]   [ L/R VU ]
+       Status text is on the left.
+       REC button is in the center.
+       L/R VU stacked on the right. */
+
+    /* Left column: status + recordings button. */
+    g_rec_status = lv_label_create(parent);
     lv_label_set_text(g_rec_status, "Idle");
     lv_obj_set_style_text_color(g_rec_status, lv_color_white(), 0);
     lv_obj_set_style_text_font(g_rec_status, i18n_font(), 0);
-    lv_obj_align(g_rec_status, LV_ALIGN_LEFT_MID, 0, -10);
+    lv_obj_align(g_rec_status, LV_ALIGN_LEFT_MID, 12, -32);
 
-    g_rec_sd_lbl = lv_label_create(side);
-    lv_label_set_text(g_rec_sd_lbl, "SD ?/?");
-    lv_obj_set_style_text_color(g_rec_sd_lbl, lv_color_make(0xa0, 0xa0, 0xa0), 0);
-    lv_obj_set_style_text_font(g_rec_sd_lbl, i18n_font(), 0);
-    lv_obj_align(g_rec_sd_lbl, LV_ALIGN_LEFT_MID, 0, 12);
+    lv_obj_t *list_btn = lv_btn_create(parent);
+    lv_obj_set_size(list_btn, 150, 36);
+    lv_obj_align(list_btn, LV_ALIGN_LEFT_MID, 12, 24);
+    lv_obj_set_style_bg_color(list_btn, lv_color_make(0x40, 0x40, 0x60), 0);
+    lv_obj_t *lbl = lv_label_create(list_btn);
+    lv_label_set_text(lbl, "Recordings " LV_SYMBOL_RIGHT);
+    lv_obj_set_style_text_color(lbl, lv_color_white(), 0);
+    lv_obj_set_style_text_font(lbl, i18n_font(), 0);
+    lv_obj_center(lbl);
+    lv_obj_add_event_cb(list_btn, rec_list_open_cb, LV_EVENT_CLICKED, NULL);
 
-    /* VU meter: a thin lv_bar across the bottom of the side column,
-       above the REC button. Green track, the indicator color stays
-       green even at clip (we don't have headroom warning yet). */
-    g_rec_vu_bar = lv_bar_create(side);
-    lv_obj_set_size(g_rec_vu_bar, lv_pct(100), 8);
-    lv_obj_align(g_rec_vu_bar, LV_ALIGN_BOTTOM_LEFT, 0, -60);
-    lv_bar_set_range(g_rec_vu_bar, 0, 100);
-    lv_bar_set_value(g_rec_vu_bar, 0, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(g_rec_vu_bar, lv_color_make(0x30, 0x30, 0x30), 0);
-    lv_obj_set_style_bg_color(g_rec_vu_bar, lv_color_make(0x30, 0xc0, 0x40), LV_PART_INDICATOR);
-    lv_obj_set_style_radius(g_rec_vu_bar, 2, 0);
-    lv_obj_set_style_radius(g_rec_vu_bar, 2, LV_PART_INDICATOR);
-
-    lv_obj_t *btn = lv_btn_create(side);
-    lv_obj_set_size(btn, 70, 50);
-    lv_obj_align(btn, LV_ALIGN_BOTTOM_RIGHT, 0, -4);
-    lv_obj_set_style_radius(btn, 8, 0);
+    /* Center: big round REC button. Tile is 172 px tall so the button
+       can be ~120 px without clipping; height is the constraint. */
+    lv_obj_t *btn = lv_btn_create(parent);
+    lv_obj_set_size(btn, 130, 130);
+    lv_obj_align(btn, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_radius(btn, 65, 0);
     lv_obj_set_style_bg_color(btn, lv_color_make(0xc0, 0x30, 0x30), 0);
     lv_obj_add_event_cb(btn, rec_btn_cb, LV_EVENT_CLICKED, NULL);
     g_rec_btn_lbl = lv_label_create(btn);
@@ -3123,9 +3195,47 @@ static void build_recorder_tile(lv_obj_t *parent)
     lv_obj_set_style_text_font(g_rec_btn_lbl, i18n_font(), 0);
     lv_obj_center(g_rec_btn_lbl);
 
+    /* Right side: stereo L/R VU stacked vertically.
+         L: ████████░░░░ (top bar)
+         R: ████████░░░░ (bottom bar)
+       Bars are normal LTR-fill. Width 130 px, fits comfortably in the
+       remaining ~150 px on the right. */
+    lv_obj_t *l_lbl = lv_label_create(parent);
+    lv_label_set_text(l_lbl, "L");
+    lv_obj_set_style_text_color(l_lbl, lv_color_make(0xa0, 0xa0, 0xa0), 0);
+    lv_obj_set_style_text_font(l_lbl, i18n_font(), 0);
+    lv_obj_align(l_lbl, LV_ALIGN_RIGHT_MID, -150, -22);
+
+    g_rec_vu_l = lv_bar_create(parent);
+    lv_obj_set_size(g_rec_vu_l, 130, 14);
+    lv_obj_align(g_rec_vu_l, LV_ALIGN_RIGHT_MID, -8, -22);
+    lv_bar_set_range(g_rec_vu_l, 0, 100);
+    lv_obj_set_style_bg_color(g_rec_vu_l, lv_color_make(0x30, 0x30, 0x30), 0);
+    lv_obj_set_style_bg_color(g_rec_vu_l, lv_color_make(0x30, 0xc0, 0x40), LV_PART_INDICATOR);
+    lv_obj_set_style_radius(g_rec_vu_l, 3, 0);
+    lv_obj_set_style_radius(g_rec_vu_l, 3, LV_PART_INDICATOR);
+
+    lv_obj_t *r_lbl = lv_label_create(parent);
+    lv_label_set_text(r_lbl, "R");
+    lv_obj_set_style_text_color(r_lbl, lv_color_make(0xa0, 0xa0, 0xa0), 0);
+    lv_obj_set_style_text_font(r_lbl, i18n_font(), 0);
+    lv_obj_align(r_lbl, LV_ALIGN_RIGHT_MID, -150, 22);
+
+    g_rec_vu_r = lv_bar_create(parent);
+    lv_obj_set_size(g_rec_vu_r, 130, 14);
+    lv_obj_align(g_rec_vu_r, LV_ALIGN_RIGHT_MID, -8, 22);
+    lv_bar_set_range(g_rec_vu_r, 0, 100);
+    lv_obj_set_style_bg_color(g_rec_vu_r, lv_color_make(0x30, 0x30, 0x30), 0);
+    lv_obj_set_style_bg_color(g_rec_vu_r, lv_color_make(0x30, 0xc0, 0x40), LV_PART_INDICATOR);
+    lv_obj_set_style_radius(g_rec_vu_r, 3, 0);
+    lv_obj_set_style_radius(g_rec_vu_r, 3, LV_PART_INDICATOR);
+
     if (!g_rec_poll) {
-        /* 100 ms poll: smooth VU motion, status updates still feel live. */
         g_rec_poll = lv_timer_create(rec_poll_cb, 100, NULL);
+    }
+    /* Live VU regardless of recording state. */
+    if (recorder_monitor_start() != ESP_OK) {
+        ESP_LOGW(TAG, "recorder monitor start failed");
     }
 }
 
