@@ -166,6 +166,10 @@ static void dim_timer_cb(lv_timer_t *t);
 /* Tileview-based UI: hello | clock (start) | sunmap. Swipe horizontally. */
 static lv_obj_t  *g_tileview         = NULL;
 static lv_obj_t  *g_clock_time_label = NULL;
+/* Tiny IP-address tag pinned to the bottom-left corner whenever Wi-Fi
+   is connected. Lives on lv_layer_top so it floats above every tile.
+   Hidden when disconnected. */
+static lv_obj_t  *g_ip_label = NULL;
 static lv_obj_t  *g_clock_ms_label   = NULL;
 static lv_obj_t  *g_clock_date_label = NULL;
 static lv_obj_t  *g_clock_tz_label   = NULL;
@@ -834,6 +838,41 @@ static bool cfg_get_ssid_pass(const char *ssid, char *pass, size_t pass_len)
     return er == ESP_OK;
 }
 
+/* ---------------------- IP overlay tag ---------------------- */
+
+/* Lazy-create the small IP label on lv_layer_top. Caller must hold
+   the lvgl mutex. Safe to call repeatedly. */
+static void ip_label_ensure(void)
+{
+    if (g_ip_label) return;
+    g_ip_label = lv_label_create(lv_layer_top());
+    lv_label_set_text(g_ip_label, "");
+    lv_obj_set_style_text_color(g_ip_label, lv_color_make(0xa0, 0xa0, 0xa0), 0);
+    lv_obj_set_style_text_font(g_ip_label, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_bg_color(g_ip_label, lv_color_make(0x00, 0x00, 0x00), 0);
+    lv_obj_set_style_bg_opa(g_ip_label, LV_OPA_50, 0);
+    lv_obj_set_style_pad_left(g_ip_label, 4, 0);
+    lv_obj_set_style_pad_right(g_ip_label, 4, 0);
+    lv_obj_set_style_pad_top(g_ip_label, 1, 0);
+    lv_obj_set_style_pad_bottom(g_ip_label, 1, 0);
+    lv_obj_set_style_radius(g_ip_label, 3, 0);
+    lv_obj_align(g_ip_label, LV_ALIGN_BOTTOM_LEFT, 2, -2);
+    lv_obj_add_flag(g_ip_label, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void ip_label_set(const char *text)
+{
+    if (!lvgl_lock(50)) return;
+    ip_label_ensure();
+    if (text && *text) {
+        lv_label_set_text(g_ip_label, text);
+        lv_obj_clear_flag(g_ip_label, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(g_ip_label, LV_OBJ_FLAG_HIDDEN);
+    }
+    lvgl_unlock();
+}
+
 /* ---------------------- Wi-Fi impl ---------------------- */
 
 static void wifi_event_handler(void *arg, esp_event_base_t base,
@@ -852,6 +891,8 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
                 ESP_LOGW(TAG, "wifi: disconnected reason=%u",
                          (unsigned)g_wifi_last_reason);
                 g_wifi_connected = false;
+                /* Hide the IP overlay tag while we're not associated. */
+                ip_label_set(NULL);
                 /* Auto-reconnect with backoff: try once if we have a target
                    SSID configured AND we're not in the middle of a user-
                    initiated scan (scan can't run if a connect is racing). */
@@ -902,6 +943,11 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
         ESP_LOGI(TAG, "wifi: got IP " IPSTR, IP2STR(&ev->ip_info.ip));
         /* Start SNTP once we actually have routable network. */
         sntp_start_once();
+        /* Pin the IP at the bottom-left so the user knows the webui URL
+           without grabbing the CLI. */
+        char buf[40];
+        snprintf(buf, sizeof(buf), IPSTR, IP2STR(&ev->ip_info.ip));
+        ip_label_set(buf);
     }
 }
 
