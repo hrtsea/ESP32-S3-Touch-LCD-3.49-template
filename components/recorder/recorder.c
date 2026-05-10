@@ -18,33 +18,26 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <errno.h>
 #include <sys/stat.h>
 #include <dirent.h>
 #include <time.h>
 #include <sys/time.h>
 
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/idf_additions.h"
 #include "freertos/semphr.h"
-
-#include "driver/i2s_std.h"
 
 #include "esp_codec_dev_defaults.h"
 #include "esp_codec_dev.h"
 
-#include "i2c_bsp.h"
 #include "recorder.h"
+#include "radio.h"
 
 static const char *TAG = "recorder";
-
-/* Same wiring as the radio engine and audio_min. */
-#define PIN_I2S_MCLK   GPIO_NUM_7
-#define PIN_I2S_BCLK   GPIO_NUM_15
-#define PIN_I2S_LRCK   GPIO_NUM_46
-#define PIN_I2S_DOUT   GPIO_NUM_45
-#define PIN_I2S_DIN    GPIO_NUM_6
-#define ES8311_I2C_ADDR 0x30
 
 #define REC_DIR        "/sdcard/recordings"
 /* Match the radio engine's clock so the shared I2S BCLK isn't fought
@@ -55,7 +48,6 @@ static const char *TAG = "recorder";
 #define REC_CHANNELS   1
 #define REC_CHUNK      1024  /* PCM samples per read iteration (mono) */
 
-static i2s_chan_handle_t        s_i2s_rx     = NULL;
 static esp_codec_dev_handle_t   s_codec_in   = NULL;
 static volatile bool            s_recording  = false;
 static volatile bool            s_init_done  = false;
@@ -64,6 +56,9 @@ static uint32_t                 s_pcm_bytes  = 0;
 static uint32_t                 s_started_ms = 0;
 static char                     s_cur_path[96] = {0};
 static TaskHandle_t             s_worker     = NULL;
+/* VU meter: peak abs sample seen since the UI last read it. The worker
+   updates this on every chunk; recorder_peak_level() reads-and-resets. */
+static volatile uint16_t        s_peak       = 0;
 
 static void wav_write_header(FILE *f, uint32_t pcm_bytes,
                              uint32_t rate, uint16_t bits, uint16_t channels)
@@ -93,8 +88,27 @@ static void recorder_task(void *arg)
     int16_t *buf = malloc(REC_CHUNK * sizeof(int16_t));
     if (!buf) { ESP_LOGE(TAG, "no mem for chunk"); s_recording = false; vTaskDelete(NULL); return; }
     while (s_recording) {
-        int n = esp_codec_dev_read(s_codec_in, buf, REC_CHUNK * sizeof(int16_t));
-        if (n <= 0) { vTaskDelay(pdMS_TO_TICKS(2)); continue; }
+        /* esp_codec_dev_read returns 0 on success and the byte count is
+           filled in via the bytes parameter being equal to what we asked.
+           Some IDF versions return the byte count directly. Treat any
+           negative value as failure, anything else as a full read of the
+           requested size. */
+        int rc = esp_codec_dev_read(s_codec_in, buf, REC_CHUNK * sizeof(int16_t));
+        if (rc != 0 && rc != REC_CHUNK * (int)sizeof(int16_t)) {
+            ESP_LOGW(TAG, "codec_read rc=%d", rc);
+            vTaskDelay(pdMS_TO_TICKS(5));
+            continue;
+        }
+        int n = REC_CHUNK * sizeof(int16_t);
+        /* Track peak sample for the VU meter. Doing it here (per-chunk,
+           on the recording task) keeps the UI poll cheap. */
+        uint16_t peak = 0;
+        for (int i = 0; i < REC_CHUNK; i++) {
+            int s = buf[i];
+            if (s < 0) s = -s;
+            if (s > peak) peak = (uint16_t)s;
+        }
+        if (peak > s_peak) s_peak = peak;
         if (s_fp) {
             size_t w = fwrite(buf, 1, n, s_fp);
             if (w == (size_t)n) s_pcm_bytes += n;
@@ -102,7 +116,9 @@ static void recorder_task(void *arg)
     }
     free(buf);
     s_worker = NULL;
-    vTaskDelete(NULL);
+    /* Pair with xTaskCreatePinnedToCoreWithCaps so the PSRAM stack is
+       freed too. Plain vTaskDelete would leak it. */
+    vTaskDeleteWithCaps(NULL);
 }
 
 esp_err_t recorder_init(void)
@@ -110,56 +126,28 @@ esp_err_t recorder_init(void)
     if (s_init_done) return ESP_OK;
     mkdir(REC_DIR, 0775);
 
-    /* Bring up an I2S RX channel on port 0. We share the BCLK/LRCK lines
-       with the radio's TX pair (codec is the slave; same clock). */
-    i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
-    chan_cfg.dma_desc_num  = 4;
-    chan_cfg.dma_frame_num = 240;
-    /* Note: the radio engine already created a TX channel on this port.
-       i2s_new_channel with NULL for the other direction allocates only
-       the RX side without disturbing TX. */
-    esp_err_t er = i2s_new_channel(&chan_cfg, NULL, &s_i2s_rx);
-    if (er != ESP_OK) { ESP_LOGE(TAG, "i2s_new_channel(rx): %s", esp_err_to_name(er)); return er; }
-
-    i2s_std_config_t std_cfg = {
-        .clk_cfg  = I2S_STD_CLK_DEFAULT_CONFIG(REC_RATE),
-        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT,
-                                                       I2S_SLOT_MODE_MONO),
-        .gpio_cfg = {
-            .mclk = PIN_I2S_MCLK,
-            .bclk = PIN_I2S_BCLK,
-            .ws   = PIN_I2S_LRCK,
-            .dout = I2S_GPIO_UNUSED,
-            .din  = PIN_I2S_DIN,
-        },
-    };
-    std_cfg.clk_cfg.mclk_multiple = I2S_MCLK_MULTIPLE_256;
-    er = i2s_channel_init_std_mode(s_i2s_rx, &std_cfg);
-    if (er != ESP_OK) { ESP_LOGE(TAG, "i2s_init_std rx: %s", esp_err_to_name(er)); return er; }
-    er = i2s_channel_enable(s_i2s_rx);
-    if (er != ESP_OK) { ESP_LOGE(TAG, "i2s_enable rx: %s", esp_err_to_name(er)); return er; }
-
-    audio_codec_i2c_cfg_t i2c_cfg = {
-        .addr       = ES8311_I2C_ADDR,
-        .bus_handle = esp_i2c_bus_handle,
-    };
-    const audio_codec_ctrl_if_t *ctrl_if = audio_codec_new_i2c_ctrl(&i2c_cfg);
-    if (!ctrl_if) return ESP_FAIL;
-
-    audio_codec_i2s_cfg_t i2s_cfg = {
-        .port      = I2S_NUM_0,
-        .rx_handle = s_i2s_rx,
-        .tx_handle = NULL,
-    };
-    const audio_codec_data_if_t *data_if = audio_codec_new_i2s_data(&i2s_cfg);
-    if (!data_if) return ESP_FAIL;
+    /* Reuse the radio engine's RX channel + codec interfaces. The radio
+       already allocated I2S TX+RX as a duplex pair and put ES8311 in
+       BOTH (DAC+ADC) mode. Allocating a second I2S channel or a second
+       ES8311 codec instance here would race with the radio over the
+       same I2C device and the same I2S controller. */
+    void *rx = radio_get_i2s_rx_handle();
+    void *ctrl_if_v = radio_get_codec_ctrl_if();
+    void *data_if_in_v = radio_get_codec_data_if_in();
+    if (!rx || !ctrl_if_v || !data_if_in_v) {
+        ESP_LOGE(TAG, "radio engine not up (rx=%p ctrl=%p data=%p)",
+                 rx, ctrl_if_v, data_if_in_v);
+        return ESP_ERR_INVALID_STATE;
+    }
+    const audio_codec_ctrl_if_t *ctrl_if = (const audio_codec_ctrl_if_t *)ctrl_if_v;
+    const audio_codec_data_if_t *data_if = (const audio_codec_data_if_t *)data_if_in_v;
 
     es8311_codec_cfg_t es_cfg = {
-        .ctrl_if    = ctrl_if,
-        .gpio_if    = audio_codec_new_gpio(),
-        .codec_mode = ESP_CODEC_DEV_WORK_MODE_ADC,
+        .ctrl_if     = ctrl_if,
+        .gpio_if     = audio_codec_new_gpio(),
+        .codec_mode  = ESP_CODEC_DEV_WORK_MODE_BOTH,
         .master_mode = false,
-        .use_mclk   = true,
+        .use_mclk    = true,
     };
     const audio_codec_if_t *codec_if = es8311_codec_new(&es_cfg);
     if (!codec_if) return ESP_FAIL;
@@ -182,7 +170,7 @@ esp_err_t recorder_init(void)
     if (rc != ESP_CODEC_DEV_OK) { ESP_LOGE(TAG, "codec_dev_open(in): %d", rc); return ESP_FAIL; }
 
     s_init_done = true;
-    ESP_LOGI(TAG, "recorder ready");
+    ESP_LOGI(TAG, "recorder ready (sharing radio's I2S RX + codec)");
     return ESP_OK;
 }
 
@@ -202,7 +190,18 @@ esp_err_t recorder_start(const char **out_path)
              tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
              tm.tm_hour, tm.tm_min, tm.tm_sec);
     s_fp = fopen(s_cur_path, "wb");
-    if (!s_fp) { ESP_LOGE(TAG, "fopen %s failed", s_cur_path); return ESP_FAIL; }
+    if (!s_fp) {
+        ESP_LOGE(TAG, "fopen %s failed: %s", s_cur_path, strerror(errno));
+        /* Try ensuring the directory exists; first-boot ordering or a
+           previous failed mount may have left it missing. */
+        mkdir(REC_DIR, 0775);
+        s_fp = fopen(s_cur_path, "wb");
+        if (!s_fp) {
+            ESP_LOGE(TAG, "fopen retry: %s", strerror(errno));
+            return ESP_FAIL;
+        }
+        ESP_LOGI(TAG, "fopen retry ok");
+    }
     /* Reserve space for the header; we patch it on stop. */
     s_pcm_bytes = 0;
     wav_write_header(s_fp, 0, REC_RATE, REC_BITS, REC_CHANNELS);
@@ -210,9 +209,15 @@ esp_err_t recorder_start(const char **out_path)
     s_started_ms = (uint32_t)(esp_log_timestamp());
     s_recording  = true;
     if (!s_worker) {
-        BaseType_t r = xTaskCreatePinnedToCore(recorder_task, "recorder",
-                                               4 * 1024, NULL, 5, &s_worker, 1);
+        /* Internal RAM is fragmented after LVGL is up; a 4KB internal-RAM
+           stack alloc fails with rc=-1. Use *WithCaps to put the stack
+           in PSRAM, which has plenty of room. The TCB stays in internal
+           RAM (required by FreeRTOS). */
+        BaseType_t r = xTaskCreatePinnedToCoreWithCaps(
+            recorder_task, "recorder", 4 * 1024, NULL, 5, &s_worker, 1,
+            MALLOC_CAP_SPIRAM);
         if (r != pdPASS) {
+            ESP_LOGE(TAG, "xTaskCreate recorder rc=%d", (int)r);
             s_recording = false;
             fclose(s_fp); s_fp = NULL;
             return ESP_FAIL;
@@ -292,4 +297,11 @@ esp_err_t recorder_delete(const char *name)
     char p[96];
     recorder_full_path(p, sizeof(p), name);
     return (remove(p) == 0) ? ESP_OK : ESP_FAIL;
+}
+
+uint16_t recorder_peak_level(void)
+{
+    uint16_t v = s_peak;
+    s_peak = 0;
+    return v;
 }

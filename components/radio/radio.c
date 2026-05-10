@@ -34,7 +34,10 @@ static const char *TAG = "radio";
 #define ES8311_I2C_ADDR 0x30
 
 static i2s_chan_handle_t       s_i2s_tx     = NULL;
+static i2s_chan_handle_t       s_i2s_rx     = NULL;   /* shared with recorder */
 static esp_codec_dev_handle_t  s_codec      = NULL;
+static const audio_codec_ctrl_if_t *s_ctrl_if = NULL;     /* shared */
+static const audio_codec_data_if_t *s_data_if_in = NULL;  /* shared */
 static esp_asp_handle_t        s_player     = NULL;
 static volatile esp_asp_state_t s_state     = ESP_ASP_STATE_NONE;
 static int                     s_cur_idx    = -1;
@@ -101,11 +104,15 @@ esp_err_t radio_init(void)
         return ESP_OK;
     }
 
-    ESP_LOGI(TAG, "init step 1/8: i2s_new_channel");
+    ESP_LOGI(TAG, "init step 1/8: i2s_new_channel (TX+RX duplex)");
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     chan_cfg.dma_desc_num  = 6;
     chan_cfg.dma_frame_num = 240;
-    esp_err_t er = i2s_new_channel(&chan_cfg, &s_i2s_tx, NULL);
+    /* Allocate TX *and* RX in the same call. Doing this here once means
+       the recorder can reuse s_i2s_rx without fighting the I2S driver
+       for "controller occupied" errors, and both directions share the
+       same BCLK/LRCK pair. */
+    esp_err_t er = i2s_new_channel(&chan_cfg, &s_i2s_tx, &s_i2s_rx);
     if (er != ESP_OK) { ESP_LOGE(TAG, "i2s_new_channel: %s", esp_err_to_name(er)); return er; }
 
     ESP_LOGI(TAG, "init step 2/8: i2s_channel_init_std_mode @ 44100");
@@ -123,9 +130,13 @@ esp_err_t radio_init(void)
     };
     std_cfg.clk_cfg.mclk_multiple = I2S_MCLK_MULTIPLE_256;
     er = i2s_channel_init_std_mode(s_i2s_tx, &std_cfg);
-    if (er != ESP_OK) { ESP_LOGE(TAG, "i2s_init_std: %s", esp_err_to_name(er)); return er; }
+    if (er != ESP_OK) { ESP_LOGE(TAG, "i2s_init_std tx: %s", esp_err_to_name(er)); return er; }
+    er = i2s_channel_init_std_mode(s_i2s_rx, &std_cfg);
+    if (er != ESP_OK) { ESP_LOGE(TAG, "i2s_init_std rx: %s", esp_err_to_name(er)); return er; }
     er = i2s_channel_enable(s_i2s_tx);
-    if (er != ESP_OK) { ESP_LOGE(TAG, "i2s_enable: %s", esp_err_to_name(er)); return er; }
+    if (er != ESP_OK) { ESP_LOGE(TAG, "i2s_enable tx: %s", esp_err_to_name(er)); return er; }
+    er = i2s_channel_enable(s_i2s_rx);
+    if (er != ESP_OK) { ESP_LOGE(TAG, "i2s_enable rx: %s", esp_err_to_name(er)); return er; }
 
     ESP_LOGI(TAG, "init step 3/8: audio_codec_new_i2c_ctrl bus=%p addr=0x%02x",
              esp_i2c_bus_handle, ES8311_I2C_ADDR);
@@ -133,23 +144,30 @@ esp_err_t radio_init(void)
         .addr    = ES8311_I2C_ADDR,
         .bus_handle = esp_i2c_bus_handle,
     };
-    const audio_codec_ctrl_if_t *ctrl_if = audio_codec_new_i2c_ctrl(&i2c_cfg);
-    if (!ctrl_if) { ESP_LOGE(TAG, "i2c ctrl create failed"); return ESP_FAIL; }
+    s_ctrl_if = audio_codec_new_i2c_ctrl(&i2c_cfg);
+    if (!s_ctrl_if) { ESP_LOGE(TAG, "i2c ctrl create failed"); return ESP_FAIL; }
 
-    ESP_LOGI(TAG, "init step 4/8: audio_codec_new_i2s_data");
-    audio_codec_i2s_cfg_t i2s_cfg = {
+    ESP_LOGI(TAG, "init step 4/8: audio_codec_new_i2s_data (TX) + (RX)");
+    audio_codec_i2s_cfg_t i2s_cfg_tx = {
         .port      = I2S_NUM_0,
         .tx_handle = s_i2s_tx,
         .rx_handle = NULL,
     };
-    const audio_codec_data_if_t *data_if = audio_codec_new_i2s_data(&i2s_cfg);
-    if (!data_if) { ESP_LOGE(TAG, "i2s data create failed"); return ESP_FAIL; }
+    const audio_codec_data_if_t *data_if = audio_codec_new_i2s_data(&i2s_cfg_tx);
+    if (!data_if) { ESP_LOGE(TAG, "i2s data create (tx) failed"); return ESP_FAIL; }
+    audio_codec_i2s_cfg_t i2s_cfg_rx = {
+        .port      = I2S_NUM_0,
+        .tx_handle = NULL,
+        .rx_handle = s_i2s_rx,
+    };
+    s_data_if_in = audio_codec_new_i2s_data(&i2s_cfg_rx);
+    if (!s_data_if_in) { ESP_LOGE(TAG, "i2s data create (rx) failed"); return ESP_FAIL; }
 
-    ESP_LOGI(TAG, "init step 5/8: es8311_codec_new");
+    ESP_LOGI(TAG, "init step 5/8: es8311_codec_new (DAC, recorder will reuse for ADC)");
     es8311_codec_cfg_t es_cfg = {
-        .ctrl_if   = ctrl_if,
+        .ctrl_if   = s_ctrl_if,
         .gpio_if   = audio_codec_new_gpio(),
-        .codec_mode = ESP_CODEC_DEV_WORK_MODE_DAC,
+        .codec_mode = ESP_CODEC_DEV_WORK_MODE_BOTH,
         .master_mode = false,
         .use_mclk  = true,
     };
@@ -298,3 +316,7 @@ void radio_set_volume(int v)
 }
 
 int radio_get_volume(void) { return s_volume; }
+
+void *radio_get_i2s_rx_handle(void)     { return (void *)s_i2s_rx; }
+void *radio_get_codec_ctrl_if(void)     { return (void *)s_ctrl_if; }
+void *radio_get_codec_data_if_in(void)  { return (void *)s_data_if_in; }

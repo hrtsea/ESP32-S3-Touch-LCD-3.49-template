@@ -38,6 +38,17 @@ int          radio_current_index(void);
 void         radio_set_volume(int vol_0_100);
 int          radio_get_volume(void);
 
+/* For the recorder: hand it the RX i2s channel + codec interfaces we
+   already created. ES8311 is one codec, one I2S port; allocating a
+   second instance from the recorder fights for the same I2C device
+   and the same I2S controller. Returns NULL/false until radio_init
+   has run. The handles are owned by radio.c. */
+struct i2s_chan_obj_t;
+typedef struct i2s_chan_obj_t *i2s_chan_handle_t_fwd;  /* opaque */
+void  *radio_get_i2s_rx_handle(void);
+void  *radio_get_codec_ctrl_if(void);
+void  *radio_get_codec_data_if_in(void);  /* IN-direction data_if */
+
 #ifdef __cplusplus
 }
 #endif

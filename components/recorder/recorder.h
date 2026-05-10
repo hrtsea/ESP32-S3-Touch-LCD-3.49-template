@@ -37,6 +37,12 @@ void        recorder_full_path(char *out, size_t cap, const char *name);
 /* Delete a file under /sdcard/recordings/<name>. */
 esp_err_t   recorder_delete(const char *name);
 
+/* Peak absolute sample seen since the last call (0..32767). Reading also
+   resets the internal peak so successive calls show fresh levels. Use
+   this to drive a VU meter from the UI. Returns 0 when not recording. */
+#include <stdint.h>
+uint16_t    recorder_peak_level(void);
+
 #ifdef __cplusplus
 }
 #endif

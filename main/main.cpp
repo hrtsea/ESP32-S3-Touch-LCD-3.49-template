@@ -2901,7 +2901,9 @@ static lv_obj_t *g_rec_status   = NULL;
 static lv_obj_t *g_rec_btn_lbl  = NULL;
 static lv_obj_t *g_rec_list     = NULL;
 static lv_obj_t *g_rec_sd_lbl   = NULL;   /* "SD: 12.4/30.0 GB" */
+static lv_obj_t *g_rec_vu_bar   = NULL;
 static lv_timer_t *g_rec_poll   = NULL;
+static int        g_rec_vu_smoothed = 0;  /* 0..100 with peak-decay */
 
 static void recorder_refresh_list(void);
 
@@ -2997,19 +2999,39 @@ static void rec_btn_cb(lv_event_t *e)
 static void rec_poll_cb(lv_timer_t *t)
 {
     (void)t;
+    bool recording = recorder_is_recording();
     if (g_rec_btn_lbl) {
-        lv_label_set_text(g_rec_btn_lbl,
-            recorder_is_recording() ? LV_SYMBOL_STOP : "REC");
+        lv_label_set_text(g_rec_btn_lbl, recording ? LV_SYMBOL_STOP : "REC");
     }
     if (g_rec_status) {
-        if (recorder_is_recording()) {
+        if (recording) {
             lv_label_set_text_fmt(g_rec_status, "Recording  %us",
                                   recorder_elapsed_s());
         } else {
             lv_label_set_text(g_rec_status, "Idle");
         }
     }
-    /* Refresh SD info ~once per second alongside the status. */
+    /* VU meter: drive an lv_bar from peak abs sample. Decay slowly when
+       silent so the bar doesn't strobe. Mapping log2(peak) instead of
+       linear because mic input is logarithmic to the ear. */
+    if (g_rec_vu_bar) {
+        int target = 0;
+        if (recording) {
+            uint16_t peak = recorder_peak_level();   /* 0..32767 */
+            if (peak > 0) {
+                /* log2(32767) ~= 15. Scale 0..15 -> 0..100. */
+                int log2v = 0;
+                uint32_t v = peak;
+                while (v >>= 1) log2v++;
+                target = (log2v * 100) / 15;
+                if (target > 100) target = 100;
+            }
+        }
+        if (target > g_rec_vu_smoothed) g_rec_vu_smoothed = target;
+        else g_rec_vu_smoothed = (g_rec_vu_smoothed * 7 + target) / 8;
+        lv_bar_set_value(g_rec_vu_bar, g_rec_vu_smoothed, LV_ANIM_OFF);
+    }
+    /* SD info: cheap to query, refresh every poll. */
     if (g_rec_sd_lbl) {
         uint64_t total = 0, free = 0;
         if (esp_vfs_fat_info("/sdcard", &total, &free) == ESP_OK && total > 0) {
@@ -3074,6 +3096,19 @@ static void build_recorder_tile(lv_obj_t *parent)
     lv_obj_set_style_text_font(g_rec_sd_lbl, i18n_font(), 0);
     lv_obj_align(g_rec_sd_lbl, LV_ALIGN_LEFT_MID, 0, 12);
 
+    /* VU meter: a thin lv_bar across the bottom of the side column,
+       above the REC button. Green track, the indicator color stays
+       green even at clip (we don't have headroom warning yet). */
+    g_rec_vu_bar = lv_bar_create(side);
+    lv_obj_set_size(g_rec_vu_bar, lv_pct(100), 8);
+    lv_obj_align(g_rec_vu_bar, LV_ALIGN_BOTTOM_LEFT, 0, -60);
+    lv_bar_set_range(g_rec_vu_bar, 0, 100);
+    lv_bar_set_value(g_rec_vu_bar, 0, LV_ANIM_OFF);
+    lv_obj_set_style_bg_color(g_rec_vu_bar, lv_color_make(0x30, 0x30, 0x30), 0);
+    lv_obj_set_style_bg_color(g_rec_vu_bar, lv_color_make(0x30, 0xc0, 0x40), LV_PART_INDICATOR);
+    lv_obj_set_style_radius(g_rec_vu_bar, 2, 0);
+    lv_obj_set_style_radius(g_rec_vu_bar, 2, LV_PART_INDICATOR);
+
     lv_obj_t *btn = lv_btn_create(side);
     lv_obj_set_size(btn, 70, 50);
     lv_obj_align(btn, LV_ALIGN_BOTTOM_RIGHT, 0, -4);
@@ -3087,7 +3122,8 @@ static void build_recorder_tile(lv_obj_t *parent)
     lv_obj_center(g_rec_btn_lbl);
 
     if (!g_rec_poll) {
-        g_rec_poll = lv_timer_create(rec_poll_cb, 500, NULL);
+        /* 100 ms poll: smooth VU motion, status updates still feel live. */
+        g_rec_poll = lv_timer_create(rec_poll_cb, 100, NULL);
     }
 }
 
