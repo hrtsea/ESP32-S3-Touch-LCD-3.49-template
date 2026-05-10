@@ -114,6 +114,16 @@ static void recorder_task(void *arg)
         return;
     }
     while (s_recording || s_monitor) {
+        /* When playback is active and we're only in monitor mode (not
+           actually recording to a file), back off the codec read loop.
+           The TDM I2S frame is shared between record_dev and play_dev,
+           and constantly reading from it while the player is writing
+           causes audible stutter and short-decode on playback. */
+        if (!s_recording && radio_is_playing()) {
+            s_peak_l = 0; s_peak_r = 0;
+            vTaskDelay(pdMS_TO_TICKS(50));
+            continue;
+        }
         int rc = esp_codec_dev_read(s_codec_in, buf, buf_bytes);
         if (rc != 0 && rc != buf_bytes) {
             ESP_LOGW(TAG, "codec_read rc=%d", rc);

@@ -2949,6 +2949,7 @@ static lv_obj_t *g_rec_vu_l         = NULL;   /* left bar (grows toward left) */
 static lv_obj_t *g_rec_vu_r         = NULL;   /* right bar (grows toward right) */
 static lv_obj_t *g_rec_list_overlay = NULL;
 static lv_obj_t *g_rec_list         = NULL;
+static lv_obj_t *g_rec_overlay_status = NULL;   /* "Playing ..." banner on the list overlay */
 static lv_timer_t *g_rec_poll       = NULL;
 static int        g_rec_vu_l_smooth = 0;
 static int        g_rec_vu_r_smooth = 0;
@@ -3110,9 +3111,18 @@ static void rec_poll_cb(lv_timer_t *t)
             }
             lv_label_set_text_fmt(g_rec_status, LV_SYMBOL_PLAY " Playing %s", base);
             lv_obj_set_style_text_color(g_rec_status, lv_color_make(0x40, 0xc0, 0xff), 0);
+            if (g_rec_overlay_status) {
+                lv_label_set_text_fmt(g_rec_overlay_status,
+                                      LV_SYMBOL_PLAY " Playing %s", base);
+                lv_obj_set_style_text_color(g_rec_overlay_status,
+                                            lv_color_make(0x40, 0xc0, 0xff), 0);
+            }
         } else {
             lv_label_set_text(g_rec_status, "Idle");
             lv_obj_set_style_text_color(g_rec_status, lv_color_white(), 0);
+            if (g_rec_overlay_status) {
+                lv_label_set_text(g_rec_overlay_status, "");
+            }
         }
     }
     /* Stereo L/R VU. Source flips between mic input and decoder
@@ -3158,6 +3168,7 @@ static void rec_list_close_cb(lv_event_t *e)
         lv_obj_del(g_rec_list_overlay);
         g_rec_list_overlay = NULL;
         g_rec_list = NULL;
+        g_rec_overlay_status = NULL;
     }
 }
 
@@ -3188,6 +3199,16 @@ static void rec_list_open_cb(lv_event_t *e)
     lv_obj_set_style_text_font(bl, i18n_font(), 0);
     lv_obj_center(bl);
     lv_obj_add_event_cb(back, rec_list_close_cb, LV_EVENT_CLICKED, NULL);
+
+    /* Now-playing banner pinned to the right of the Back button so the
+       user can see "Playing X" even with the list overlay covering the
+       main tile's status row. Updated by rec_poll_cb. */
+    g_rec_overlay_status = lv_label_create(g_rec_list_overlay);
+    lv_label_set_text(g_rec_overlay_status, "");
+    lv_obj_set_style_text_font(g_rec_overlay_status, &lv_font_montserrat_16, 0);
+    lv_obj_align(g_rec_overlay_status, LV_ALIGN_TOP_LEFT, 64, 2);
+    lv_label_set_long_mode(g_rec_overlay_status, LV_LABEL_LONG_SCROLL_CIRCULAR);
+    lv_obj_set_width(g_rec_overlay_status, canvas_w - 70);
 
     g_rec_list = lv_obj_create(g_rec_list_overlay);
     lv_obj_remove_style_all(g_rec_list);
