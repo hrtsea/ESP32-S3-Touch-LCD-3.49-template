@@ -44,6 +44,18 @@ extern void app_cfg_set_dim_off(int dim_s, int off_s);
 extern int  app_cfg_get_brightness(void);
 extern int  app_cfg_get_dim_s(void);
 extern int  app_cfg_get_off_s(void);
+/* Clock face customization. */
+extern int  app_cfg_get_clock_x(void);
+extern int  app_cfg_get_clock_y(void);
+extern int  app_cfg_get_clock_size(void);
+extern uint32_t app_cfg_get_clock_rgba(void);
+extern int  app_cfg_get_show_ms(void);
+extern void app_cfg_set_clock_pos(int x, int y);
+extern void app_cfg_set_clock_size(int sz);
+extern void app_cfg_set_clock_rgba(uint32_t rgba);
+extern void app_cfg_set_show_ms(int show);
+extern int  app_cfg_get_show_seconds(void);
+extern void app_cfg_set_show_seconds(int show);
 /* Snapshot the LCD framebuffer into the caller's buffer (RGB565,
    panel byte order). Returns bytes written or -1 on error. The
    snapshot is taken under the lvgl mutex so the BMP encoder doesn't
@@ -122,6 +134,24 @@ static const char k_index_html[] =
 " <label>refresh: <span id=rrl>1.0</span> s</label>\n"
 " <input id=rr type=range min=0.5 max=10 step=0.5 value=1>\n"
 "</section>\n"
+"<section><h2>Clock</h2>\n"
+" <label>size</label>\n"
+" <select id=cks><option value=0>XS</option><option value=1>S</option><option value=2>M</option><option value=3 selected>L</option></select>\n"
+" <label>show seconds</label>\n"
+" <input id=css type=checkbox>\n"
+" <label>show milliseconds</label>\n"
+" <input id=cms type=checkbox>\n"
+" <label>color</label>\n"
+" <input id=ckc type=color value='#ffffff'>\n"
+" <label>opacity: <span id=ckal>255</span></label>\n"
+" <input id=cka type=range min=0 max=255 value=255>\n"
+" <label>position (drag the box on the map)</label>\n"
+" <div id=ckmap style='position:relative;width:100%;max-width:640px;border:1px solid #555;background:#000;height:172px;overflow:hidden'>\n"
+"  <div id=ckbox style='position:absolute;border:2px solid #4af;background:rgba(60,180,255,.15);cursor:move;color:#fff;font:bold 14px sans-serif;text-align:center;line-height:1.1'>00:00:00</div>\n"
+" </div>\n"
+" <div class=meta>x=<span id=ckxv>0</span> y=<span id=ckyv>0</span> (offset from center)</div>\n"
+" <button id=ckcenter>Center</button>\n"
+"</section>\n"
 "<section><h2>Settings</h2>\n"
 " <label>brightness: <span id=brl>?</span></label>\n"
 " <input id=br type=range min=0 max=255>\n"
@@ -144,11 +174,36 @@ static const char k_index_html[] =
 "let rr=1.0;\n"
 "function f(p,o){return fetch(p,o).then(r=>r.json?r.json().catch(()=>{}):r)}\n"
 "function setIdle(id,v){let e=document.getElementById(id);if(e!==document.activeElement)e.value=v}\n"
+"let dragging=false,canvasW=640,canvasH=172;\n"
+"function sizePx(sz){return [80,180,260,360][sz]||360}\n"
+"function sizeH(sz){return [16,48,64,96][sz]||96}\n"
+"function applyClockUI(s){\n"
+" canvasW=s.canvas_w||640;canvasH=s.canvas_h||172;\n"
+" if(document.activeElement!==document.getElementById('cks'))document.getElementById('cks').value=s.clock_size;\n"
+" document.getElementById('cms').checked=!!s.show_ms;\n"
+" document.getElementById('css').checked=!!s.show_seconds;\n"
+" let r=(s.clock_rgba>>>24)&0xff,g=(s.clock_rgba>>>16)&0xff,b=(s.clock_rgba>>>8)&0xff,a=s.clock_rgba&0xff;\n"
+" if(document.activeElement!==document.getElementById('ckc'))\n"
+"  document.getElementById('ckc').value='#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');\n"
+" if(document.activeElement!==document.getElementById('cka')){document.getElementById('cka').value=a;document.getElementById('ckal').textContent=a}\n"
+" if(!dragging){positionBox(s.clock_x,s.clock_y,s.clock_size)}\n"
+" document.getElementById('ckxv').textContent=s.clock_x;document.getElementById('ckyv').textContent=s.clock_y;\n"
+"}\n"
+"function positionBox(x,y,sz){\n"
+" let m=document.getElementById('ckmap'),b=document.getElementById('ckbox');\n"
+" let mw=m.clientWidth,mh=m.clientHeight,sx=mw/canvasW,sy=mh/canvasH;\n"
+" let bw=sizePx(sz)*sx,bh=sizeH(sz)*sy;\n"
+" b.style.width=bw+'px';b.style.height=bh+'px';\n"
+" let cx=mw/2+x*sx,cy=mh/2+y*sy;\n"
+" b.style.left=(cx-bw/2)+'px';b.style.top=(cy-bh/2)+'px';\n"
+"}\n"
+"function pushClock(extra){let fd=new URLSearchParams();for(let k in extra)fd.append(k,extra[k]);fetch('/api/clock',{method:'POST',body:fd})}\n"
 "function pollState(){fetch('/api/state').then(r=>r.json()).then(s=>{\n"
 " setIdle('br',s.brightness);document.getElementById('brl').textContent=s.brightness;\n"
 " setIdle('vol',s.volume);document.getElementById('vl').textContent=s.volume;\n"
 " setIdle('ds',s.dim_s);document.getElementById('dl').textContent=s.dim_s;\n"
 " setIdle('os',s.off_s);document.getElementById('ol').textContent=s.off_s;\n"
+" applyClockUI(s);\n"
 " let pill='<span class=\"pill idle\">idle</span>';\n"
 " if(s.recording)pill='<span class=\"pill rec\">REC '+s.elapsed+'s</span>';\n"
 " else if(s.playing)pill='<span class=\"pill play\">Playing '+(s.uri||'').split('/').pop()+'</span>';\n"
@@ -165,6 +220,20 @@ static const char k_index_html[] =
 "document.getElementById('vol').oninput=e=>{document.getElementById('vl').textContent=e.target.value;pushCfg('volume',e.target.value)};\n"
 "document.getElementById('ds').oninput=e=>{document.getElementById('dl').textContent=e.target.value;pushCfg('dim_s',e.target.value)};\n"
 "document.getElementById('os').oninput=e=>{document.getElementById('ol').textContent=e.target.value;pushCfg('off_s',e.target.value)};\n"
+"document.getElementById('cks').onchange=e=>pushClock({size:e.target.value});\n"
+"document.getElementById('cms').onchange=e=>pushClock({show_ms:e.target.checked?1:0});\n"
+"document.getElementById('css').onchange=e=>pushClock({show_seconds:e.target.checked?1:0});\n"
+"document.getElementById('ckcenter').onclick=()=>pushClock({x:0,y:0});\n"
+"function rgbaFromInputs(){let h=document.getElementById('ckc').value;let r=parseInt(h.substr(1,2),16),g=parseInt(h.substr(3,2),16),b=parseInt(h.substr(5,2),16);let a=+document.getElementById('cka').value;return ((r<<24)|(g<<16)|(b<<8)|a)>>>0}\n"
+"document.getElementById('ckc').onchange=()=>pushClock({rgba:rgbaFromInputs()});\n"
+"document.getElementById('cka').oninput=e=>{document.getElementById('ckal').textContent=e.target.value;pushClock({rgba:rgbaFromInputs()})};\n"
+"(()=>{let m=document.getElementById('ckmap'),b=document.getElementById('ckbox'),sx,sy,startX,startY,boxX,boxY;\n"
+" function down(e){dragging=true;let t=(e.touches?e.touches[0]:e);let mw=m.clientWidth,mh=m.clientHeight;sx=mw/canvasW;sy=mh/canvasH;startX=t.clientX;startY=t.clientY;boxX=parseInt(b.style.left);boxY=parseInt(b.style.top);e.preventDefault()}\n"
+" function move(e){if(!dragging)return;let t=(e.touches?e.touches[0]:e);b.style.left=(boxX+t.clientX-startX)+'px';b.style.top=(boxY+t.clientY-startY)+'px';let mw=m.clientWidth,mh=m.clientHeight;let cx=parseInt(b.style.left)+b.clientWidth/2,cy=parseInt(b.style.top)+b.clientHeight/2;let x=Math.round((cx-mw/2)/sx),y=Math.round((cy-mh/2)/sy);document.getElementById('ckxv').textContent=x;document.getElementById('ckyv').textContent=y}\n"
+" function up(e){if(!dragging)return;dragging=false;let mw=m.clientWidth,mh=m.clientHeight;let cx=parseInt(b.style.left)+b.clientWidth/2,cy=parseInt(b.style.top)+b.clientHeight/2;let x=Math.round((cx-mw/2)/sx),y=Math.round((cy-mh/2)/sy);pushClock({x:x,y:y})}\n"
+" b.addEventListener('mousedown',down);window.addEventListener('mousemove',move);window.addEventListener('mouseup',up);\n"
+" b.addEventListener('touchstart',down);window.addEventListener('touchmove',move);window.addEventListener('touchend',up);\n"
+"})();\n"
 "document.getElementById('brec').onclick=()=>fetch('/api/rec/start',{method:'POST'}).then(loadList);\n"
 "document.getElementById('bstop').onclick=()=>fetch('/api/rec/stop',{method:'POST'}).then(loadList);\n"
 "document.getElementById('bpstop').onclick=()=>fetch('/api/stop',{method:'POST'});\n"
@@ -203,19 +272,28 @@ static esp_err_t h_state(httpd_req_t *r)
     uint16_t pl = playing ? pl_out : pl_in;
     uint16_t pr = playing ? pr_out : pr_in;
 
-    char json[512];
+    char json[640];
     int n = snprintf(json, sizeof(json),
         "{\"recording\":%d,\"elapsed\":%u,"
         "\"playing\":%d,\"uri\":\"%s\","
         "\"peak_l\":%u,\"peak_r\":%u,"
-        "\"brightness\":%d,\"volume\":%d,\"dim_s\":%d,\"off_s\":%d}",
+        "\"brightness\":%d,\"volume\":%d,\"dim_s\":%d,\"off_s\":%d,"
+        "\"clock_x\":%d,\"clock_y\":%d,\"clock_size\":%d,"
+        "\"clock_rgba\":%u,\"show_ms\":%d,\"show_seconds\":%d,"
+        "\"canvas_w\":640,\"canvas_h\":172}",
         (int)recording, recorder_elapsed_s(),
         (int)playing,   radio_current_uri() ? radio_current_uri() : "",
         (unsigned)pl, (unsigned)pr,
         app_cfg_get_brightness(),
         radio_get_volume(),
         app_cfg_get_dim_s(),
-        app_cfg_get_off_s());
+        app_cfg_get_off_s(),
+        app_cfg_get_clock_x(),
+        app_cfg_get_clock_y(),
+        app_cfg_get_clock_size(),
+        (unsigned)app_cfg_get_clock_rgba(),
+        app_cfg_get_show_ms(),
+        app_cfg_get_show_seconds());
     (void)n;
     return send_str(r, "application/json", json);
 }
@@ -281,6 +359,42 @@ static esp_err_t h_cfg(httpd_req_t *r)
         int dim_s = form_int(body, "dim_s", 0);
         int off_s = form_int(body, "off_s", 0);
         app_cfg_set_dim_off(dim_s, off_s);
+    }
+    return send_str(r, "application/json", "{\"ok\":true}");
+}
+
+/* ---------- /api/clock ---------- */
+
+/* form keys: x, y (pixel offset from screen center), size (0..3),
+   rgba (uint32), show_ms (0/1). Each is optional; missing keys leave
+   the corresponding cfg field unchanged. */
+static esp_err_t h_clock(httpd_req_t *r)
+{
+    char body[256];
+    int n = read_body(r, body, sizeof(body));
+    if (n <= 0) return send_str(r, "text/plain", "empty");
+    if (strstr(body, "x=") || strstr(body, "y=")) {
+        int x = form_int(body, "x", app_cfg_get_clock_x());
+        int y = form_int(body, "y", app_cfg_get_clock_y());
+        app_cfg_set_clock_pos(x, y);
+    }
+    if (strstr(body, "size=")) {
+        app_cfg_set_clock_size(form_int(body, "size", 3));
+    }
+    if (strstr(body, "rgba=")) {
+        /* form_int is signed int; rgba up to 0xFFFFFFFF needs unsigned
+           parse via strtoul. Find the value. */
+        const char *p = strstr(body, "rgba=");
+        if (p) {
+            unsigned long v = strtoul(p + 5, NULL, 0);
+            app_cfg_set_clock_rgba((uint32_t)v);
+        }
+    }
+    if (strstr(body, "show_ms=")) {
+        app_cfg_set_show_ms(form_int(body, "show_ms", 0));
+    }
+    if (strstr(body, "show_seconds=")) {
+        app_cfg_set_show_seconds(form_int(body, "show_seconds", 1));
     }
     return send_str(r, "application/json", "{\"ok\":true}");
 }
@@ -491,6 +605,7 @@ esp_err_t webui_start(void)
         { .uri = "/api/state",       .method = HTTP_GET,  .handler = h_state },
         { .uri = "/api/list",        .method = HTTP_GET,  .handler = h_list },
         { .uri = "/api/cfg",         .method = HTTP_POST, .handler = h_cfg },
+        { .uri = "/api/clock",       .method = HTTP_POST, .handler = h_clock },
         { .uri = "/api/rec/start",   .method = HTTP_POST, .handler = h_rec_start },
         { .uri = "/api/rec/stop",    .method = HTTP_POST, .handler = h_rec_stop },
         { .uri = "/api/play",        .method = HTTP_POST, .handler = h_play },

@@ -97,6 +97,14 @@ typedef struct {
     uint8_t  show_fps;      /* 1 = show FPS pill */
     uint8_t  wifi_autoconnect; /* 1 = auto-connect on boot */
     uint8_t  lang;             /* 0=en, 1=zh, 2=ja, 3=ko */
+    /* Clock-face customization (webui-driven). Position is the time
+       label's offset from screen center, in pixels. clock_size picks
+       a font tier (0=XS, 1=S, 2=M, 3=L). clock_rgba is packed RGBA;
+       alpha 0 falls back to white (so the legacy 0 default looks ok). */
+    int16_t  clock_x;
+    int16_t  clock_y;
+    uint8_t  clock_size;       /* 0..3 */
+    uint32_t clock_rgba;       /* 0xRRGGBBAA */
 } app_cfg_t;
 
 static app_cfg_t g_cfg = {
@@ -115,11 +123,16 @@ static app_cfg_t g_cfg = {
     .show_fps   = 1,
     .wifi_autoconnect = 1,
     .lang             = 0,
+    .clock_x          = -52,    /* historical default in build_clock_tile */
+    .clock_y          = 0,
+    .clock_size       = 3,      /* L = jbmono_96 */
+    .clock_rgba       = 0xFFFFFFFF,  /* white opaque */
 };
 
 static void cfg_load(void);
 static bool menu_input_blocked(void);
 static void recorder_refresh_list(void);
+static void clock_apply_layout(void);
 static void cfg_save(void);
 static void cfg_save_ssid_pass(const char *ssid, const char *pass);
 static bool cfg_get_ssid_pass(const char *ssid, char *pass, size_t pass_len);
@@ -749,6 +762,14 @@ static void cfg_load(void)
     nvs_get_u8 (h, "show_fps",  &sf);
     nvs_get_u8 (h, "wifi_ac",   &wac);
     nvs_get_u8 (h, "lang",      &lang);
+    /* Clock customization (added later -- missing = use defaults). */
+    int16_t  cx = g_cfg.clock_x, cy = g_cfg.clock_y;
+    uint8_t  cs = g_cfg.clock_size;
+    uint32_t crgba = g_cfg.clock_rgba;
+    nvs_get_i16(h, "clk_x",   &cx);
+    nvs_get_i16(h, "clk_y",   &cy);
+    nvs_get_u8 (h, "clk_sz",  &cs);
+    nvs_get_u32(h, "clk_rgba",&crgba);
     nvs_get_str(h, "last_ssid", g_cfg.last_ssid, &sl);
     nvs_close(h);
     if (tzi >= TZ_CITY_COUNT) tzi = TZ_DEFAULT_CITY_INDEX;
@@ -786,6 +807,13 @@ static void cfg_load(void)
     g_cfg.show_fps   = sf ? 1 : 0;
     g_cfg.wifi_autoconnect = wac ? 1 : 0;
     g_cfg.lang = lang;
+    if (cs > 3) cs = 3;
+    g_cfg.clock_x    = cx;
+    g_cfg.clock_y    = cy;
+    g_cfg.clock_size = cs;
+    /* If alpha is 0, treat as "use default white" rather than fully
+       transparent (a never-saved cfg defaults to 0). */
+    g_cfg.clock_rgba = ((crgba & 0xFF) == 0) ? 0xFFFFFFFFu : crgba;
 }
 
 static void cfg_save(void)
@@ -807,6 +835,10 @@ static void cfg_save(void)
     nvs_set_u8 (h, "lang",      g_cfg.lang);
     nvs_set_u16(h, "dim_s",     g_cfg.dim_s);
     nvs_set_u16(h, "off_s",     g_cfg.off_s);
+    nvs_set_i16(h, "clk_x",     g_cfg.clock_x);
+    nvs_set_i16(h, "clk_y",     g_cfg.clock_y);
+    nvs_set_u8 (h, "clk_sz",    g_cfg.clock_size);
+    nvs_set_u32(h, "clk_rgba",  g_cfg.clock_rgba);
     nvs_set_str(h, "last_ssid", g_cfg.last_ssid);
     nvs_commit(h);
     nvs_close(h);
@@ -1049,6 +1081,56 @@ extern "C" int  app_cfg_get_lang(void) { return g_cfg.lang; }
 extern "C" int  app_cfg_get_brightness(void) { return g_cfg.brightness; }
 extern "C" int  app_cfg_get_dim_s(void)      { return g_cfg.dim_s; }
 extern "C" int  app_cfg_get_off_s(void)      { return g_cfg.off_s; }
+
+/* Clock face: getters return the live cfg, setters apply + persist
+   and re-run clock_apply_layout so the change is visible immediately.
+   Bounds-check x/y to keep the label on-screen (the screen is 640x172
+   so these are generous to allow off-edge positioning if the user
+   really wants it). */
+extern "C" int  app_cfg_get_clock_x(void)    { return g_cfg.clock_x; }
+extern "C" int  app_cfg_get_clock_y(void)    { return g_cfg.clock_y; }
+extern "C" int  app_cfg_get_clock_size(void) { return g_cfg.clock_size; }
+extern "C" uint32_t app_cfg_get_clock_rgba(void) { return g_cfg.clock_rgba; }
+extern "C" int  app_cfg_get_show_ms(void)    { return g_cfg.show_ms; }
+extern "C" int  app_cfg_get_show_seconds(void) { return g_cfg.show_seconds; }
+extern "C" void app_cfg_set_show_seconds(int show)
+{
+    g_cfg.show_seconds = show ? 1 : 0;
+    cfg_save();
+    /* The clock_update_cb reads show_seconds each tick; no relayout
+       needed because the time label width changes naturally. */
+}
+extern "C" void app_cfg_set_clock_pos(int x, int y)
+{
+    if (x < -512) x = -512;
+    if (x >  512) x =  512;
+    if (y < -256) y = -256;
+    if (y >  256) y =  256;
+    g_cfg.clock_x = (int16_t)x;
+    g_cfg.clock_y = (int16_t)y;
+    if (lvgl_lock(50)) { clock_apply_layout(); lvgl_unlock(); }
+    cfg_save();
+}
+extern "C" void app_cfg_set_clock_size(int sz)
+{
+    if (sz < 0) sz = 0;
+    if (sz > 3) sz = 3;
+    g_cfg.clock_size = (uint8_t)sz;
+    if (lvgl_lock(50)) { clock_apply_layout(); lvgl_unlock(); }
+    cfg_save();
+}
+extern "C" void app_cfg_set_clock_rgba(uint32_t rgba)
+{
+    g_cfg.clock_rgba = rgba ? rgba : 0xFFFFFFFFu;
+    if (lvgl_lock(50)) { clock_apply_layout(); lvgl_unlock(); }
+    cfg_save();
+}
+extern "C" void app_cfg_set_show_ms(int show)
+{
+    g_cfg.show_ms = show ? 1 : 0;
+    if (lvgl_lock(50)) { clock_apply_layout(); lvgl_unlock(); }
+    cfg_save();
+}
 extern "C" void app_cfg_set_lang(int lang)
 {
     if (lang < 0) lang = 0;
@@ -1388,6 +1470,72 @@ static void clock_update_cb(lv_timer_t *t)
 static void sunmap_redraw(void);
 static void sunmap_update_cb(lv_timer_t *t);
 
+static const lv_font_t *clock_size_to_font(uint8_t size)
+{
+    switch (size) {
+        case 0: return &lv_font_montserrat_16;   /* XS */
+        case 1: return &font_jbmono_48;          /* S  */
+        case 2: return &font_jbmono_64;          /* M  */
+        default:return &font_jbmono_96;          /* L  */
+    }
+}
+
+/* Re-apply size, color, and position from g_cfg to the time + ms
+   labels. Called after build_clock_tile and whenever the user
+   updates one of the clock_* fields via the webui. The centering
+   rule: when ms is hidden, center the time at (clock_x, clock_y);
+   when shown, push the time left of (clock_x, clock_y) to leave
+   room for the .mmm field on the right. */
+static void clock_apply_layout(void)
+{
+    if (!g_clock_time_label || !g_clock_ms_label) return;
+    const lv_font_t *time_font = clock_size_to_font(g_cfg.clock_size);
+    /* ms font is one tier smaller than the time, clamped at 12. */
+    const lv_font_t *ms_font = clock_size_to_font(
+        g_cfg.clock_size > 0 ? (uint8_t)(g_cfg.clock_size - 1) : 0);
+    if (g_cfg.clock_size == 0) ms_font = &lv_font_montserrat_12;
+
+    /* Color: 0xRRGGBBAA. lv_color_make is RGB888 -> native; LVGL 8 has
+       no per-style alpha for text, so we apply the value as opacity. */
+    uint32_t v = g_cfg.clock_rgba;
+    uint8_t  rr = (uint8_t)(v >> 24);
+    uint8_t  gg = (uint8_t)(v >> 16);
+    uint8_t  bb = (uint8_t)(v >> 8);
+    uint8_t  aa = (uint8_t)(v);
+    lv_color_t col = lv_color_make(rr, gg, bb);
+    lv_obj_set_style_text_font(g_clock_time_label, time_font, 0);
+    lv_obj_set_style_text_color(g_clock_time_label, col, 0);
+    lv_obj_set_style_text_opa(g_clock_time_label, aa ? aa : 0xFF, 0);
+
+    /* The ms label is dimmer than the time (matches the original
+       0xc0 vs 0xff feel); just apply the same opa. */
+    lv_color_t ms_col = lv_color_make((uint8_t)(rr * 3 / 4),
+                                      (uint8_t)(gg * 3 / 4),
+                                      (uint8_t)(bb * 3 / 4));
+    lv_obj_set_style_text_font(g_clock_ms_label, ms_font, 0);
+    lv_obj_set_style_text_color(g_clock_ms_label, ms_col, 0);
+    lv_obj_set_style_text_opa(g_clock_ms_label, aa ? aa : 0xFF, 0);
+
+    /* Position. When the ms is hidden, the time goes dead-center on
+       (clock_x, clock_y). When shown, shift the time left by half the
+       ms label's width so the combined "HH:MM:SS.mmm" is centered. */
+    if (g_cfg.show_ms) {
+        lv_obj_align(g_clock_time_label, LV_ALIGN_CENTER,
+                     g_cfg.clock_x, g_cfg.clock_y);
+        lv_obj_align_to(g_clock_ms_label, g_clock_time_label,
+                        LV_ALIGN_OUT_RIGHT_BOTTOM, 0,
+                        g_cfg.clock_size >= 3 ? -8 : -2);
+        lv_obj_clear_flag(g_clock_ms_label, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        /* Pure-center the time at (clock_x, clock_y). The ms label is
+           hidden by clock_update_cb when show_ms is 0; we hide here
+           too in case layout was applied without a tick first. */
+        lv_obj_align(g_clock_time_label, LV_ALIGN_CENTER,
+                     g_cfg.clock_x, g_cfg.clock_y);
+        lv_obj_add_flag(g_clock_ms_label, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
 static void build_clock_tile(lv_obj_t *parent)
 {
     lv_obj_set_style_bg_color(parent, lv_color_black(), 0);
@@ -1425,26 +1573,19 @@ static void build_clock_tile(lv_obj_t *parent)
     lv_obj_set_style_radius(g_clock_date_label, 3, 0);
     lv_obj_align(g_clock_date_label, LV_ALIGN_TOP_MID, 0, 4);
 
-    /* Big time in JetBrains Mono Bold 96, dead center of the screen.
-       Shifted slightly left to leave room for the millisecond field. */
+    /* Time + ms labels. Style + position is applied by clock_apply_layout
+       which reads g_cfg.clock_{size,x,y,rgba} and the show_ms flag. */
     g_clock_time_label = lv_label_create(parent);
     lv_label_set_text(g_clock_time_label, "--:--:--");
-    lv_obj_set_style_text_color(g_clock_time_label, lv_color_white(), 0);
-    lv_obj_set_style_text_font(g_clock_time_label, &font_jbmono_96, 0);
     lv_obj_set_style_bg_opa(g_clock_time_label, LV_OPA_TRANSP, 0);
     lv_obj_set_style_pad_all(g_clock_time_label, 0, 0);
-    lv_obj_align(g_clock_time_label, LV_ALIGN_CENTER, -52, 0);
 
-    /* Milliseconds in JBMono 48 (half size of the time face), aligned to
-       sit on the bottom of the time so the digits share a baseline. */
     g_clock_ms_label = lv_label_create(parent);
     lv_label_set_text(g_clock_ms_label, ".000");
-    lv_obj_set_style_text_color(g_clock_ms_label, lv_color_make(0xc0, 0xc0, 0xc0), 0);
-    lv_obj_set_style_text_font(g_clock_ms_label, &font_jbmono_48, 0);
     lv_obj_set_style_bg_opa(g_clock_ms_label, LV_OPA_TRANSP, 0);
     lv_obj_set_style_pad_all(g_clock_ms_label, 0, 0);
-    lv_obj_align_to(g_clock_ms_label, g_clock_time_label,
-                    LV_ALIGN_OUT_RIGHT_BOTTOM, 0, -8);
+
+    clock_apply_layout();
 
     /* Timezone hint, bottom right -- shows the active city name. */
     g_clock_tz_label = lv_label_create(parent);
