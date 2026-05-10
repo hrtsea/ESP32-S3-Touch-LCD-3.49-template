@@ -1046,6 +1046,9 @@ extern "C" int webui_snapshot_fb(void *out, size_t cap)
 }
 
 extern "C" int  app_cfg_get_lang(void) { return g_cfg.lang; }
+extern "C" int  app_cfg_get_brightness(void) { return g_cfg.brightness; }
+extern "C" int  app_cfg_get_dim_s(void)      { return g_cfg.dim_s; }
+extern "C" int  app_cfg_get_off_s(void)      { return g_cfg.off_s; }
 extern "C" void app_cfg_set_lang(int lang)
 {
     if (lang < 0) lang = 0;

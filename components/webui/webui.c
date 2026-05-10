@@ -41,6 +41,9 @@
    doesn't need to include from main/. */
 extern void app_cfg_set_brightness(int v);
 extern void app_cfg_set_dim_off(int dim_s, int off_s);
+extern int  app_cfg_get_brightness(void);
+extern int  app_cfg_get_dim_s(void);
+extern int  app_cfg_get_off_s(void);
 /* Snapshot the LCD framebuffer into the caller's buffer (RGB565,
    panel byte order). Returns bytes written or -1 on error. The
    snapshot is taken under the lvgl mutex so the BMP encoder doesn't
@@ -140,11 +143,12 @@ static const char k_index_html[] =
 "<script>\n"
 "let rr=1.0;\n"
 "function f(p,o){return fetch(p,o).then(r=>r.json?r.json().catch(()=>{}):r)}\n"
+"function setIdle(id,v){let e=document.getElementById(id);if(e!==document.activeElement)e.value=v}\n"
 "function pollState(){fetch('/api/state').then(r=>r.json()).then(s=>{\n"
-" document.getElementById('br').value=s.brightness;document.getElementById('brl').textContent=s.brightness;\n"
-" document.getElementById('vol').value=s.volume;document.getElementById('vl').textContent=s.volume;\n"
-" document.getElementById('ds').value=s.dim_s;document.getElementById('dl').textContent=s.dim_s;\n"
-" document.getElementById('os').value=s.off_s;document.getElementById('ol').textContent=s.off_s;\n"
+" setIdle('br',s.brightness);document.getElementById('brl').textContent=s.brightness;\n"
+" setIdle('vol',s.volume);document.getElementById('vl').textContent=s.volume;\n"
+" setIdle('ds',s.dim_s);document.getElementById('dl').textContent=s.dim_s;\n"
+" setIdle('os',s.off_s);document.getElementById('ol').textContent=s.off_s;\n"
 " let pill='<span class=\"pill idle\">idle</span>';\n"
 " if(s.recording)pill='<span class=\"pill rec\">REC '+s.elapsed+'s</span>';\n"
 " else if(s.playing)pill='<span class=\"pill play\">Playing '+(s.uri||'').split('/').pop()+'</span>';\n"
@@ -208,9 +212,10 @@ static esp_err_t h_state(httpd_req_t *r)
         (int)recording, recorder_elapsed_s(),
         (int)playing,   radio_current_uri() ? radio_current_uri() : "",
         (unsigned)pl, (unsigned)pr,
-        0, radio_get_volume(), 0, 0);
-    /* TODO surface brightness/dim from cfg via a getter; for now return
-       0 placeholders -- the page sets them via /api/cfg and re-queries. */
+        app_cfg_get_brightness(),
+        radio_get_volume(),
+        app_cfg_get_dim_s(),
+        app_cfg_get_off_s());
     (void)n;
     return send_str(r, "application/json", json);
 }
