@@ -108,9 +108,10 @@ typedef struct {
     uint32_t clock_rgba;       /* 0xRRGGBBAA */
     uint8_t  show_clock;       /* 1 = render the time face; 0 = sun map only */
     char     clock_text[40];   /* if non-empty: render this string in place of HH:MM */
-    uint8_t  bg_mode;          /* 0=sunmap, 1=custom(/sdcard/clock_bg.bin), 2=url */
+    uint8_t  bg_mode;          /* 0=sunmap, 1=custom(/sdcard/clock_bg.bin), 2=url, 3=solid */
     uint16_t bg_refresh_s;     /* if mode=2: refresh every N seconds (0=never) */
     char     bg_url[160];      /* http(s):// URL of raw RGB565 image canvas_w*canvas_h*2 bytes */
+    uint32_t bg_color;         /* 0xRRGGBBAA -- used in mode=3. alpha currently ignored */
 } app_cfg_t;
 
 static app_cfg_t g_cfg = {
@@ -138,6 +139,7 @@ static app_cfg_t g_cfg = {
     .bg_mode          = 0,
     .bg_refresh_s     = 0,
     .bg_url           = {0},
+    .bg_color         = 0x202020FFu,    /* dark gray, opaque */
 };
 
 static void cfg_load(void);
@@ -793,10 +795,13 @@ static void cfg_load(void)
     nvs_get_u8 (h, "bg_mode",  &bgm);
     nvs_get_u16(h, "bg_refr",  &bgr);
     nvs_get_str(h, "bg_url",   g_cfg.bg_url, &bgul);
+    uint32_t bgc = g_cfg.bg_color;
+    nvs_get_u32(h, "bg_color", &bgc);
+    g_cfg.bg_color = bgc;
     nvs_get_str(h, "last_ssid", g_cfg.last_ssid, &sl);
     nvs_close(h);
     g_cfg.show_clock = shc ? 1 : 0;
-    g_cfg.bg_mode = bgm > 2 ? 0 : bgm;
+    g_cfg.bg_mode = bgm > 3 ? 0 : bgm;
     g_cfg.bg_refresh_s = bgr;
     if (tzi >= TZ_CITY_COUNT) tzi = TZ_DEFAULT_CITY_INDEX;
     if (df > 2)  df  = 0;
@@ -870,6 +875,7 @@ static void cfg_save(void)
     nvs_set_u8 (h, "bg_mode",   g_cfg.bg_mode);
     nvs_set_u16(h, "bg_refr",   g_cfg.bg_refresh_s);
     nvs_set_str(h, "bg_url",    g_cfg.bg_url);
+    nvs_set_u32(h, "bg_color",  g_cfg.bg_color);
     nvs_set_str(h, "last_ssid", g_cfg.last_ssid);
     nvs_commit(h);
     nvs_close(h);
@@ -1149,7 +1155,7 @@ extern "C" int  app_cfg_get_canvas_h(void)       { return canvas_h; }
 extern "C" void app_cfg_set_bg_mode(int m)
 {
     if (m < 0) m = 0;
-    if (m > 2) m = 2;
+    if (m > 3) m = 3;
     g_cfg.bg_mode = (uint8_t)m;
     if (lvgl_lock(50)) { clock_bg_apply(); lvgl_unlock(); }
     cfg_save();
@@ -1162,6 +1168,15 @@ extern "C" void app_cfg_set_bg_url(const char *url)
     g_cfg.bg_url[sizeof(g_cfg.bg_url) - 1] = 0;
     cfg_save();
     if (g_cfg.bg_mode == 2) bg_fetcher_ensure();
+}
+extern "C" uint32_t app_cfg_get_bg_color(void) { return g_cfg.bg_color; }
+extern "C" void app_cfg_set_bg_color(uint32_t rgba)
+{
+    g_cfg.bg_color = rgba ? rgba : 0x202020FFu;
+    if (g_cfg.bg_mode == 3) {
+        if (lvgl_lock(50)) { clock_bg_apply(); lvgl_unlock(); }
+    }
+    cfg_save();
 }
 extern "C" void app_cfg_set_bg_refresh_s(int s)
 {
@@ -1855,6 +1870,24 @@ extern "C" void clock_bg_apply(void)
                 sunmap_redraw();
             }
             break;
+        case 3: {
+            /* Solid color fill. Pack RGBA888 -> RGB565 in panel byte
+               order (LV_COLOR_16_SWAP), then memset-style fill the
+               canvas buffer with that 16-bit value. */
+            uint8_t r = (uint8_t)(g_cfg.bg_color >> 24);
+            uint8_t gn= (uint8_t)(g_cfg.bg_color >> 16);
+            uint8_t b = (uint8_t)(g_cfg.bg_color >> 8);
+            uint16_t rgb565 = (uint16_t)(((r & 0xF8) << 8) |
+                                          ((gn & 0xFC) << 3) |
+                                          ((b & 0xF8) >> 3));
+            /* Swap bytes for the panel order. */
+            uint16_t v = (uint16_t)((rgb565 >> 8) | (rgb565 << 8));
+            uint16_t *p = (uint16_t *)g_sunmap_buf;
+            int n = g_sunmap_w * g_sunmap_h;
+            for (int i = 0; i < n; i++) p[i] = v;
+            if (g_sunmap_canvas) lv_obj_invalidate(g_sunmap_canvas);
+            break;
+        }
         default:
             sunmap_redraw();
             break;

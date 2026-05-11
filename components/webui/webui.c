@@ -69,6 +69,8 @@ extern void app_cfg_set_bg_mode(int m);
 extern void app_cfg_set_bg_url(const char *url);
 extern void app_cfg_set_bg_refresh_s(int s);
 extern void app_cfg_clock_bg_reload(void);
+extern uint32_t app_cfg_get_bg_color(void);
+extern void app_cfg_set_bg_color(uint32_t rgba);
 /* Snapshot the LCD framebuffer into the caller's buffer (RGB565,
    panel byte order). Returns bytes written or -1 on error. The
    snapshot is taken under the lvgl mutex so the BMP encoder doesn't
@@ -171,7 +173,9 @@ static const char k_index_html[] =
 "</section>\n"
 "<section><h2>Background</h2>\n"
 " <label>mode</label>\n"
-" <select id=bgm><option value=0>Sun map</option><option value=1>Custom upload</option><option value=2>URL</option></select>\n"
+" <select id=bgm><option value=0>Sun map</option><option value=1>Custom upload</option><option value=2>URL</option><option value=3>Solid color</option></select>\n"
+" <label>solid color (used when mode = Solid color)</label>\n"
+" <input id=bgc type=color value='#202020'>\n"
 " <label>upload an image (any size; converted to <span id=bgwh>640x172</span> RGB565)</label>\n"
 " <input id=bgfile type=file accept='image/*'>\n"
 " <div id=bgstat class=meta></div>\n"
@@ -216,6 +220,8 @@ static const char k_index_html[] =
 " if(document.activeElement!==document.getElementById('bgurl'))document.getElementById('bgurl').value=s.bg_url||'';\n"
 " if(document.activeElement!==document.getElementById('bgref'))document.getElementById('bgref').value=s.bg_refresh_s||0;\n"
 " let cw=s.canvas_w||640,ch=s.canvas_h||172;document.getElementById('bgwh').textContent=cw+'x'+ch;document.getElementById('bgsize').textContent=cw*ch*2;\n"
+" let bc=s.bg_color>>>0,br=(bc>>>24)&0xff,bg=(bc>>>16)&0xff,bb=(bc>>>8)&0xff;\n"
+" if(document.activeElement!==document.getElementById('bgc'))document.getElementById('bgc').value='#'+[br,bg,bb].map(x=>x.toString(16).padStart(2,'0')).join('');\n"
 " let r=(s.clock_rgba>>>24)&0xff,g=(s.clock_rgba>>>16)&0xff,b=(s.clock_rgba>>>8)&0xff,a=s.clock_rgba&0xff;\n"
 " if(document.activeElement!==document.getElementById('ckc'))\n"
 "  document.getElementById('ckc').value='#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');\n"
@@ -264,6 +270,7 @@ static const char k_index_html[] =
 "document.getElementById('bgm').onchange=e=>pushBg({mode:e.target.value});\n"
 "let bgUrlT;document.getElementById('bgurl').oninput=e=>{clearTimeout(bgUrlT);bgUrlT=setTimeout(()=>pushBg({url:e.target.value}),400)};\n"
 "document.getElementById('bgref').onchange=e=>pushBg({refresh_s:e.target.value});\n"
+"document.getElementById('bgc').onchange=e=>{let h=e.target.value;let r=parseInt(h.substr(1,2),16),g=parseInt(h.substr(3,2),16),b=parseInt(h.substr(5,2),16);pushBg({color:(((r<<24)|(g<<16)|(b<<8)|0xff)>>>0)})};\n"
 /* Convert the picked image: load -> draw to a canvas of canvas_w x
    canvas_h -> read pixels -> pack RGB565 -> byte-swap to panel order
    -> POST to /api/bg/upload as raw binary. */
@@ -375,7 +382,7 @@ static esp_err_t h_state(httpd_req_t *r)
         "\"clock_rgba\":%u,\"show_ms\":%d,\"show_seconds\":%d,"
         "\"show_clock\":%d,\"clock_text\":\"%s\","
         "\"bg_mode\":%d,\"bg_refresh_s\":%d,\"bg_url\":\"%s\","
-        "\"canvas_w\":%d,\"canvas_h\":%d}",
+        "\"bg_color\":%u,\"canvas_w\":%d,\"canvas_h\":%d}",
         (int)recording, recorder_elapsed_s(),
         (int)playing,   radio_current_uri() ? radio_current_uri() : "",
         (unsigned)pl, (unsigned)pr,
@@ -394,6 +401,7 @@ static esp_err_t h_state(httpd_req_t *r)
         app_cfg_get_bg_mode(),
         app_cfg_get_bg_refresh_s(),
         bgu_esc,
+        (unsigned)app_cfg_get_bg_color(),
         app_cfg_get_canvas_w(),
         app_cfg_get_canvas_h());
     (void)n;
@@ -537,6 +545,13 @@ static esp_err_t h_bg(httpd_req_t *r)
     }
     if (strstr(body, "refresh_s=")) {
         app_cfg_set_bg_refresh_s(form_int(body, "refresh_s", 0));
+    }
+    if (strstr(body, "color=")) {
+        const char *p = strstr(body, "color=");
+        if (p) {
+            unsigned long v = strtoul(p + 6, NULL, 0);
+            app_cfg_set_bg_color((uint32_t)v);
+        }
     }
     /* URL-decode the url field. Same naive parser as h_clock's text. */
     const char *up = strstr(body, "url=");
