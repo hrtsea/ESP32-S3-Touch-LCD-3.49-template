@@ -907,6 +907,46 @@ static bool cfg_get_ssid_pass(const char *ssid, char *pass, size_t pass_len)
     return er == ESP_OK;
 }
 
+/* iPhone-style roaming. After repeated disconnects (or on demand),
+   scan the airwaves, look up every visible SSID in the wifi NVS
+   namespace, and pick the strongest one we have credentials for. */
+static uint8_t  g_wifi_fail_count       = 0;
+static bool     g_wifi_roaming_scan     = false;   /* scan was kicked by roam logic */
+#define WIFI_FAILS_BEFORE_ROAM 3
+
+/* Look up `ssid` in NVS_NS_WIFI. The key is the SSID prefix (15 chars
+   max), same scheme as cfg_save_ssid_pass. Returns true if a
+   credential entry exists (password may be empty for open APs). */
+static bool wifi_has_remembered(const char *ssid)
+{
+    if (!ssid || !*ssid) return false;
+    char key[16] = {0};
+    strncpy(key, ssid, 15);
+    nvs_handle_t h;
+    if (nvs_open(NVS_NS_WIFI, NVS_READONLY, &h) != ESP_OK) return false;
+    size_t l = 0;
+    esp_err_t er = nvs_get_str(h, key, NULL, &l);
+    nvs_close(h);
+    return er == ESP_OK;
+}
+
+/* Kick a roaming scan if we're not already mid-scan and we have at
+   least one remembered network configured. */
+static void wifi_kick_roam_scan(void)
+{
+    if (g_wifi_scanning) return;
+    wifi_scan_config_t sc = {};
+    sc.show_hidden = false;
+    g_wifi_roaming_scan = true;
+    g_wifi_scanning = true;
+    esp_err_t er = esp_wifi_scan_start(&sc, false);
+    ESP_LOGI(TAG, "wifi: roaming scan -> %s", esp_err_to_name(er));
+    if (er != ESP_OK) {
+        g_wifi_scanning = false;
+        g_wifi_roaming_scan = false;
+    }
+}
+
 /* ---------------------- IP overlay tag ---------------------- */
 
 /* Lazy-create the small IP label on lv_layer_top. Caller must hold
@@ -960,13 +1000,18 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
                 ESP_LOGW(TAG, "wifi: disconnected reason=%u",
                          (unsigned)g_wifi_last_reason);
                 g_wifi_connected = false;
-                /* Hide the IP overlay tag while we're not associated. */
                 ip_label_set(NULL);
-                /* Auto-reconnect with backoff: try once if we have a target
-                   SSID configured AND we're not in the middle of a user-
-                   initiated scan (scan can't run if a connect is racing). */
-                if (g_wifi_curr_ssid[0] && !g_wifi_scanning) {
+                /* Roaming: count consecutive disconnects. After
+                   WIFI_FAILS_BEFORE_ROAM, kick a scan and let the
+                   SCAN_DONE handler pick a known SSID -- iPhone-style
+                   "find any remembered network and connect". On every
+                   successful connect g_wifi_fail_count resets. */
+                g_wifi_fail_count++;
+                if (g_wifi_curr_ssid[0] && !g_wifi_scanning &&
+                    g_wifi_fail_count < WIFI_FAILS_BEFORE_ROAM) {
                     esp_wifi_connect();
+                } else if (g_cfg.wifi_autoconnect && !g_wifi_scanning) {
+                    wifi_kick_roam_scan();
                 }
                 break;
             }
@@ -974,6 +1019,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
                 ESP_LOGI(TAG, "wifi: connected to %s", g_wifi_curr_ssid);
                 g_wifi_connected = true;
                 g_wifi_last_reason = 0;
+                g_wifi_fail_count = 0;
                 /* Persist this SSID as the auto-connect target. */
                 strncpy(g_cfg.last_ssid, g_wifi_curr_ssid, sizeof(g_cfg.last_ssid) - 1);
                 cfg_save();
@@ -998,8 +1044,41 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
                 }
                 ESP_LOGI(TAG, "wifi: scan done, n=%u", (unsigned)g_wifi_scan_n);
                 g_wifi_scanning = false;
-                /* If a connect target is configured, resume reconnect now
-                   that the scan has finished. */
+                /* Roaming pass: pick the strongest visible AP we have
+                   credentials for. Resets fail_count to 0 so the next
+                   disconnect goes through the normal single-retry path. */
+                if (g_wifi_roaming_scan) {
+                    g_wifi_roaming_scan = false;
+                    int best_i = -1;
+                    int best_rssi = -127;
+                    for (int i = 0; i < g_wifi_scan_n; i++) {
+                        if (!wifi_has_remembered(g_wifi_scan[i].ssid)) continue;
+                        if (g_wifi_scan[i].rssi > best_rssi) {
+                            best_rssi = g_wifi_scan[i].rssi;
+                            best_i = i;
+                        }
+                    }
+                    if (best_i >= 0) {
+                        const char *ssid = g_wifi_scan[best_i].ssid;
+                        char pass[65] = {0};
+                        cfg_get_ssid_pass(ssid, pass, sizeof(pass));
+                        ESP_LOGI(TAG, "wifi: roaming to known %s rssi=%d",
+                                 ssid, best_rssi);
+                        g_wifi_fail_count = 0;   /* fresh attempt */
+                        wifi_connect(ssid, pass);
+                        break;
+                    } else {
+                        /* No remembered network visible. Reset the
+                           failure counter so we don't pin in scan-loop;
+                           let the disconnect handler retry the current
+                           SSID periodically. */
+                        ESP_LOGI(TAG, "wifi: no remembered AP visible (%u seen)",
+                                 (unsigned)g_wifi_scan_n);
+                        g_wifi_fail_count = 0;
+                    }
+                }
+                /* Normal user-initiated scan path: resume reconnect to
+                   the configured SSID if one is set. */
                 if (g_wifi_curr_ssid[0] && !g_wifi_connected) {
                     esp_wifi_connect();
                 }
