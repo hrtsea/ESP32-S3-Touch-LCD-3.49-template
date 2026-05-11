@@ -2075,165 +2075,15 @@ extern "C" void clock_bg_apply(void)
    LVGL to reload the canvas. */
 #include "esp_http_client.h"
 #include "esp_crt_bundle.h"
-/* tjpgd.h has its own extern "C" guard, so include it normally.
-   lodepng.h does not, and it has C++ overloads in namespace lodepng
-   that conflict if wrapped in extern "C". Forward-declare the
-   plain-C symbols we use instead.
-
-   Note: lodepng's *_file APIs go through LVGL's lv_fs_* layer which
-   isn't enabled here. Use the memory API and read the file ourselves. */
-#include "extra/libs/sjpg/tjpgd.h"
-extern "C" unsigned lodepng_decode32(unsigned char **out,
-                                     unsigned *w, unsigned *h,
-                                     const unsigned char *in, size_t insize);
-extern "C" const char *lodepng_error_text(unsigned code);
+/* PNG/JPEG decoders (LV_USE_PNG / LV_USE_SJPG) used to be enabled
+   here so URL backgrounds could be raw images. They were turned off
+   because lodepng + tjpgd's static tables landed in internal DRAM and
+   shrunk the DMA-capable heap to ~1.5 KB, breaking radio_init's I2S
+   alloc and killing audio playback + mic VU. URL bg mode now only
+   accepts the raw RGB565 panel-byte-order format. */
 
 static TaskHandle_t s_bg_fetcher = NULL;
 static volatile bool s_bg_fetcher_kick = false;
-
-/* Pack an RGBA8888/RGB888 src image of size sw x sh into the canvas
-   buffer at canvas_w x canvas_h, RGB565 panel byte order
-   (LV_COLOR_16_SWAP -- high byte first per pixel). Nearest-neighbor
-   scale (good enough for backgrounds; no allocations beyond the dest
-   .part file). bytes_per_px is 3 (RGB) or 4 (RGBA). */
-static int bg_pack_to_canvas_file(const uint8_t *src, int sw, int sh,
-                                  int bytes_per_px, const char *out_path)
-{
-    int dw = canvas_w, dh = canvas_h;
-    FILE *f = fopen(out_path, "wb");
-    if (!f) return -1;
-    /* Write one row at a time. Allocate one row buffer in PSRAM. */
-    uint16_t *row = (uint16_t *)heap_caps_malloc(
-        (size_t)dw * 2, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!row) { fclose(f); return -1; }
-    for (int y = 0; y < dh; y++) {
-        int sy = (int)((int64_t)y * sh / dh);
-        if (sy >= sh) sy = sh - 1;
-        const uint8_t *srow = src + (size_t)sy * sw * bytes_per_px;
-        for (int x = 0; x < dw; x++) {
-            int sx = (int)((int64_t)x * sw / dw);
-            if (sx >= sw) sx = sw - 1;
-            const uint8_t *p = srow + (size_t)sx * bytes_per_px;
-            uint16_t v = (uint16_t)(((p[0] & 0xF8) << 8) |
-                                    ((p[1] & 0xFC) << 3) |
-                                    ((p[2] & 0xF8) >> 3));
-            /* Panel byte order. */
-            row[x] = (uint16_t)((v >> 8) | (v << 8));
-        }
-        if (fwrite(row, 2, dw, f) != (size_t)dw) {
-            free(row); fclose(f); return -1;
-        }
-    }
-    free(row);
-    fclose(f);
-    return 0;
-}
-
-/* tjpgd input callback: pull bytes from a stdio FILE*. */
-static size_t bg_jpg_in(JDEC *jd, uint8_t *buf, size_t nbyte)
-{
-    FILE *f = (FILE *)jd->device;
-    if (!buf) {
-        /* Skip nbyte bytes. */
-        return fseek(f, nbyte, SEEK_CUR) == 0 ? nbyte : 0;
-    }
-    return fread(buf, 1, nbyte, f);
-}
-
-/* tjpgd uses jd->device for the input source (a FILE*), so the
-   output callback reaches the dest framebuffer through a file-static
-   pointer that bg_decode_jpeg sets up around the decode call. */
-struct jpg_out_ctx {
-    uint8_t *buf;
-    int w, h;
-};
-static struct jpg_out_ctx *s_jpg_out_ctx = NULL;
-static int bg_jpg_out_real(JDEC *jd, void *bitmap, JRECT *rect)
-{
-    (void)jd;
-    struct jpg_out_ctx *c = s_jpg_out_ctx;
-    if (!c || !c->buf) return 0;
-    const uint8_t *src = (const uint8_t *)bitmap;
-    int rw = rect->right - rect->left + 1;
-    int rh = rect->bottom - rect->top + 1;
-    for (int y = 0; y < rh; y++) {
-        int dy = rect->top + y;
-        if (dy >= c->h) break;
-        uint8_t *drow = c->buf + ((size_t)dy * c->w + rect->left) * 3;
-        int copy = rw;
-        if (rect->left + copy > c->w) copy = c->w - rect->left;
-        if (copy > 0) memcpy(drow, src + (size_t)y * rw * 3, (size_t)copy * 3);
-    }
-    return 1;
-}
-
-static int bg_decode_jpeg(const char *path, const char *out_path)
-{
-    FILE *f = fopen(path, "rb");
-    if (!f) return -1;
-    /* tjpgd needs a working buffer; ~3 KB is the documented minimum,
-       use 8 KB to be safe. */
-    const size_t pool_sz = 8 * 1024;
-    void *pool = heap_caps_malloc(pool_sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!pool) { fclose(f); return -1; }
-    JDEC jd;
-    JRESULT r = jd_prepare(&jd, bg_jpg_in, pool, pool_sz, f);
-    if (r != JDR_OK) {
-        ESP_LOGW(TAG, "bg jpeg: jd_prepare -> %d", r);
-        free(pool); fclose(f); return -1;
-    }
-    /* Allocate full RGB888 frame in PSRAM. */
-    size_t fb_sz = (size_t)jd.width * jd.height * 3;
-    uint8_t *fb = (uint8_t *)heap_caps_malloc(fb_sz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!fb) {
-        ESP_LOGW(TAG, "bg jpeg: no PSRAM for %ux%u frame", jd.width, jd.height);
-        free(pool); fclose(f); return -1;
-    }
-    struct jpg_out_ctx ctx = { fb, jd.width, jd.height };
-    s_jpg_out_ctx = &ctx;
-    r = jd_decomp(&jd, bg_jpg_out_real, 0);
-    s_jpg_out_ctx = NULL;
-    free(pool);
-    fclose(f);
-    if (r != JDR_OK) {
-        ESP_LOGW(TAG, "bg jpeg: jd_decomp -> %d", r);
-        free(fb);
-        return -1;
-    }
-    int rc = bg_pack_to_canvas_file(fb, jd.width, jd.height, 3, out_path);
-    free(fb);
-    return rc;
-}
-
-static int bg_decode_png(const char *path, const char *out_path)
-{
-    /* Slurp the PNG into a PSRAM buffer -- lodepng's *_file API uses
-       LVGL's lv_fs_* abstraction which isn't wired up here. */
-    FILE *f = fopen(path, "rb");
-    if (!f) return -1;
-    fseek(f, 0, SEEK_END);
-    long fsz = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    if (fsz <= 0 || fsz > 4 * 1024 * 1024) { fclose(f); return -1; }
-    unsigned char *src = (unsigned char *)heap_caps_malloc(
-        (size_t)fsz, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-    if (!src) { fclose(f); return -1; }
-    size_t rd = fread(src, 1, (size_t)fsz, f);
-    fclose(f);
-    if (rd != (size_t)fsz) { free(src); return -1; }
-    unsigned char *img = NULL;
-    unsigned int w = 0, h = 0;
-    unsigned err = lodepng_decode32(&img, &w, &h, src, (size_t)fsz);
-    free(src);
-    if (err) {
-        ESP_LOGW(TAG, "bg png: lodepng err %u (%s)", err, lodepng_error_text(err));
-        if (img) free(img);
-        return -1;
-    }
-    int rc = bg_pack_to_canvas_file(img, (int)w, (int)h, 4, out_path);
-    free(img);
-    return rc;
-}
 
 static esp_err_t bg_fetch_once(const char *url)
 {
@@ -2288,18 +2138,19 @@ static esp_err_t bg_fetch_once(const char *url)
     int packed = -1;
     if (magic_have >= 8 && magic[0] == 0x89 && magic[1] == 'P' &&
         magic[2] == 'N' && magic[3] == 'G') {
-        ESP_LOGI(TAG, "bg fetched %d bytes (png) from %s", total, url);
-        packed = bg_decode_png(dl, tmp);
+        ESP_LOGW(TAG, "bg fetch: PNG received but decoder is disabled "
+                       "(LV_USE_PNG=n -- starves I2S DMA heap). Pre-convert "
+                       "to raw RGB565 panel-byte-order, %zu bytes.", need);
     } else if (magic_have >= 3 && magic[0] == 0xFF && magic[1] == 0xD8 &&
                magic[2] == 0xFF) {
-        ESP_LOGI(TAG, "bg fetched %d bytes (jpeg) from %s", total, url);
-        packed = bg_decode_jpeg(dl, tmp);
+        ESP_LOGW(TAG, "bg fetch: JPEG received but decoder is disabled. "
+                       "Pre-convert to raw RGB565 panel-byte-order, %zu bytes.", need);
     } else if ((size_t)total == need) {
         /* Raw RGB565 panel-byte-order payload -- just promote it. */
         ESP_LOGI(TAG, "bg fetched %d bytes (raw rgb565) from %s", total, url);
         packed = rename(dl, tmp);
     } else {
-        ESP_LOGW(TAG, "bg fetch: unknown format, %d bytes (need %zu raw or png/jpeg)",
+        ESP_LOGW(TAG, "bg fetch: unknown format, %d bytes (need %zu raw rgb565)",
                  total, need);
     }
     unlink(dl);    /* harmless if rename already consumed it */
@@ -4976,10 +4827,7 @@ extern "C" void app_main(void)
     cli_start();
 
     /* Warm up the radio engine in the background so first-tap latency is
-       just HTTP+decode, not also codec/I2S setup. Drops audio_min's MIDI
-       playback (the I2S channel and ES8311 are now owned by the radio
-       engine), but the Hello tile is gone so that demo wasn't reachable
-       anyway. */
+       just HTTP+decode, not also codec/I2S setup. */
     radio_engine_warm_at_boot();
 
     /* If user picked URL background mode, spawn the fetcher. It
