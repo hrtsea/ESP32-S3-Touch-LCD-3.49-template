@@ -112,6 +112,13 @@ typedef struct {
     uint16_t bg_refresh_s;     /* if mode=2: refresh every N seconds (0=never) */
     char     bg_url[160];      /* http(s):// URL of raw RGB565 image canvas_w*canvas_h*2 bytes */
     uint32_t bg_color;         /* 0xRRGGBBAA -- used in mode=3. alpha currently ignored */
+    /* Quotes tile: two side-by-side instrument quotes, fetched from
+       https://pchat.photonicat.com/q/<symbol>. */
+    char     quotes_sym_l[16]; /* left symbol, e.g. "xauusd" */
+    char     quotes_sym_r[16]; /* right symbol, e.g. "xagusd" */
+    uint16_t quotes_refresh_s; /* poll interval, default 60 */
+    uint32_t quotes_up_rgba;   /* color for positive change, 0xRRGGBBAA */
+    uint32_t quotes_down_rgba; /* color for negative change, 0xRRGGBBAA */
 } app_cfg_t;
 
 static app_cfg_t g_cfg = {
@@ -140,6 +147,11 @@ static app_cfg_t g_cfg = {
     .bg_refresh_s     = 0,
     .bg_url           = {0},
     .bg_color         = 0x202020FFu,    /* dark gray, opaque */
+    .quotes_sym_l     = "xauusd",
+    .quotes_sym_r     = "xagusd",
+    .quotes_refresh_s = 60,
+    .quotes_up_rgba   = 0x33DD66FFu,    /* green */
+    .quotes_down_rgba = 0xFF4040FFu,    /* red */
 };
 
 static void cfg_load(void);
@@ -151,6 +163,8 @@ static void bg_fetcher_ensure(void);
 static void cfg_save(void);
 static void cfg_save_ssid_pass(const char *ssid, const char *pass);
 static bool cfg_get_ssid_pass(const char *ssid, char *pass, size_t pass_len);
+static void build_quotes_tile(lv_obj_t *parent);
+static void quotes_ensure(void);
 
 /* ---------------------- Wi-Fi ---------------------- */
 
@@ -722,7 +736,7 @@ static void rotate_btn_event_cb(lv_event_t *e)
 
 /* Bump when defaults change so existing devices pick up the new
    values on the next flash instead of keeping stale NVS data. */
-#define CFG_VERSION  6u
+#define CFG_VERSION  7u
 
 /* Optional compiled-in default Wi-Fi credential. The committed source
    defines empty defaults; if main/wifi_secret.h exists locally
@@ -798,6 +812,20 @@ static void cfg_load(void)
     uint32_t bgc = g_cfg.bg_color;
     nvs_get_u32(h, "bg_color", &bgc);
     g_cfg.bg_color = bgc;
+    /* Quotes (added in v7; missing keys = use the defaults already in g_cfg). */
+    size_t qsll = sizeof(g_cfg.quotes_sym_l);
+    size_t qsrl = sizeof(g_cfg.quotes_sym_r);
+    nvs_get_str(h, "q_sl",    g_cfg.quotes_sym_l, &qsll);
+    nvs_get_str(h, "q_sr",    g_cfg.quotes_sym_r, &qsrl);
+    uint16_t qrs = g_cfg.quotes_refresh_s;
+    nvs_get_u16(h, "q_refr",  &qrs);
+    g_cfg.quotes_refresh_s = qrs;
+    uint32_t qu = g_cfg.quotes_up_rgba;
+    uint32_t qd = g_cfg.quotes_down_rgba;
+    nvs_get_u32(h, "q_up",    &qu);
+    nvs_get_u32(h, "q_dn",    &qd);
+    g_cfg.quotes_up_rgba   = qu;
+    g_cfg.quotes_down_rgba = qd;
     nvs_get_str(h, "last_ssid", g_cfg.last_ssid, &sl);
     nvs_close(h);
     g_cfg.show_clock = shc ? 1 : 0;
@@ -876,6 +904,11 @@ static void cfg_save(void)
     nvs_set_u16(h, "bg_refr",   g_cfg.bg_refresh_s);
     nvs_set_str(h, "bg_url",    g_cfg.bg_url);
     nvs_set_u32(h, "bg_color",  g_cfg.bg_color);
+    nvs_set_str(h, "q_sl",      g_cfg.quotes_sym_l);
+    nvs_set_str(h, "q_sr",      g_cfg.quotes_sym_r);
+    nvs_set_u16(h, "q_refr",    g_cfg.quotes_refresh_s);
+    nvs_set_u32(h, "q_up",      g_cfg.quotes_up_rgba);
+    nvs_set_u32(h, "q_dn",      g_cfg.quotes_down_rgba);
     nvs_set_str(h, "last_ssid", g_cfg.last_ssid);
     nvs_commit(h);
     nvs_close(h);
@@ -1277,6 +1310,62 @@ extern "C" void app_cfg_bg_fetch_now(void)
 {
     if (g_cfg.bg_mode != 2 || !g_cfg.bg_url[0]) return;
     bg_fetcher_ensure();
+}
+
+/* --- Quotes tile config accessors. The poll task reads g_cfg.* directly;
+       these setters just persist and (for the symbol/refresh changes) wake
+       the task so the next fetch picks up the new values immediately. */
+static void quotes_kick(void);   /* forward */
+extern "C" const char *app_cfg_get_quotes_sym_l(void)  { return g_cfg.quotes_sym_l; }
+extern "C" const char *app_cfg_get_quotes_sym_r(void)  { return g_cfg.quotes_sym_r; }
+extern "C" int  app_cfg_get_quotes_refresh_s(void)     { return g_cfg.quotes_refresh_s; }
+extern "C" uint32_t app_cfg_get_quotes_up_rgba(void)   { return g_cfg.quotes_up_rgba; }
+extern "C" uint32_t app_cfg_get_quotes_down_rgba(void) { return g_cfg.quotes_down_rgba; }
+extern "C" void app_cfg_set_quotes_sym_l(const char *s)
+{
+    if (!s) s = "";
+    strncpy(g_cfg.quotes_sym_l, s, sizeof(g_cfg.quotes_sym_l) - 1);
+    g_cfg.quotes_sym_l[sizeof(g_cfg.quotes_sym_l) - 1] = 0;
+    cfg_save();
+    quotes_kick();
+}
+extern "C" void app_cfg_set_quotes_sym_r(const char *s)
+{
+    if (!s) s = "";
+    strncpy(g_cfg.quotes_sym_r, s, sizeof(g_cfg.quotes_sym_r) - 1);
+    g_cfg.quotes_sym_r[sizeof(g_cfg.quotes_sym_r) - 1] = 0;
+    cfg_save();
+    quotes_kick();
+}
+extern "C" void app_cfg_set_quotes_refresh_s(int s)
+{
+    if (s < 5)    s = 5;        /* avoid hammering the server */
+    if (s > 3600) s = 3600;
+    g_cfg.quotes_refresh_s = (uint16_t)s;
+    cfg_save();
+}
+extern "C" void app_cfg_set_quotes_up_rgba(uint32_t v)
+{
+    g_cfg.quotes_up_rgba = v;
+    cfg_save();
+}
+extern "C" void app_cfg_set_quotes_down_rgba(uint32_t v)
+{
+    g_cfg.quotes_down_rgba = v;
+    cfg_save();
+}
+
+/* Set the active tileview tile (0..4). Used by webui /api/goto so tests
+   and remote control can flip between Clock/Quotes/Settings/Radio/Recorder. */
+extern "C" void app_cfg_set_active_tile(int idx)
+{
+    if (!g_tileview) return;
+    if (idx < 0) idx = 0;
+    if (idx > 4) idx = 4;
+    if (lvgl_lock(200)) {
+        lv_obj_set_tile_id(g_tileview, idx, 0, LV_ANIM_OFF);
+        lvgl_unlock();
+    }
 }
 extern "C" void app_cfg_set_clock_text(const char *s)
 {
@@ -2269,6 +2358,431 @@ static void bg_fetcher_ensure(void)
         ESP_LOGE(TAG, "bg fetcher task spawn failed");
         s_bg_fetcher = NULL;
     }
+}
+
+/* ---------------------- Quotes tile ----------------------
+   Two-pane price ticker. Left and right symbols are fetched as JSON
+   from https://pchat.photonicat.com/q/<symbol>, e.g. /q/xauusd. A
+   background task polls every quotes_refresh_s and updates the LVGL
+   labels under the LVGL mutex. Color flips between up/down per the
+   user-configurable RGBA values. */
+
+struct quote_data {
+    bool     ok;             /* last fetch succeeded */
+    char     name[48];       /* "伦敦金 (现货黄金)" etc., or symbol fallback */
+    char     symbol[16];     /* input symbol echoed back */
+    double   price;
+    double   change;
+    double   change_pct;
+    char     currency[8];
+};
+
+static lv_obj_t *g_quotes_tile        = NULL;
+static lv_obj_t *g_quotes_name_l      = NULL;
+static lv_obj_t *g_quotes_name_r      = NULL;
+static lv_obj_t *g_quotes_sym_l_lbl   = NULL;
+static lv_obj_t *g_quotes_sym_r_lbl   = NULL;
+static lv_obj_t *g_quotes_price_l     = NULL;
+static lv_obj_t *g_quotes_price_r     = NULL;
+static lv_obj_t *g_quotes_chg_l       = NULL;
+static lv_obj_t *g_quotes_chg_r       = NULL;
+static lv_obj_t *g_quotes_status      = NULL;   /* small status bar */
+/* Floating status icons on this tile, mirroring the clock tile. */
+static lv_obj_t *g_quotes_wifi_icon   = NULL;
+static lv_obj_t *g_quotes_bt_icon     = NULL;
+static lv_obj_t *g_quotes_clock_lbl   = NULL;
+
+static TaskHandle_t  s_quotes_task    = NULL;
+static volatile bool s_quotes_kick    = false;
+static struct quote_data s_qd_l = {};
+static struct quote_data s_qd_r = {};
+static volatile bool s_qd_have_new    = false;
+
+static lv_color_t quotes_rgba_to_color(uint32_t rgba)
+{
+    return lv_color_make((uint8_t)(rgba >> 24),
+                         (uint8_t)(rgba >> 16),
+                         (uint8_t)(rgba >> 8));
+}
+
+/* Tiny JSON value extractor for our fixed response shape. Finds
+   "key":<value> and copies the value text up to the next , or }. Strips
+   surrounding quotes. Returns 0/1 for success. */
+static int json_extract(const char *src, const char *key,
+                        char *out, size_t out_sz)
+{
+    if (!src || !key || !out || out_sz == 0) return 0;
+    char pat[40];
+    snprintf(pat, sizeof(pat), "\"%s\"", key);
+    const char *p = strstr(src, pat);
+    if (!p) return 0;
+    p += strlen(pat);
+    while (*p == ' ' || *p == ':' || *p == '\t') p++;
+    bool quoted = (*p == '"');
+    if (quoted) p++;
+    size_t o = 0;
+    while (*p && o < out_sz - 1) {
+        char c = *p++;
+        if (quoted) {
+            if (c == '"') break;
+        } else {
+            if (c == ',' || c == '}' || c == ' ' || c == '\n' || c == '\r') break;
+        }
+        out[o++] = c;
+    }
+    out[o] = 0;
+    return o > 0;
+}
+
+static int quotes_parse_json(const char *json, struct quote_data *q)
+{
+    if (!json || !q) return -1;
+    char buf[64];
+    if (!json_extract(json, "price", buf, sizeof(buf))) return -1;
+    q->price = strtod(buf, NULL);
+    if (json_extract(json, "change", buf, sizeof(buf)))      q->change     = strtod(buf, NULL);
+    if (json_extract(json, "change_pct", buf, sizeof(buf)))  q->change_pct = strtod(buf, NULL);
+    if (json_extract(json, "currency", buf, sizeof(buf))) {
+        strncpy(q->currency, buf, sizeof(q->currency) - 1);
+        q->currency[sizeof(q->currency) - 1] = 0;
+    }
+    if (json_extract(json, "name", buf, sizeof(buf))) {
+        strncpy(q->name, buf, sizeof(q->name) - 1);
+        q->name[sizeof(q->name) - 1] = 0;
+    }
+    if (json_extract(json, "input_symbol", buf, sizeof(buf))) {
+        strncpy(q->symbol, buf, sizeof(q->symbol) - 1);
+        q->symbol[sizeof(q->symbol) - 1] = 0;
+    }
+    q->ok = true;
+    return 0;
+}
+
+/* Fetch one symbol synchronously. */
+static int quotes_fetch_one(const char *sym, struct quote_data *out)
+{
+    if (!sym || !sym[0]) return -1;
+    char url[160];
+    snprintf(url, sizeof(url), "https://pchat.photonicat.com/q/%s", sym);
+    esp_http_client_config_t cfg = {};
+    cfg.url = url;
+    cfg.timeout_ms = 8000;
+    cfg.crt_bundle_attach = esp_crt_bundle_attach;
+    esp_http_client_handle_t c = esp_http_client_init(&cfg);
+    if (!c) return -1;
+    esp_err_t e = esp_http_client_open(c, 0);
+    if (e != ESP_OK) { esp_http_client_cleanup(c); return -1; }
+    esp_http_client_fetch_headers(c);
+    int status = esp_http_client_get_status_code(c);
+    if (status != 200) {
+        ESP_LOGW(TAG, "quotes %s -> HTTP %d", sym, status);
+        esp_http_client_close(c); esp_http_client_cleanup(c);
+        return -1;
+    }
+    char body[768];
+    int got = 0;
+    while (got < (int)sizeof(body) - 1) {
+        int n = esp_http_client_read(c, body + got, sizeof(body) - 1 - got);
+        if (n <= 0) break;
+        got += n;
+    }
+    body[got] = 0;
+    esp_http_client_close(c);
+    esp_http_client_cleanup(c);
+    if (got <= 0) return -1;
+    memset(out, 0, sizeof(*out));
+    /* keep the user's symbol if the server doesn't echo input_symbol */
+    strncpy(out->symbol, sym, sizeof(out->symbol) - 1);
+    return quotes_parse_json(body, out);
+}
+
+static void quotes_repaint_one(struct quote_data *q,
+                               lv_obj_t *name_lbl, lv_obj_t *sym_lbl,
+                               lv_obj_t *price_lbl, lv_obj_t *chg_lbl)
+{
+    if (!name_lbl || !price_lbl || !chg_lbl) return;
+    if (!q->ok) {
+        lv_label_set_text(name_lbl, "");
+        if (sym_lbl) lv_label_set_text(sym_lbl, q->symbol[0] ? q->symbol : "-");
+        /* Keep glyphs ASCII-only -- jbmono_48 doesn't carry em-dashes
+           and would render unknown-glyph boxes. */
+        lv_label_set_text(price_lbl, "---.--");
+        lv_obj_set_style_text_color(price_lbl, lv_color_make(0x60, 0x60, 0x60), 0);
+        lv_label_set_text(chg_lbl, "no data");
+        lv_obj_set_style_text_color(chg_lbl, lv_color_make(0x80, 0x80, 0x80), 0);
+        return;
+    }
+    /* Headline: uppercased symbol + currency (ASCII, always renders).
+       The upstream "name" field is often a CJK string (伦敦金 etc.) and
+       this build's CJK font subset doesn't cover all those code points,
+       so it tofus -- use a friendly ASCII name table for common metals
+       and fall back to the raw symbol otherwise. */
+    char usym[20] = {0};
+    const char *s = q->symbol[0] ? q->symbol : "";
+    for (int i = 0; s[i] && i < (int)sizeof(usym) - 1; i++) {
+        usym[i] = (s[i] >= 'a' && s[i] <= 'z') ? (char)(s[i] - 32) : s[i];
+    }
+    const char *pretty = NULL;
+    if      (!strcmp(usym, "XAUUSD")) pretty = "GOLD";
+    else if (!strcmp(usym, "XAGUSD")) pretty = "SILVER";
+    else if (!strcmp(usym, "XPTUSD")) pretty = "PLATINUM";
+    else if (!strcmp(usym, "XPDUSD")) pretty = "PALLADIUM";
+    else if (!strcmp(usym, "BTCUSD")) pretty = "BITCOIN";
+    else if (!strcmp(usym, "ETHUSD")) pretty = "ETHEREUM";
+    lv_label_set_text(name_lbl, pretty ? pretty : usym);
+    if (sym_lbl) {
+        char sb[24];
+        snprintf(sb, sizeof(sb), "%s%s%s", usym,
+                 q->currency[0] ? "  " : "",
+                 q->currency[0] ? q->currency : "");
+        lv_label_set_text(sym_lbl, sb);
+    }
+    /* Price: choose decimals based on magnitude so XAU/XAG/FX all look
+       sensible. LVGL's bundled vsnprintf in this build is compiled
+       without %f support (LV_SPRINTF_USE_FLOAT=n), so format floats
+       with stdio first and feed the resulting string into LVGL. */
+    int dec = (q->price >= 1000) ? 2 : (q->price >= 100 ? 2 : 4);
+    char pbuf[32];
+    snprintf(pbuf, sizeof(pbuf), "%.*f", dec, q->price);
+    lv_label_set_text(price_lbl, pbuf);
+    bool up = q->change >= 0.0;
+    uint32_t rgba = up ? g_cfg.quotes_up_rgba : g_cfg.quotes_down_rgba;
+    lv_color_t col = quotes_rgba_to_color(rgba);
+    lv_obj_set_style_text_color(price_lbl, col, 0);
+    lv_obj_set_style_text_color(chg_lbl,   col, 0);
+    char cbuf[48];
+    snprintf(cbuf, sizeof(cbuf), "%s%.2f  (%s%.3f%%)",
+             up ? "+" : "", q->change,
+             up ? "+" : "", q->change_pct);
+    lv_label_set_text(chg_lbl, cbuf);
+}
+
+/* Runs on the LVGL task via lv_timer, picks up data the fetcher task
+   stashed into s_qd_*. */
+static void quotes_apply_pending(void)
+{
+    if (!s_qd_have_new) return;
+    /* Bail if the tile labels haven't been built yet, or were torn
+       down by a rotation rebuild (the fetcher task is independent of
+       the LVGL UI lifecycle). */
+    if (!g_quotes_name_l || !g_quotes_price_l || !g_quotes_chg_l ||
+        !g_quotes_name_r || !g_quotes_price_r || !g_quotes_chg_r) return;
+    s_qd_have_new = false;
+    quotes_repaint_one(&s_qd_l, g_quotes_name_l, g_quotes_sym_l_lbl,
+                       g_quotes_price_l, g_quotes_chg_l);
+    quotes_repaint_one(&s_qd_r, g_quotes_name_r, g_quotes_sym_r_lbl,
+                       g_quotes_price_r, g_quotes_chg_r);
+    if (g_quotes_status) {
+        time_t now = time(NULL);
+        struct tm tm_local;
+        localtime_r(&now, &tm_local);
+        char tbuf[16];
+        strftime(tbuf, sizeof(tbuf), "%H:%M:%S", &tm_local);
+        lv_label_set_text_fmt(g_quotes_status, "updated %s", tbuf);
+    }
+}
+
+static void quotes_kick(void)
+{
+    s_quotes_kick = true;
+}
+
+static void quotes_task(void *arg)
+{
+    (void)arg;
+    while (1) {
+        struct quote_data ql = {}, qr = {};
+        /* Fetch both sides in series -- two HTTPS connections back to
+           back is fast enough at 60s interval and keeps the working set
+           tiny. */
+        if (g_cfg.quotes_sym_l[0]) {
+            if (quotes_fetch_one(g_cfg.quotes_sym_l, &ql) == 0) s_qd_l = ql;
+            else { s_qd_l.ok = false;
+                   strncpy(s_qd_l.symbol, g_cfg.quotes_sym_l,
+                           sizeof(s_qd_l.symbol) - 1); }
+        }
+        if (g_cfg.quotes_sym_r[0]) {
+            if (quotes_fetch_one(g_cfg.quotes_sym_r, &qr) == 0) s_qd_r = qr;
+            else { s_qd_r.ok = false;
+                   strncpy(s_qd_r.symbol, g_cfg.quotes_sym_r,
+                           sizeof(s_qd_r.symbol) - 1); }
+        }
+        s_qd_have_new = true;
+        ESP_LOGI(TAG, "quotes: %s=%.4f %+.3f%%  %s=%.4f %+.3f%%",
+                 s_qd_l.symbol, s_qd_l.price, s_qd_l.change_pct,
+                 s_qd_r.symbol, s_qd_r.price, s_qd_r.change_pct);
+
+        int wait_s = g_cfg.quotes_refresh_s > 0 ? g_cfg.quotes_refresh_s : 60;
+        for (int i = 0; i < wait_s * 10; i++) {
+            if (s_quotes_kick) { s_quotes_kick = false; break; }
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+    }
+}
+
+static void quotes_ensure(void)
+{
+    if (s_quotes_task) { s_quotes_kick = true; return; }
+    xTaskCreatePinnedToCoreWithCaps(
+        quotes_task, "quotes", 6 * 1024, NULL, 4, &s_quotes_task, 0,
+        MALLOC_CAP_SPIRAM);
+}
+
+static void quotes_status_timer_cb(lv_timer_t *t)
+{
+    (void)t;
+    /* Drain pending fetch results into the LVGL labels (we're on the
+       LVGL task here, so direct label updates are safe). */
+    quotes_apply_pending();
+    /* Repaint the floating clock label, top-right. */
+    if (g_quotes_clock_lbl) {
+        time_t now = time(NULL);
+        struct tm tm_local;
+        localtime_r(&now, &tm_local);
+        char buf[16];
+        strftime(buf, sizeof(buf), g_cfg.hour24 ? "%H:%M" : "%I:%M %p", &tm_local);
+        lv_label_set_text(g_quotes_clock_lbl, buf);
+    }
+    /* Wi-Fi/BT colors mirror what the clock tile shows via
+       status_timer_cb (which reads the same globals). */
+    if (g_quotes_wifi_icon) {
+        lv_color_t c = g_wifi_connected
+            ? lv_color_make(0x80, 0xff, 0x80)
+            : (g_wifi_curr_ssid[0]
+                ? lv_color_make(0xff, 0xa0, 0x40)
+                : lv_color_make(0x40, 0x40, 0x40));
+        lv_obj_set_style_text_color(g_quotes_wifi_icon, c, 0);
+    }
+    if (g_quotes_bt_icon) {
+        lv_obj_set_style_text_color(g_quotes_bt_icon,
+            lv_color_make(0x40, 0x40, 0x40), 0);
+    }
+}
+
+/* Build one pane on the quotes tile. */
+static void build_quotes_pane(lv_obj_t *parent, int x, int w,
+                              lv_obj_t **name_out, lv_obj_t **sym_out,
+                              lv_obj_t **price_out, lv_obj_t **chg_out)
+{
+    lv_obj_t *pane = lv_obj_create(parent);
+    lv_obj_remove_style_all(pane);
+    lv_obj_set_size(pane, w, canvas_h);
+    lv_obj_set_pos(pane, x, 0);
+    lv_obj_set_style_bg_color(pane, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(pane, LV_OPA_COVER, 0);
+    lv_obj_clear_flag(pane, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(pane, 8, 0);
+
+    /* Pretty name. Pushed right on the left pane so the global FPS pill
+       (anchored top-left of the screen, ~64 px wide with padding)
+       doesn't overlap. */
+    bool is_left_pane = (x == 0);
+    int name_dx = is_left_pane ? 76 : 0;
+    lv_obj_t *name = lv_label_create(pane);
+    lv_obj_set_width(name, w - 20 - name_dx);
+    lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
+    lv_label_set_text(name, "");
+    lv_obj_set_style_text_color(name, lv_color_make(0xc8, 0xc8, 0xe0), 0);
+    lv_obj_set_style_text_font(name, i18n_font(), 0);
+    lv_obj_align(name, LV_ALIGN_TOP_LEFT, name_dx, 0);
+
+    /* Symbol + currency, slightly dimmer, beneath the name. */
+    lv_obj_t *sym = lv_label_create(pane);
+    lv_label_set_text(sym, "");
+    lv_obj_set_style_text_color(sym, lv_color_make(0x80, 0x80, 0xa0), 0);
+    lv_obj_set_style_text_font(sym, i18n_font(), 0);
+    lv_obj_align(sym, LV_ALIGN_TOP_LEFT, name_dx, 16);
+
+    /* Price -- big jbmono. Use 48px so two panes fit side by side at
+       640px wide (each pane ~316px). Stick to ASCII chars only: this
+       font ships with the digits + . + - and not much else. */
+    lv_obj_t *price = lv_label_create(pane);
+    lv_label_set_text(price, "---.--");
+    lv_obj_set_style_text_color(price, lv_color_make(0x60, 0x60, 0x60), 0);
+    lv_obj_set_style_text_font(price, &font_jbmono_48, 0);
+    lv_obj_align(price, LV_ALIGN_LEFT_MID, 0, 8);
+
+    /* Change line beneath the price, colored. */
+    lv_obj_t *chg = lv_label_create(pane);
+    lv_label_set_text(chg, "");
+    lv_obj_set_style_text_color(chg, lv_color_make(0x80, 0x80, 0x80), 0);
+    lv_obj_set_style_text_font(chg, i18n_font(), 0);
+    lv_obj_align(chg, LV_ALIGN_BOTTOM_LEFT, 0, -16);
+
+    *name_out  = name;
+    *sym_out   = sym;
+    *price_out = price;
+    *chg_out   = chg;
+}
+
+static void build_quotes_tile(lv_obj_t *parent)
+{
+    g_quotes_tile = parent;
+    lv_obj_set_style_bg_color(parent, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
+    lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(parent, 0, 0);
+
+    int half = canvas_w / 2;
+    build_quotes_pane(parent, 0, half,
+                      &g_quotes_name_l, &g_quotes_sym_l_lbl,
+                      &g_quotes_price_l, &g_quotes_chg_l);
+    build_quotes_pane(parent, half, canvas_w - half,
+                      &g_quotes_name_r, &g_quotes_sym_r_lbl,
+                      &g_quotes_price_r, &g_quotes_chg_r);
+
+    /* Thin vertical divider. */
+    lv_obj_t *div = lv_obj_create(parent);
+    lv_obj_remove_style_all(div);
+    lv_obj_set_size(div, 1, canvas_h - 20);
+    lv_obj_set_pos(div, half, 10);
+    lv_obj_set_style_bg_color(div, lv_color_make(0x30, 0x30, 0x40), 0);
+    lv_obj_set_style_bg_opa(div, LV_OPA_COVER, 0);
+
+    /* Status line at the very bottom, centered. */
+    g_quotes_status = lv_label_create(parent);
+    lv_label_set_text(g_quotes_status, "fetching…");
+    lv_obj_set_style_text_color(g_quotes_status, lv_color_make(0x60, 0x60, 0x80), 0);
+    lv_obj_set_style_text_font(g_quotes_status, i18n_font(), 0);
+    lv_obj_align(g_quotes_status, LV_ALIGN_BOTTOM_MID, 0, -2);
+
+    /* Floating status overlay (top-right): wifi, bt, hh:mm. */
+    g_quotes_wifi_icon = lv_label_create(parent);
+    lv_label_set_text(g_quotes_wifi_icon, LV_SYMBOL_WIFI);
+    lv_obj_set_style_text_color(g_quotes_wifi_icon,
+                                 lv_color_make(0x40, 0x40, 0x40), 0);
+    lv_obj_set_style_text_font(g_quotes_wifi_icon, i18n_font(), 0);
+    lv_obj_set_style_bg_color(g_quotes_wifi_icon, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(g_quotes_wifi_icon, LV_OPA_60, 0);
+    lv_obj_set_style_pad_hor(g_quotes_wifi_icon, 3, 0);
+    lv_obj_align(g_quotes_wifi_icon, LV_ALIGN_TOP_RIGHT, -4, 4);
+
+    g_quotes_bt_icon = lv_label_create(parent);
+    lv_label_set_text(g_quotes_bt_icon, LV_SYMBOL_BLUETOOTH);
+    lv_obj_set_style_text_color(g_quotes_bt_icon,
+                                 lv_color_make(0x40, 0x40, 0x40), 0);
+    lv_obj_set_style_text_font(g_quotes_bt_icon, i18n_font(), 0);
+    lv_obj_set_style_bg_color(g_quotes_bt_icon, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(g_quotes_bt_icon, LV_OPA_60, 0);
+    lv_obj_set_style_pad_hor(g_quotes_bt_icon, 3, 0);
+    lv_obj_align(g_quotes_bt_icon, LV_ALIGN_TOP_RIGHT, -28, 4);
+
+    g_quotes_clock_lbl = lv_label_create(parent);
+    lv_label_set_text(g_quotes_clock_lbl, "--:--");
+    lv_obj_set_style_text_color(g_quotes_clock_lbl,
+                                 lv_color_make(0xd0, 0xd0, 0xd0), 0);
+    lv_obj_set_style_text_font(g_quotes_clock_lbl, i18n_font(), 0);
+    lv_obj_set_style_bg_color(g_quotes_clock_lbl, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(g_quotes_clock_lbl, LV_OPA_60, 0);
+    lv_obj_set_style_pad_hor(g_quotes_clock_lbl, 3, 0);
+    lv_obj_align(g_quotes_clock_lbl, LV_ALIGN_TOP_RIGHT, -52, 4);
+
+    /* 500 ms repaint timer (drains pending fetch results, refreshes
+       the clock and the wifi/bt color). */
+    lv_timer_create(quotes_status_timer_cb, 500, NULL);
+
+    /* Spin up the fetcher. */
+    quotes_ensure();
 }
 
 /* ---------------------- Radio tile ---------------------- */
@@ -4141,24 +4655,26 @@ static void build_main_ui(const char *status_text)
     lv_obj_set_style_bg_opa(g_tileview, LV_OPA_COVER, 0);
     lv_obj_set_scrollbar_mode(g_tileview, LV_SCROLLBAR_MODE_OFF);
 
-    /* 4-tile loop: Clock <-> Settings <-> Radio <-> Recorder <-> Clock.
+    /* 5-tile loop: Clock <-> Quotes <-> Settings <-> Radio <-> Recorder <-> Clock.
        LVGL tileview doesn't natively wrap; the wrap-around between tile 0
-       and tile 3 is handled by the gesture cb installed below. */
+       and the last tile is handled by the gesture cb installed below. */
     lv_obj_t *t_clock  = lv_tileview_add_tile(g_tileview, 0, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
-    lv_obj_t *t_set    = lv_tileview_add_tile(g_tileview, 1, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
-    lv_obj_t *t_radio  = lv_tileview_add_tile(g_tileview, 2, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
-    lv_obj_t *t_record = lv_tileview_add_tile(g_tileview, 3, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
+    lv_obj_t *t_quotes = lv_tileview_add_tile(g_tileview, 1, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
+    lv_obj_t *t_set    = lv_tileview_add_tile(g_tileview, 2, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
+    lv_obj_t *t_radio  = lv_tileview_add_tile(g_tileview, 3, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
+    lv_obj_t *t_record = lv_tileview_add_tile(g_tileview, 4, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
     (void)status_text;
 
     build_clock_tile(t_clock);
+    build_quotes_tile(t_quotes);
     build_settings_tile(t_set);
     build_radio_tile(t_radio);
     build_recorder_tile(t_record);
 
-    /* Wrap-around: when the user swipes left on tile 0 or right on tile 2,
-       LVGL's tileview just snaps back. Catch the indev gesture on the
-       active screen and jump to the opposite end so the loop feels like
-       a true ring. */
+    /* Wrap-around: when the user swipes left on the last tile or right
+       on tile 0, LVGL's tileview just snaps back. Catch the indev gesture
+       on the active screen and jump to the opposite end so the loop feels
+       like a true ring. */
     lv_obj_add_event_cb(g_tileview, [](lv_event_t *e) {
         lv_indev_t *indev = lv_indev_get_act();
         if (!indev) return;
@@ -4167,10 +4683,11 @@ static void build_main_ui(const char *status_text)
         lv_coord_t x = lv_obj_get_scroll_x(tv);
         lv_coord_t w = lv_obj_get_width(tv);
         int idx = (w > 0) ? (x + w / 2) / w : 0;
-        if (dir == LV_DIR_LEFT && idx == 3) {
+        const int last = 4;
+        if (dir == LV_DIR_LEFT && idx == last) {
             lv_obj_set_tile_id(tv, 0, 0, LV_ANIM_OFF);
         } else if (dir == LV_DIR_RIGHT && idx == 0) {
-            lv_obj_set_tile_id(tv, 3, 0, LV_ANIM_OFF);
+            lv_obj_set_tile_id(tv, last, 0, LV_ANIM_OFF);
         }
     }, LV_EVENT_GESTURE, NULL);
 
@@ -4194,6 +4711,9 @@ static void build_main_ui(const char *status_text)
             s_committed = false;
         } else if (c == LV_EVENT_SCROLL && !s_committed) {
             lv_indev_t *id = lv_indev_get_act();
+            /* If no active input device, this scroll came from
+               lv_obj_set_tile_id() (programmatic). Don't revert it. */
+            if (!id) return;
             lv_point_t p; lv_indev_get_point(id, &p);
             int dx = (int)p.x - (int)s_press_x;
             if (dx > 50 || dx < -50) {

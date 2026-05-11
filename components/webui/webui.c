@@ -72,6 +72,18 @@ extern void app_cfg_clock_bg_reload(void);
 extern void app_cfg_bg_fetch_now(void);
 extern uint32_t app_cfg_get_bg_color(void);
 extern void app_cfg_set_bg_color(uint32_t rgba);
+/* Quotes tile. */
+extern const char *app_cfg_get_quotes_sym_l(void);
+extern const char *app_cfg_get_quotes_sym_r(void);
+extern int  app_cfg_get_quotes_refresh_s(void);
+extern uint32_t app_cfg_get_quotes_up_rgba(void);
+extern uint32_t app_cfg_get_quotes_down_rgba(void);
+extern void app_cfg_set_quotes_sym_l(const char *s);
+extern void app_cfg_set_quotes_sym_r(const char *s);
+extern void app_cfg_set_quotes_refresh_s(int s);
+extern void app_cfg_set_quotes_up_rgba(uint32_t rgba);
+extern void app_cfg_set_quotes_down_rgba(uint32_t rgba);
+extern void app_cfg_set_active_tile(int idx);
 /* Snapshot the LCD framebuffer into the caller's buffer (RGB565,
    panel byte order). Returns bytes written or -1 on error. The
    snapshot is taken under the lvgl mutex so the BMP encoder doesn't
@@ -186,6 +198,20 @@ static const char k_index_html[] =
 " <input id=bgref type=number min=0 max=86400 value=0 style='width:120px'>\n"
 " <button id=bgfetch>Fetch now</button> <span id=bgfetchstat class=meta></span>\n"
 "</section>\n"
+"<section><h2>Quotes</h2>\n"
+" <div class=meta>Two side-by-side instrument quotes fetched from https://pchat.photonicat.com/q/&lt;symbol&gt; every N seconds. Examples: xauusd, xagusd, eurusd, btcusd, aapl.</div>\n"
+" <label>left symbol</label>\n"
+" <input id=qsl type=text style='width:100%;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px' maxlength=15 placeholder='xauusd'>\n"
+" <label>right symbol</label>\n"
+" <input id=qsr type=text style='width:100%;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px' maxlength=15 placeholder='xagusd'>\n"
+" <label>refresh every (s, min 5)</label>\n"
+" <input id=qref type=number min=5 max=3600 value=60 style='width:120px'>\n"
+" <label>up color (positive change)</label>\n"
+" <input id=quc type=color value='#33dd66'>\n"
+" <label>down color (negative change)</label>\n"
+" <input id=qdc type=color value='#ff4040'>\n"
+" <button id=qfetch>Fetch now</button> <span id=qfetchstat class=meta></span>\n"
+"</section>\n"
 "<section><h2>Settings</h2>\n"
 " <label>brightness: <span id=brl>?</span></label>\n"
 " <input id=br type=range min=0 max=255>\n"
@@ -220,6 +246,14 @@ static const char k_index_html[] =
 " if(document.activeElement!==document.getElementById('cktx'))document.getElementById('cktx').value=s.clock_text||'';\n"
 " if(document.activeElement!==document.getElementById('bgm'))document.getElementById('bgm').value=s.bg_mode||0;\n"
 " if(document.activeElement!==document.getElementById('bgurl'))document.getElementById('bgurl').value=s.bg_url||'';\n"
+" if(document.activeElement!==document.getElementById('qsl'))document.getElementById('qsl').value=s.q_sym_l||'';\n"
+" if(document.activeElement!==document.getElementById('qsr'))document.getElementById('qsr').value=s.q_sym_r||'';\n"
+" if(document.activeElement!==document.getElementById('qref'))document.getElementById('qref').value=s.q_refresh_s||60;\n"
+" let qu=s.q_up_rgba>>>0,qd=s.q_down_rgba>>>0;\n"
+" let qur=(qu>>>24)&0xff,qug=(qu>>>16)&0xff,qub=(qu>>>8)&0xff;\n"
+" let qdr=(qd>>>24)&0xff,qdg=(qd>>>16)&0xff,qdb=(qd>>>8)&0xff;\n"
+" if(document.activeElement!==document.getElementById('quc'))document.getElementById('quc').value='#'+[qur,qug,qub].map(x=>x.toString(16).padStart(2,'0')).join('');\n"
+" if(document.activeElement!==document.getElementById('qdc'))document.getElementById('qdc').value='#'+[qdr,qdg,qdb].map(x=>x.toString(16).padStart(2,'0')).join('');\n"
 " if(document.activeElement!==document.getElementById('bgref'))document.getElementById('bgref').value=s.bg_refresh_s||0;\n"
 " let cw=s.canvas_w||640,ch=s.canvas_h||172;document.getElementById('bgwh').textContent=cw+'x'+ch;document.getElementById('bgsize').textContent=cw*ch*2;\n"
 " let bc=s.bg_color>>>0,br=(bc>>>24)&0xff,bg=(bc>>>16)&0xff,bb=(bc>>>8)&0xff;\n"
@@ -274,6 +308,13 @@ static const char k_index_html[] =
 "document.getElementById('bgref').onchange=e=>pushBg({refresh_s:e.target.value});\n"
 "document.getElementById('bgc').onchange=e=>{let h=e.target.value;let r=parseInt(h.substr(1,2),16),g=parseInt(h.substr(3,2),16),b=parseInt(h.substr(5,2),16);pushBg({color:(((r<<24)|(g<<16)|(b<<8)|0xff)>>>0)})};\n"
 "document.getElementById('bgfetch').onclick=async()=>{let s=document.getElementById('bgfetchstat');s.textContent='fetching...';try{let r=await fetch('/api/bg/fetch',{method:'POST'});let j=await r.json();s.textContent=j.ok?'fetched':('failed: '+(j.err||r.status))}catch(e){s.textContent='failed'}};\n"
+"function pushQuotes(o){let fd=new URLSearchParams();for(let k in o)fd.append(k,o[k]);fetch('/api/quotes',{method:'POST',body:fd})}\n"
+"let qslT;document.getElementById('qsl').oninput=e=>{clearTimeout(qslT);qslT=setTimeout(()=>pushQuotes({sl:e.target.value}),400)};\n"
+"let qsrT;document.getElementById('qsr').oninput=e=>{clearTimeout(qsrT);qsrT=setTimeout(()=>pushQuotes({sr:e.target.value}),400)};\n"
+"document.getElementById('qref').onchange=e=>pushQuotes({refresh_s:e.target.value});\n"
+"document.getElementById('quc').onchange=e=>{let h=e.target.value;let r=parseInt(h.substr(1,2),16),g=parseInt(h.substr(3,2),16),b=parseInt(h.substr(5,2),16);pushQuotes({up_rgba:(((r<<24)|(g<<16)|(b<<8)|0xff)>>>0)})};\n"
+"document.getElementById('qdc').onchange=e=>{let h=e.target.value;let r=parseInt(h.substr(1,2),16),g=parseInt(h.substr(3,2),16),b=parseInt(h.substr(5,2),16);pushQuotes({down_rgba:(((r<<24)|(g<<16)|(b<<8)|0xff)>>>0)})};\n"
+"document.getElementById('qfetch').onclick=async()=>{let s=document.getElementById('qfetchstat');s.textContent='fetching...';try{let r=await fetch('/api/quotes/fetch',{method:'POST'});let j=await r.json();s.textContent=j.ok?'kicked':('failed: '+(j.err||r.status))}catch(e){s.textContent='failed'}};\n"
 /* Convert the picked image: load -> draw to a canvas of canvas_w x
    canvas_h -> read pixels -> pack RGB565 -> byte-swap to panel order
    -> POST to /api/bg/upload as raw binary. */
@@ -375,7 +416,7 @@ static esp_err_t h_state(httpd_req_t *r)
         }
         bgu_esc[o] = 0;
     }
-    char json[1024];
+    char json[1280];
     int n = snprintf(json, sizeof(json),
         "{\"recording\":%d,\"elapsed\":%u,"
         "\"playing\":%d,\"uri\":\"%s\","
@@ -385,7 +426,9 @@ static esp_err_t h_state(httpd_req_t *r)
         "\"clock_rgba\":%u,\"show_ms\":%d,\"show_seconds\":%d,"
         "\"show_clock\":%d,\"clock_text\":\"%s\","
         "\"bg_mode\":%d,\"bg_refresh_s\":%d,\"bg_url\":\"%s\","
-        "\"bg_color\":%u,\"canvas_w\":%d,\"canvas_h\":%d}",
+        "\"bg_color\":%u,\"canvas_w\":%d,\"canvas_h\":%d,"
+        "\"q_sym_l\":\"%s\",\"q_sym_r\":\"%s\","
+        "\"q_refresh_s\":%d,\"q_up_rgba\":%u,\"q_down_rgba\":%u}",
         (int)recording, recorder_elapsed_s(),
         (int)playing,   radio_current_uri() ? radio_current_uri() : "",
         (unsigned)pl, (unsigned)pr,
@@ -406,7 +449,12 @@ static esp_err_t h_state(httpd_req_t *r)
         bgu_esc,
         (unsigned)app_cfg_get_bg_color(),
         app_cfg_get_canvas_w(),
-        app_cfg_get_canvas_h());
+        app_cfg_get_canvas_h(),
+        app_cfg_get_quotes_sym_l(),
+        app_cfg_get_quotes_sym_r(),
+        app_cfg_get_quotes_refresh_s(),
+        (unsigned)app_cfg_get_quotes_up_rgba(),
+        (unsigned)app_cfg_get_quotes_down_rgba());
     (void)n;
     return send_str(r, "application/json", json);
 }
@@ -643,6 +691,92 @@ static esp_err_t h_bg_fetch(httpd_req_t *r)
     return send_str(r, "application/json", "{\"ok\":true}");
 }
 
+/* ---------- /api/quotes ---------- */
+
+/* Extract a single form field's raw value (no URL-decoding needed --
+   symbols are alnum). Writes up to dst_sz-1 bytes to dst. Returns 1 on
+   success. */
+static int form_str(const char *body, const char *key, char *dst, size_t dst_sz)
+{
+    if (!body || !key || !dst || dst_sz == 0) return 0;
+    char pat[24];
+    snprintf(pat, sizeof(pat), "%s=", key);
+    const char *p = strstr(body, pat);
+    if (!p) return 0;
+    /* Ensure it's an actual key boundary (start-of-body or '&'). */
+    if (p != body && p[-1] != '&') {
+        /* find the next occurrence on a boundary */
+        do {
+            p = strstr(p + 1, pat);
+            if (!p) return 0;
+        } while (p != body && p[-1] != '&');
+    }
+    p += strlen(pat);
+    size_t o = 0;
+    while (*p && *p != '&' && o < dst_sz - 1) {
+        char c = *p++;
+        if (c == '+') c = ' ';
+        else if (c == '%' && p[0] && p[1]) {
+            char hex[3] = { p[0], p[1], 0 };
+            c = (char)strtol(hex, NULL, 16);
+            p += 2;
+        }
+        dst[o++] = c;
+    }
+    dst[o] = 0;
+    return 1;
+}
+
+static esp_err_t h_quotes(httpd_req_t *r)
+{
+    char body[400];
+    int n = read_body(r, body, sizeof(body));
+    if (n <= 0) return send_str(r, "text/plain", "empty");
+    char tmp[32];
+    if (form_str(body, "sl", tmp, sizeof(tmp))) {
+        app_cfg_set_quotes_sym_l(tmp);
+    }
+    if (form_str(body, "sr", tmp, sizeof(tmp))) {
+        app_cfg_set_quotes_sym_r(tmp);
+    }
+    if (strstr(body, "refresh_s=")) {
+        app_cfg_set_quotes_refresh_s(form_int(body, "refresh_s", 60));
+    }
+    if (strstr(body, "up_rgba=")) {
+        const char *p = strstr(body, "up_rgba=") + 8;
+        app_cfg_set_quotes_up_rgba((uint32_t)strtoul(p, NULL, 0));
+    }
+    if (strstr(body, "down_rgba=")) {
+        const char *p = strstr(body, "down_rgba=") + 10;
+        app_cfg_set_quotes_down_rgba((uint32_t)strtoul(p, NULL, 0));
+    }
+    return send_str(r, "application/json", "{\"ok\":true}");
+}
+
+/* Manual "fetch now" -- nudges the quotes poll task. */
+static esp_err_t h_quotes_fetch(httpd_req_t *r)
+{
+    (void)r;
+    /* Reuse the setter side-effect: setting the left symbol to its
+       current value triggers quotes_kick() inside main.cpp. Cheap and
+       avoids exposing yet another extern. */
+    app_cfg_set_quotes_sym_l(app_cfg_get_quotes_sym_l());
+    return send_str(r, "application/json", "{\"ok\":true}");
+}
+
+/* Programmatic tile-switch (POST /api/goto with body "tile=N"). Lets
+   the webui jump straight to a page from a phone, and lets test
+   scripts grab a screenshot of any specific tile. */
+static esp_err_t h_goto(httpd_req_t *r)
+{
+    char body[64];
+    int n = read_body(r, body, sizeof(body));
+    int t = 0;
+    if (n > 0) t = form_int(body, "tile", 0);
+    app_cfg_set_active_tile(t);
+    return send_str(r, "application/json", "{\"ok\":true}");
+}
+
 /* ---------- /api/rec start/stop and /api/play|stop ---------- */
 
 static esp_err_t h_rec_start(httpd_req_t *r)
@@ -832,7 +966,7 @@ esp_err_t webui_start(void)
     cfg.server_port  = 80;
     cfg.lru_purge_enable = true;
     cfg.uri_match_fn = httpd_uri_match_wildcard;
-    cfg.max_uri_handlers = 16;
+    cfg.max_uri_handlers = 24;
     /* Internal RAM is fragmented after LVGL is up; we keep the stack
        on the small side so task create succeeds, and our handlers
        allocate transient buffers (BMP row, file streaming) from PSRAM. */
@@ -853,6 +987,9 @@ esp_err_t webui_start(void)
         { .uri = "/api/bg",          .method = HTTP_POST, .handler = h_bg },
         { .uri = "/api/bg/upload",   .method = HTTP_POST, .handler = h_bg_upload },
         { .uri = "/api/bg/fetch",    .method = HTTP_POST, .handler = h_bg_fetch },
+        { .uri = "/api/quotes",      .method = HTTP_POST, .handler = h_quotes },
+        { .uri = "/api/quotes/fetch",.method = HTTP_POST, .handler = h_quotes_fetch },
+        { .uri = "/api/goto",        .method = HTTP_POST, .handler = h_goto },
         { .uri = "/api/rec/start",   .method = HTTP_POST, .handler = h_rec_start },
         { .uri = "/api/rec/stop",    .method = HTTP_POST, .handler = h_rec_stop },
         { .uri = "/api/play",        .method = HTTP_POST, .handler = h_play },
