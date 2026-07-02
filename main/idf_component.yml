@@ -16,8 +16,5 @@ dependencies:
   #   public: true
   espressif/esp_lcd_axs15231b: ^1.0.1
   espressif/esp_io_expander_tca9554: ^2.0.1
-  espressif/esp_audio_simple_player: "*"
+  espressif/esp_audio_simple_player: ^1.0.0
   espressif/esp_codec_dev: "*"
-  # gmf_io 0.7.6 still works on IDF 5.2 (later versions hard-require esp_driver_i2s,
-  # which only exists as a separate component on IDF >= 5.3).
-  espressif/gmf_io: "<=0.7.6"
