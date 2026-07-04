@@ -14,6 +14,8 @@
 
 #include "app_cfg.h"
 #include "disp_driver.h"
+#include "backlight.h"
+#include "wifi_manager.h"
 
 #if __has_include("wifi_secret.h")
 #  include "wifi_secret.h"
@@ -430,6 +432,35 @@ void app_cfg_set_lang(int lang)
     cfg_save();
 }
 
-void app_cfg_set_brightness(int v);
-void app_cfg_set_dim_off(int dim_s, int off_s);
-void app_wifi_connect_save(const char *ssid, const char *pass);
+void app_cfg_set_brightness(int v)
+{
+    if (v < 0) v = 0;
+    if (v > 255) v = 255;
+    g_cfg.brightness = (uint8_t)v;
+    g_dim_state = 0;
+    g_last_activity_ms = lv_tick_get();
+    backlight_apply(g_cfg.brightness);
+    cfg_save();
+}
+
+void app_cfg_set_dim_off(int dim_s, int off_s)
+{
+    if (dim_s < 0) dim_s = 0;
+    if (off_s < 0) off_s = 0;
+    g_cfg.dim_s = (uint16_t)dim_s;
+    g_cfg.off_s = (uint16_t)off_s;
+    g_dim_state = 0;
+    g_last_activity_ms = lv_tick_get();
+    backlight_apply(g_cfg.brightness);
+    cfg_save();
+}
+
+void app_wifi_connect_save(const char *ssid, const char *pass)
+{
+    if (!ssid || !*ssid) return;
+    cfg_save_ssid_pass(ssid, pass ? pass : "");
+    strncpy(g_cfg.last_ssid, ssid, sizeof(g_cfg.last_ssid) - 1);
+    g_cfg.last_ssid[sizeof(g_cfg.last_ssid) - 1] = 0;
+    cfg_save();
+    wifi_connect(ssid, pass ? pass : "");
+}

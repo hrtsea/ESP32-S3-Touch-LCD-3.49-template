@@ -4,6 +4,7 @@ idf_component_register(SRCS "main.cpp" "cli.c" "i18n.c" "font_cjk_14.c"
                           "ui_clock.c" "ui_bg_fetcher.c" "ui_quotes.c"
                           "ui_radio.c" "ui_settings.c" "ui_recorder.c"
                           "ui_main.c" "app_cfg.c" "disp_driver.c"
+                          "wifi_manager.c" "sntp_manager.c" "backlight.c" "theme.c"
                     INCLUDE_DIRS "."
                     REQUIRES audio_min radio recorder webui esp_timer esp_lcd driver
                          i2c_bsp i2c_equipment lcd_bl_pwm_bsp adc_bsp

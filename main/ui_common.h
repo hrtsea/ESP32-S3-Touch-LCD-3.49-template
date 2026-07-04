@@ -16,6 +16,9 @@ extern "C" {
 
 #include "app_cfg.h"
 #include "disp_driver.h"
+#include "wifi_manager.h"
+#include "backlight.h"
+#include "theme.h"
 
 #define WIFI_MAX_SCAN_AP 16
 typedef struct {
@@ -24,34 +27,7 @@ typedef struct {
     uint8_t auth;
 } wifi_scan_ap_t;
 
-extern bool     g_wifi_connected;
-extern char     g_wifi_curr_ssid[33];
-extern uint8_t  g_wifi_last_reason;
-extern int8_t   g_wifi_last_rssi;
-extern uint32_t g_wifi_connect_started_ms;
-extern bool     g_wifi_scanning;
-extern uint16_t g_wifi_scan_n;
 extern wifi_scan_ap_t g_wifi_scan[WIFI_MAX_SCAN_AP];
-
-void wifi_start_scan(void);
-void wifi_connect(const char *ssid, const char *pass);
-
-extern int      g_dim_state;
-extern uint32_t g_last_activity_ms;
-void backlight_apply(uint8_t bri);
-
-typedef struct {
-    lv_color_t bg;
-    lv_color_t text;
-    lv_color_t menu_surf;
-    lv_color_t menu_hdr;
-    lv_color_t menu_btn;
-    lv_color_t sunmap_water_n;
-    lv_color_t sunmap_water_d;
-    lv_color_t sunmap_land_n;
-    lv_color_t sunmap_land_d;
-} theme_palette_t;
-theme_palette_t theme_get(void);
 
 bool menu_input_blocked(void);
 extern uint32_t g_last_scroll_ms;

@@ -8,31 +8,19 @@
 #include <sys/stat.h>
 #include "esp_vfs_fat.h"
 
+#include "esp_io_expander_tca9554.h"
+#include "driver/i2c_master.h"
+
 #include "nvs_flash.h"
 #include "nvs.h"
 #include "esp_system.h"
-#include "esp_wifi.h"
-#include "esp_event.h"
-#include "esp_netif.h"
-#include "esp_sntp.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "driver/spi_master.h"
-#include "driver/gpio.h"
 #include "esp_timer.h"
-#include "esp_lcd_panel_io.h"
-#include "esp_lcd_panel_vendor.h"
-#include "esp_lcd_panel_ops.h"
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_heap_caps.h"
-
-#include "lvgl.h"
-#include "esp_lcd_axs15231b.h"
-#include "esp_io_expander_tca9554.h"
-#include "driver/i2c_master.h"
 
 #include "user_config.h"
 #include "i2c_bsp.h"
@@ -50,6 +38,10 @@
 #include "landmask.h"
 #include "tz_cities.h"
 
+#include "app_cfg.h"
+#include "disp_driver.h"
+#include "wifi_manager.h"
+#include "sntp_manager.h"
 #include "ui_common.h"
 #include "ui_radio.h"
 
@@ -63,252 +55,6 @@ extern "C" const lv_font_t font_jbmono_96;
 extern "C" void tz_apply_current(void);
 extern "C" const char *tz_current_city_name(void);
 extern "C" void disp_driver_init(void);
-
-/* ---------------------- Wi-Fi ---------------------- */
-
-wifi_scan_ap_t g_wifi_scan[WIFI_MAX_SCAN_AP];
-uint16_t       g_wifi_scan_n = 0;
-bool           g_wifi_scanning = false;
-static bool    g_wifi_inited = false;
-bool           g_wifi_connected = false;
-char           g_wifi_curr_ssid[33] = {0};
-uint8_t        g_wifi_last_reason = 0;
-int8_t         g_wifi_last_rssi = 0;
-uint32_t       g_wifi_connect_started_ms = 0;
-static bool    g_sntp_started = false;
-static time_t  g_last_sntp_sync = 0;
-
-static void wifi_init_once(void);
-static void sntp_start_once(void);
-
-/* ---------------------- Backlight + auto-dim ---------------------- */
-
-uint32_t g_last_activity_ms = 0;
-int      g_dim_state = 0;
-
-/* ---------------------- IP overlay tag ---------------------- */
-
-static lv_obj_t *g_ip_label = NULL;
-
-static void ip_label_ensure(void)
-{
-    if (g_ip_label) return;
-    g_ip_label = lv_label_create(lv_layer_top());
-    lv_label_set_text(g_ip_label, "");
-    lv_obj_set_style_text_color(g_ip_label, lv_color_make(0xa0, 0xa0, 0xa0), 0);
-    lv_obj_set_style_text_font(g_ip_label, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_bg_color(g_ip_label, lv_color_make(0x00, 0x00, 0x00), 0);
-    lv_obj_set_style_bg_opa(g_ip_label, LV_OPA_50, 0);
-    lv_obj_set_style_pad_left(g_ip_label, 4, 0);
-    lv_obj_set_style_pad_right(g_ip_label, 4, 0);
-    lv_obj_set_style_pad_top(g_ip_label, 1, 0);
-    lv_obj_set_style_pad_bottom(g_ip_label, 1, 0);
-    lv_obj_set_style_radius(g_ip_label, 3, 0);
-    lv_obj_align(g_ip_label, LV_ALIGN_BOTTOM_LEFT, 2, -2);
-    lv_obj_add_flag(g_ip_label, LV_OBJ_FLAG_HIDDEN);
-}
-
-static void ip_label_set(const char *text)
-{
-    if (!lvgl_lock(50)) return;
-    ip_label_ensure();
-    if (text && *text) {
-        lv_label_set_text(g_ip_label, text);
-        lv_obj_clear_flag(g_ip_label, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(g_ip_label, LV_OBJ_FLAG_HIDDEN);
-    }
-    lvgl_unlock();
-}
-
-/* ---------------------- Wi-Fi impl ---------------------- */
-
-static uint8_t g_wifi_fail_count = 0;
-static bool    g_wifi_roaming_scan = false;
-#define WIFI_FAILS_BEFORE_ROAM 3
-
-static bool wifi_has_remembered(const char *ssid)
-{
-    if (!ssid || !*ssid) return false;
-    char key[16] = {0};
-    strncpy(key, ssid, 15);
-    nvs_handle_t h;
-    if (nvs_open(NVS_NS_WIFI, NVS_READONLY, &h) != ESP_OK) return false;
-    size_t l = 0;
-    esp_err_t er = nvs_get_str(h, key, NULL, &l);
-    nvs_close(h);
-    return er == ESP_OK;
-}
-
-static void wifi_kick_roam_scan(void)
-{
-    if (g_wifi_scanning) return;
-    wifi_scan_config_t sc = {};
-    sc.show_hidden = false;
-    g_wifi_roaming_scan = true;
-    g_wifi_scanning = true;
-    esp_err_t er = esp_wifi_scan_start(&sc, false);
-    ESP_LOGI(TAG, "wifi: roaming scan -> %s", esp_err_to_name(er));
-    if (er != ESP_OK) {
-        g_wifi_scanning = false;
-        g_wifi_roaming_scan = false;
-    }
-}
-
-static void wifi_event_handler(void *arg, esp_event_base_t base,
-                                int32_t id, void *data)
-{
-    (void)arg;
-    if (base == WIFI_EVENT) {
-        switch (id) {
-            case WIFI_EVENT_STA_START:
-                ESP_LOGI(TAG, "wifi: STA_START");
-                break;
-            case WIFI_EVENT_STA_DISCONNECTED: {
-                wifi_event_sta_disconnected_t *d =
-                    (wifi_event_sta_disconnected_t *)data;
-                g_wifi_last_reason = d ? d->reason : 0;
-                ESP_LOGW(TAG, "wifi: disconnected reason=%u",
-                         (unsigned)g_wifi_last_reason);
-                g_wifi_connected = false;
-                ip_label_set(NULL);
-                g_wifi_fail_count++;
-                if (g_wifi_curr_ssid[0] && !g_wifi_scanning &&
-                    g_wifi_fail_count < WIFI_FAILS_BEFORE_ROAM) {
-                    esp_wifi_connect();
-                } else if (g_cfg.wifi_autoconnect && !g_wifi_scanning) {
-                    wifi_kick_roam_scan();
-                }
-                break;
-            }
-            case WIFI_EVENT_STA_CONNECTED:
-                ESP_LOGI(TAG, "wifi: connected to %s", g_wifi_curr_ssid);
-                g_wifi_connected = true;
-                g_wifi_last_reason = 0;
-                g_wifi_fail_count = 0;
-                strncpy(g_cfg.last_ssid, g_wifi_curr_ssid, sizeof(g_cfg.last_ssid) - 1);
-                cfg_save();
-                break;
-            case WIFI_EVENT_SCAN_DONE: {
-                static wifi_ap_record_t recs[WIFI_MAX_SCAN_AP];
-                uint16_t apc = WIFI_MAX_SCAN_AP;
-                if (esp_wifi_scan_get_ap_records(&apc, recs) == ESP_OK) {
-                    g_wifi_scan_n = apc;
-                    for (int i = 0; i < apc; i++) {
-                        strncpy(g_wifi_scan[i].ssid, (const char *)recs[i].ssid,
-                                sizeof(g_wifi_scan[i].ssid) - 1);
-                        g_wifi_scan[i].ssid[sizeof(g_wifi_scan[i].ssid) - 1] = 0;
-                        g_wifi_scan[i].rssi = recs[i].rssi;
-                        g_wifi_scan[i].auth = (uint8_t)recs[i].authmode;
-                    }
-                } else {
-                    g_wifi_scan_n = 0;
-                }
-                ESP_LOGI(TAG, "wifi: scan done, n=%u", (unsigned)g_wifi_scan_n);
-                g_wifi_scanning = false;
-                if (g_wifi_roaming_scan) {
-                    g_wifi_roaming_scan = false;
-                    int best_i = -1;
-                    int best_rssi = -127;
-                    for (int i = 0; i < g_wifi_scan_n; i++) {
-                        if (!wifi_has_remembered(g_wifi_scan[i].ssid)) continue;
-                        if (g_wifi_scan[i].rssi > best_rssi) {
-                            best_rssi = g_wifi_scan[i].rssi;
-                            best_i = i;
-                        }
-                    }
-                    if (best_i >= 0) {
-                        const char *ssid = g_wifi_scan[best_i].ssid;
-                        char pass[65] = {0};
-                        cfg_get_ssid_pass(ssid, pass, sizeof(pass));
-                        ESP_LOGI(TAG, "wifi: roaming to known %s rssi=%d",
-                                 ssid, best_rssi);
-                        g_wifi_fail_count = 0;
-                        wifi_connect(ssid, pass);
-                        break;
-                    } else {
-                        ESP_LOGI(TAG, "wifi: no remembered AP visible (%u seen)",
-                                 (unsigned)g_wifi_scan_n);
-                        g_wifi_fail_count = 0;
-                    }
-                }
-                if (g_wifi_curr_ssid[0] && !g_wifi_connected) {
-                    esp_wifi_connect();
-                }
-                break;
-            }
-            default: break;
-        }
-    } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t *ev = (ip_event_got_ip_t *)data;
-        ESP_LOGI(TAG, "wifi: got IP " IPSTR, IP2STR(&ev->ip_info.ip));
-        sntp_start_once();
-        char buf[40];
-        snprintf(buf, sizeof(buf), IPSTR, IP2STR(&ev->ip_info.ip));
-        ip_label_set(buf);
-    }
-}
-
-static void wifi_init_once(void)
-{
-    if (g_wifi_inited) return;
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_create_default_wifi_sta();
-
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(
-        WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(
-        IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, NULL));
-
-    ESP_ERROR_CHECK(esp_wifi_start());
-    g_wifi_inited = true;
-}
-
-void wifi_start_scan(void)
-{
-    wifi_init_once();
-    g_wifi_scanning = true;
-    esp_wifi_disconnect();
-    wifi_scan_config_t sc = {};
-    sc.show_hidden = false;
-    sc.scan_type = WIFI_SCAN_TYPE_ACTIVE;
-    esp_err_t er = esp_wifi_scan_start(&sc, false);
-    if (er != ESP_OK) {
-        ESP_LOGW(TAG, "wifi: scan_start=%s", esp_err_to_name(er));
-        g_wifi_scanning = false;
-    }
-}
-
-void wifi_connect(const char *ssid, const char *pass)
-{
-    wifi_init_once();
-    wifi_config_t wc = {};
-    strncpy((char *)wc.sta.ssid, ssid, sizeof(wc.sta.ssid) - 1);
-    strncpy((char *)wc.sta.password, pass ? pass : "", sizeof(wc.sta.password) - 1);
-    wc.sta.threshold.authmode = (pass && pass[0])
-                                    ? WIFI_AUTH_WPA2_PSK
-                                    : WIFI_AUTH_OPEN;
-    wc.sta.pmf_cfg.capable = true;
-    wc.sta.pmf_cfg.required = false;
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wc));
-    strncpy(g_wifi_curr_ssid, ssid, sizeof(g_wifi_curr_ssid) - 1);
-    g_wifi_curr_ssid[sizeof(g_wifi_curr_ssid) - 1] = 0;
-    g_wifi_connect_started_ms = lv_tick_get();
-    g_wifi_last_reason = 0;
-    esp_wifi_disconnect();
-    esp_err_t er = esp_wifi_connect();
-    ESP_LOGI(TAG, "wifi: connect %s pass_len=%u auth=%d -> %s",
-             ssid, (unsigned)(pass ? strlen(pass) : 0),
-             (int)wc.sta.threshold.authmode, esp_err_to_name(er));
-}
-
-/* ---------------------- webui snapshot ---------------------- */
 
 extern "C" int webui_snapshot_fb(void *out, size_t cap)
 {
@@ -324,128 +70,6 @@ extern "C" int webui_snapshot_fb(void *out, size_t cap)
     lvgl_unlock();
     return (int)need;
 }
-
-/* ---------------------- SNTP ---------------------- */
-
-#define SNTP_SYNC_INTERVAL_MS (4UL * 3600UL * 1000UL)
-
-static void sntp_sync_notification_cb(struct timeval *tv)
-{
-    if (!tv) return;
-    g_last_sntp_sync = tv->tv_sec;
-    struct tm tm;
-    gmtime_r(&g_last_sntp_sync, &tm);
-    ESP_LOGI(TAG, "sntp: synced to %04d-%02d-%02d %02d:%02d:%02d UTC",
-             tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-             tm.tm_hour, tm.tm_min, tm.tm_sec);
-    i2c_rtc_setTime((uint16_t)(tm.tm_year + 1900),
-                    (uint8_t)(tm.tm_mon + 1),
-                    (uint8_t)tm.tm_mday,
-                    (uint8_t)tm.tm_hour,
-                    (uint8_t)tm.tm_min,
-                    (uint8_t)tm.tm_sec);
-}
-
-static void sntp_start_once(void)
-{
-    if (g_sntp_started) return;
-    g_sntp_started = true;
-    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    esp_sntp_setservername(0, "pool.ntp.org");
-    esp_sntp_setservername(1, "time.google.com");
-    sntp_set_time_sync_notification_cb(sntp_sync_notification_cb);
-    sntp_set_sync_interval(SNTP_SYNC_INTERVAL_MS);
-    esp_sntp_init();
-    ESP_LOGI(TAG, "sntp: started, server=pool.ntp.org, interval=%lus",
-             (unsigned long)(SNTP_SYNC_INTERVAL_MS / 1000));
-}
-
-/* ---------------------- Backlight + auto-dim impl ---------------------- */
-
-void backlight_apply(uint8_t bri)
-{
-    setUpduty((uint16_t)(0xFF - bri));
-}
-
-/* ---------------------- Theme palette ---------------------- */
-
-theme_palette_t theme_get(void)
-{
-    theme_palette_t p;
-    switch (g_cfg.theme) {
-    case 1:
-        p.bg = lv_color_make(0xf0, 0xf0, 0xf4);
-        p.text = lv_color_make(0x10, 0x10, 0x18);
-        p.menu_surf = lv_color_make(0xe8, 0xe8, 0xee);
-        p.menu_hdr = lv_color_make(0xc0, 0xc0, 0xcc);
-        p.menu_btn = lv_color_make(0x90, 0x90, 0xa0);
-        p.sunmap_water_n = lv_color_make(0xb0, 0xb8, 0xc8);
-        p.sunmap_water_d = lv_color_make(0xe0, 0xe4, 0xf0);
-        p.sunmap_land_n = lv_color_make(0x60, 0x70, 0x80);
-        p.sunmap_land_d = lv_color_make(0x20, 0x30, 0x40);
-        break;
-    case 2:
-        p.bg = lv_color_black();
-        p.text = lv_color_make(0xff, 0xff, 0x00);
-        p.menu_surf = lv_color_black();
-        p.menu_hdr = lv_color_make(0xff, 0xff, 0x00);
-        p.menu_btn = lv_color_white();
-        p.sunmap_water_n = lv_color_black();
-        p.sunmap_water_d = lv_color_make(0x40, 0x40, 0x00);
-        p.sunmap_land_n = lv_color_make(0x80, 0x80, 0x00);
-        p.sunmap_land_d = lv_color_make(0xff, 0xff, 0x00);
-        break;
-    default:
-        p.bg = lv_color_black();
-        p.text = lv_color_white();
-        p.menu_surf = lv_color_make(0x20, 0x20, 0x28);
-        p.menu_hdr = lv_color_make(0x30, 0x30, 0x3c);
-        p.menu_btn = lv_color_make(0x50, 0x50, 0x60);
-        p.sunmap_water_n = lv_color_black();
-        p.sunmap_water_d = lv_color_make(0x20, 0x20, 0x20);
-        p.sunmap_land_n = lv_color_make(0x40, 0x40, 0x40);
-        p.sunmap_land_d = lv_color_make(0x90, 0x90, 0x90);
-        break;
-    }
-    return p;
-}
-
-/* ---------------------- app_cfg setters that need backlight/wifi ---------------------- */
-
-extern "C" void app_cfg_set_brightness(int v)
-{
-    if (v < 0) v = 0;
-    if (v > 255) v = 255;
-    g_cfg.brightness = (uint8_t)v;
-    g_dim_state = 0;
-    g_last_activity_ms = lv_tick_get();
-    backlight_apply(g_cfg.brightness);
-    cfg_save();
-}
-
-extern "C" void app_cfg_set_dim_off(int dim_s, int off_s)
-{
-    if (dim_s < 0) dim_s = 0;
-    if (off_s < 0) off_s = 0;
-    g_cfg.dim_s = (uint16_t)dim_s;
-    g_cfg.off_s = (uint16_t)off_s;
-    g_dim_state = 0;
-    g_last_activity_ms = lv_tick_get();
-    backlight_apply(g_cfg.brightness);
-    cfg_save();
-}
-
-extern "C" void app_wifi_connect_save(const char *ssid, const char *pass)
-{
-    if (!ssid || !*ssid) return;
-    cfg_save_ssid_pass(ssid, pass ? pass : "");
-    strncpy(g_cfg.last_ssid, ssid, sizeof(g_cfg.last_ssid) - 1);
-    g_cfg.last_ssid[sizeof(g_cfg.last_ssid) - 1] = 0;
-    cfg_save();
-    wifi_connect(ssid, pass ? pass : "");
-}
-
-/* ---------------------- app_main ---------------------- */
 
 extern "C" void app_main(void)
 {
@@ -573,7 +197,7 @@ extern "C" void app_main(void)
     }
 
     tz_apply_current();
-    wifi_init_once();
+    wifi_manager_init();
 
     if (webui_start() != ESP_OK) {
         ESP_LOGW(TAG, "webui_start failed");

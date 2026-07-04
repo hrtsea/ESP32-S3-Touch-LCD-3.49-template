@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define NVS_NS_CFG   "cfg"
 #define NVS_NS_WIFI  "wifi"
 #define CFG_VERSION  7u
@@ -102,5 +106,9 @@ void app_cfg_set_lang(int lang);
 void app_cfg_set_brightness(int v);
 void app_cfg_set_dim_off(int dim_s, int off_s);
 void app_wifi_connect_save(const char *ssid, const char *pass);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

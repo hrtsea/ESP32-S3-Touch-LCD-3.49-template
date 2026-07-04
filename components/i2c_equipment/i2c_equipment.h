@@ -1,6 +1,9 @@
 #ifndef I2C_EQUIPMENT_H
 #define I2C_EQUIPMENT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct 
 {
@@ -34,4 +37,9 @@ void i2c_imu_setup(void);
 void i2c_imu_task(void *arg);
 RtcDateTime_t i2c_rtc_get(void);
 ImuDate_t i2c_imu_get(void);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif 
