@@ -4,6 +4,7 @@ idf_component_register(
     SRCS
         "main.cpp"
         "ui/ui_main.c"
+        "ui/ui_hello.c"
         "ui/ui_clock.c"
         "ui/ui_quotes.c"
         "ui/ui_settings.c"

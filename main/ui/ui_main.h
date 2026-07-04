@@ -17,6 +17,7 @@ extern int         g_dim_state;
 void show_main_ui(const char *status_text);
 void fps_timer_cb(lv_timer_t *t);
 void backlight_apply(uint8_t bri);
+void rotate_btn_event_cb(lv_event_t *e);
 
 #ifdef __cplusplus
 }

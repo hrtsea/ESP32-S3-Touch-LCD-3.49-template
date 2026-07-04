@@ -26,6 +26,7 @@
 #include "ui_radio.h"
 #include "ui_settings.h"
 #include "ui_recorder.h"
+#include "ui_hello.h"
 #include "audio_min.h"
 #include "wifi_manager.h"
 
@@ -44,7 +45,6 @@ int            g_dim_state = 0;             /* 调光状态（0=正常, 1=变暗
 
 static lv_timer_t *g_dim_timer = NULL;      /* 自动调光定时器（1Hz） */
 
-static lv_obj_t   *play_btn_label  = NULL;   /* Hello页面播放按钮标签 */
 static lv_obj_t   *g_ip_label = NULL;        /* 底部IP地址标签（显示WiFi连接状态） */
 
 /* ---------------------- IP标签UI ---------------------- */
@@ -257,33 +257,6 @@ void fps_timer_cb(lv_timer_t *t)
     }
 }
 
-/* ---------------------- Hello页面（演示页） ---------------------- */
-
-/**
- * @brief 播放按钮点击事件回调
- * 
- * 切换音频播放状态（播放/停止），并更新按钮图标
- * 
- * @param e LVGL事件参数
- */
-static void play_btn_event_cb(lv_event_t *e)
-{
-    (void)e;
-    if (!g_cfg.audio_enable) {
-        ESP_LOGI(TAG, "play ignored: audio disabled in settings");
-        return;
-    }
-
-    bool now = !audio_min_is_playing();
-    audio_min_play_midi(now);
-
-    if (play_btn_label) {
-        lv_label_set_text(play_btn_label, now ? LV_SYMBOL_STOP : LV_SYMBOL_PLAY);
-    }
-
-    ESP_LOGI(TAG, "play toggled -> %s", now ? "PLAY" : "STOP");
-}
-
 /**
  * @brief 屏幕旋转按钮事件回调
  * 
@@ -291,7 +264,7 @@ static void play_btn_event_cb(lv_event_t *e)
  * 
  * @param e LVGL事件参数
  */
-static void rotate_btn_event_cb(lv_event_t *e)
+void rotate_btn_event_cb(lv_event_t *e)
 {
     (void)e;
 
@@ -314,7 +287,7 @@ static void rotate_btn_event_cb(lv_event_t *e)
     /* 清空当前屏幕，重置所有UI指针 */
     lv_obj_clean(lv_scr_act());
     fps_label = NULL;
-    play_btn_label = NULL;
+    g_hello_play_btn_label = NULL;
     g_tileview = NULL;
 
     /* 重置时钟页面指针 */
@@ -365,69 +338,6 @@ static void rotate_btn_event_cb(lv_event_t *e)
     ESP_LOGI(TAG, "rotate -> %d deg  canvas=%dx%d", rot_state * 90, canvas_w, canvas_h);
 }
 
-/**
- * @brief 构建Hello演示页面
- * 
- * 创建一个带有滚动文字、状态文本、播放按钮和旋转按钮的演示页面
- * 
- * @param parent 父容器（TileView的tile）
- * @param status_text 状态文本内容
- */
-static void build_hello_tile(lv_obj_t *parent, const char *status_text)
-{
-    /* 设置背景样式 */
-    lv_obj_set_style_bg_color(parent, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
-    lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
-
-    /* 创建滚动文字标签 */
-    lv_obj_t *hello = lv_label_create(parent);
-    lv_label_set_long_mode(hello, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_set_width(hello, canvas_w / 3);
-    lv_label_set_text(hello, "Hello World  *  Hello World  *  Hello World  *  ");
-    lv_obj_set_style_text_color(hello, lv_color_white(), 0);
-    lv_obj_set_style_text_font(hello, i18n_font(), 0);
-    lv_obj_set_style_anim_speed(hello, 40, 0);
-    lv_obj_set_style_text_align(hello, LV_TEXT_ALIGN_LEFT, 0);
-    lv_obj_align(hello, LV_ALIGN_TOP_MID, 0, 8);
-
-    /* 创建状态文本标签 */
-    lv_obj_t *status = lv_label_create(parent);
-    lv_label_set_long_mode(status, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(status, canvas_w - 20);
-    lv_label_set_text(status, status_text);
-    lv_obj_set_style_text_color(status, lv_color_make(0xa0, 0xa0, 0xa0), 0);
-    lv_obj_set_style_text_font(status, i18n_font(), 0);
-    lv_obj_set_style_text_align(status, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(status, LV_ALIGN_CENTER, 0, 0);
-
-    /* 创建播放/停止按钮 */
-    lv_obj_t *play_btn = lv_btn_create(parent);
-    lv_obj_set_size(play_btn, 50, 50);
-    lv_obj_align(play_btn, LV_ALIGN_BOTTOM_LEFT, 16, -8);
-    lv_obj_set_style_radius(play_btn, 25, 0);
-    lv_obj_set_style_bg_color(play_btn, lv_color_make(0x20, 0x80, 0x40), 0);
-    lv_obj_add_event_cb(play_btn, play_btn_event_cb, LV_EVENT_CLICKED, NULL);
-    play_btn_label = lv_label_create(play_btn);
-    lv_label_set_text(play_btn_label, audio_min_is_playing() ? LV_SYMBOL_STOP : LV_SYMBOL_PLAY);
-    lv_obj_set_style_text_color(play_btn_label, lv_color_white(), 0);
-    lv_obj_set_style_text_font(play_btn_label, i18n_font(), 0);
-    lv_obj_center(play_btn_label);
-
-    /* 创建旋转按钮 */
-    lv_obj_t *rot_btn = lv_btn_create(parent);
-    lv_obj_set_size(rot_btn, 50, 50);
-    lv_obj_align(rot_btn, LV_ALIGN_BOTTOM_RIGHT, -16, -8);
-    lv_obj_set_style_radius(rot_btn, 30, 0);
-    lv_obj_set_style_bg_color(rot_btn, lv_color_make(0x40, 0x40, 0x80), 0);
-    lv_obj_add_event_cb(rot_btn, rotate_btn_event_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_t *rot_label = lv_label_create(rot_btn);
-    lv_label_set_text(rot_label, LV_SYMBOL_REFRESH);
-    lv_obj_set_style_text_color(rot_label, lv_color_white(), 0);
-    lv_obj_set_style_text_font(rot_label, i18n_font(), 0);
-    lv_obj_center(rot_label);
-}
-
 /* ---------------------- TileView手势处理器 ---------------------- */
 
 /**
@@ -457,9 +367,10 @@ static void tileview_gesture_cb(lv_event_t *e)
 }
 
 /**
- * @brief TileView提交阈值回调（iOS风格）
+ * @brief TileView提交阈值回调
  * 
- * 按住TileView直到X方向偏移超过50像素才确认切换页面，否则回弹到当前页面
+ * 按住TileView直到X方向偏移超过20像素才确认切换页面，否则回弹到当前页面
+ * 小屏幕上降低阈值便于操作
  * 
  * @param e LVGL事件参数
  */
@@ -483,7 +394,7 @@ static void tileview_commit_cb(lv_event_t *e)
         if (!id) return;
         lv_point_t p; lv_indev_get_point(id, &p);
         int dx = (int)p.x - (int)s_press_x;
-        if (dx > 50 || dx < -50) {
+        if (dx > 20 || dx < -20) {
             s_committed = true;
         } else {
             lv_obj_scroll_to_x(tv, s_locked_x, LV_ANIM_OFF);
