@@ -21,6 +21,7 @@
 #include "sdcard_bsp.h"
 #include "button_bsp.h"
 #include "audio_min.h"
+#include "radio.h"
 
 #include "app_cfg.h"
 #include "disp_driver.h"
@@ -94,20 +95,26 @@ void hw_init(void)
     adc_bsp_init();
     status_text_append("ADC OK\n");
 
-    ESP_LOGI(TAG, "[7/9] Audio (audio_min: ES8311 + I2S)");
-    if (audio_min_init() == ESP_OK) {
-        audio_min_set_volume(g_cfg.audio_volume);
-        status_text_append("Audio OK\n");
+    ESP_LOGI(TAG, "[7/9] Audio (radio engine: ES8311 + ES7210 + I2S TDM)");
+    if (radio_init() == ESP_OK) {
+        radio_set_volume(g_cfg.audio_volume);
+        status_text_append("Radio OK\n");
     } else {
-        status_text_append("Audio FAIL\n");
+        status_text_append("Radio FAIL\n");
     }
 
-    ESP_LOGI(TAG, "[8/9] SD card + Buttons");
+    ESP_LOGI(TAG, "[8/9] Audio MIDI (audio_min: reuses radio play_dev)");
+    if (audio_min_init() == ESP_OK) {
+        audio_min_set_volume(g_cfg.audio_volume);
+        status_text_append("MIDI OK\n");
+    } else {
+        status_text_append("MIDI FAIL\n");
+    }
+
+    ESP_LOGI(TAG, "[9/9] SD card + Buttons");
     _sdcard_init();
     button_Init();
     status_text_append("SD/Btn OK");
-
-    ESP_LOGI(TAG, "[9/9] System time from RTC");
     system_time_init();
 }
 

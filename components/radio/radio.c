@@ -151,8 +151,22 @@ static int radio_event_cb(esp_asp_event_pkt_t *pkt, void *ctx)
                     .channel_mask    = 0,
                     .sample_rate     = r,
                 };
+                /* In TDM mode both TX and RX share the same I2S bit/frame
+                   clock, so we must re-open both devices at the new rate
+                   to keep them in sync and avoid "sample_rate conflict"
+                   errors from the I2S driver. */
                 esp_codec_dev_close(s_play_dev);
                 esp_codec_dev_open(s_play_dev, &fs);
+                if (s_record_dev) {
+                    esp_codec_dev_sample_info_t rec_fs = {
+                        .bits_per_sample = 16,
+                        .channel         = 2,
+                        .sample_rate     = r,
+                    };
+                    esp_codec_dev_close(s_record_dev);
+                    esp_codec_dev_open(s_record_dev, &rec_fs);
+                    esp_codec_dev_set_in_gain(s_record_dev, 42.0f);
+                }
                 s_cur_rate = r;
                 s_cur_bits = b;
                 s_cur_ch   = c;
@@ -290,9 +304,13 @@ esp_err_t radio_init(void)
     };
     int rc = esp_codec_dev_open(s_play_dev, &fs);
     if (rc != ESP_CODEC_DEV_OK) { ESP_LOGE(TAG, "play_dev open: %d", rc); return ESP_FAIL; }
+    /* Open the record device at the same rate so the TDM bit/frame
+       clocks are consistent -- TX and RX share the same I2S clock in
+       TDM mode, so mismatched rates cause "sample_rate conflict" errors
+       and audio glitches on either side. */
+    rc = esp_codec_dev_open(s_record_dev, &fs);
+    if (rc != ESP_CODEC_DEV_OK) { ESP_LOGE(TAG, "record_dev open: %d", rc); return ESP_FAIL; }
     s_cur_rate = 44100; s_cur_bits = 16; s_cur_ch = 2;
-    /* Don't open the record_dev here -- recorder_init() opens it on
-       demand at the rate it wants for capture. */
 
     ESP_LOGI(TAG, "init step 9/9: esp_audio_simple_player_new");
     esp_asp_cfg_t cfg = {
@@ -421,6 +439,11 @@ void radio_set_volume(int v)
 }
 
 int radio_get_volume(void) { return s_volume; }
+
+uint32_t radio_get_sample_rate(void)
+{
+    return s_cur_rate ? s_cur_rate : 44100;
+}
 
 void radio_beep(void)
 {

@@ -53,6 +53,10 @@ void         radio_out_peak(uint16_t *out_l, uint16_t *out_r);
 void         radio_set_volume(int vol_0_100);
 int          radio_get_volume(void);
 
+/* Current sample rate of the shared TDM clock. Both record and playback
+   devices run at this rate to avoid "sample_rate conflict" errors. */
+uint32_t     radio_get_sample_rate(void);
+
 /* For the recorder: hand it the RX i2s channel + codec interfaces we
    already created. ES8311 is one codec, one I2S port; allocating a
    second instance from the recorder fights for the same I2C device

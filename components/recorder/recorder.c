@@ -57,6 +57,7 @@ static volatile bool            s_monitor    = false;   /* worker running for VU
 static volatile bool            s_init_done  = false;
 static FILE                    *s_fp         = NULL;
 static uint32_t                 s_pcm_bytes  = 0;
+static uint32_t                 s_rec_rate   = 44100;  /* sample rate at rec_start */
 static uint32_t                 s_started_ms = 0;
 static char                     s_cur_path[96] = {0};
 static TaskHandle_t             s_worker     = NULL;
@@ -183,7 +184,13 @@ esp_err_t recorder_init(void)
        that shares the same TDM data_if as the play_dev (the reference
        08_Audio_Test pattern). Just reuse it -- creating a second
        codec_if/dev_new for the same chip races on I2C and produces
-       silent (zero) reads. */
+       silent (zero) reads.
+
+       NOTE: We no longer call esp_codec_dev_open here. The radio
+       engine opens both play and record devices at the same sample
+       rate and keeps them in sync as the streaming rate changes.
+       Re-opening here would cause "sample_rate conflict" errors in
+       TDM mode because TX and RX share the same bit/frame clock. */
     void *rec_v = radio_get_record_dev();
     if (!rec_v) {
         ESP_LOGE(TAG, "radio_get_record_dev() returned NULL");
@@ -196,16 +203,10 @@ esp_err_t recorder_init(void)
        gain in radio.c also boosts file:// playback by 8x for legacy
        low-amplitude recordings. */
     esp_codec_dev_set_in_gain(s_codec_in, 42.0f);
-    esp_codec_dev_sample_info_t fs = {
-        .bits_per_sample = REC_BITS,
-        .channel         = REC_CHANNELS,
-        .sample_rate     = REC_RATE,
-    };
-    int rc = esp_codec_dev_open(s_codec_in, &fs);
-    if (rc != ESP_CODEC_DEV_OK) { ESP_LOGE(TAG, "codec_dev_open(in): %d", rc); return ESP_FAIL; }
 
     s_init_done = true;
-    ESP_LOGI(TAG, "recorder ready (using radio's record_dev)");
+    ESP_LOGI(TAG, "recorder ready (using radio's record_dev @ %d Hz)",
+             radio_get_sample_rate());
     return ESP_OK;
 }
 
@@ -254,12 +255,17 @@ esp_err_t recorder_start(const char **out_path)
         }
         ESP_LOGI(TAG, "fopen retry ok");
     }
-    /* Reserve space for the header; we patch it on stop. */
+    /* Reserve space for the header; we patch it on stop.
+       Use the current sample rate from the radio engine so the WAV
+       header matches the actual TDM clock rate -- in TDM mode both
+       TX and RX share the same bit/frame clock so the capture rate
+       is whatever the playback side is currently running at. */
     s_pcm_bytes = 0;
+    s_rec_rate  = radio_get_sample_rate();
     s_session_peak_l = 0;
     s_session_peak_r = 0;
     s_nonzero_samples = 0;
-    wav_write_header(s_fp, 0, REC_RATE, REC_BITS, REC_CHANNELS);
+    wav_write_header(s_fp, 0, s_rec_rate, REC_BITS, REC_CHANNELS);
 
     s_started_ms = (uint32_t)(esp_log_timestamp());
     s_recording  = true;
@@ -315,7 +321,7 @@ esp_err_t recorder_stop(void)
     if (s_fp) {
         fflush(s_fp);
         fseek(s_fp, 0, SEEK_SET);
-        wav_write_header(s_fp, s_pcm_bytes, REC_RATE, REC_BITS, REC_CHANNELS);
+        wav_write_header(s_fp, s_pcm_bytes, s_rec_rate, REC_BITS, REC_CHANNELS);
         fclose(s_fp);
         s_fp = NULL;
     }

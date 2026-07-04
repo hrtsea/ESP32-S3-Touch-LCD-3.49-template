@@ -7,7 +7,6 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "radio.h"
-#include "audio_min.h"
 #include "recorder.h"
 #include "i18n.h"
 
@@ -48,8 +47,14 @@ static void radio_set_status(const char *s)
 static bool radio_engine_ensure_up(void)
 {
     if (g_radio_engine_up) return true;
+    /* The radio engine may have been brought up during hw_init (before
+       this UI module runs).  Detect that so we don't re-init and don't
+       wrongly leave g_radio_engine_up = false. */
+    if (radio_get_play_dev() != NULL) {
+        g_radio_engine_up = true;
+        return true;
+    }
     radio_set_status(tr(I18N_RADIO_ENGINE_INIT));
-    audio_min_shutdown();
     if (radio_init() != ESP_OK) {
         radio_set_status(tr(I18N_RADIO_ENGINE_FAIL));
         return false;
