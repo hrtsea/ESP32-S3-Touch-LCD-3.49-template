@@ -88,17 +88,17 @@ static struct {
     void (*on_wifi_connect)(const char *ssid, const char *pass); /* WiFi 连接回调 */
 } s_callbacks = {0};
 
+static void on_wifi_connected_evt(const event_t *evt, void *user_data);
+
 /**
- * @brief 注册配置变更回调函数
- * 
- * @param cb 回调函数结构体指针
+ * @brief 发布配置变更事件
+ *
+ * 统一的发布入口，避免每个 setter 重复样板代码。
  */
-void app_cfg_register_callbacks(const app_cfg_callbacks_t *cb)
+static void cfg_publish(cfg_field_t field)
 {
-    if (!cb) return;
-    s_callbacks.on_backlight_changed = cb->on_backlight_changed;
-    s_callbacks.on_bg_fetch_ensure = cb->on_bg_fetch_ensure;
-    s_callbacks.on_wifi_connect = cb->on_wifi_connect;
+    cfg_change_info_t info = { .field = field };
+    event_bus_publish(EVENT_CFG_CHANGED, &info, sizeof(info));
 }
 
 /**
@@ -256,6 +256,9 @@ void app_cfg_init(void)
              tz_posix ? tz_posix : "(unknown)",
              g_cfg.brightness, g_cfg.dim_s, g_cfg.off_s,
              g_cfg.last_ssid[0] ? g_cfg.last_ssid : "(none)");
+
+    /* 订阅 WiFi 连接成功事件：将暂存凭证落地到 NVS */
+    event_bus_subscribe(EVENT_WIFI_CONNECTED, on_wifi_connected_evt, NULL);
 }
 
 /**
@@ -320,6 +323,9 @@ void app_cfg_save(void)
     /* 提交更改并关闭 NVS */
     nvs_commit(h);
     nvs_close(h);
+
+    /* 通知订阅者配置已整体保存（细粒度事件由各 setter 单独发布） */
+    cfg_publish(CFG_FIELD_ALL);
 }
 
 /**
@@ -387,6 +393,8 @@ int app_cfg_get_show_seconds(void) { return g_cfg.show_seconds; }
 void app_cfg_set_show_seconds(int show)
 {
     g_cfg.show_seconds = show ? 1 : 0;
+    cfg_publish(CFG_FIELD_SHOW_SECONDS);
+    event_bus_publish(EVENT_CLOCK_TIME_FORMAT_CHANGED, NULL, 0);
     app_cfg_save();
 }
 
@@ -394,12 +402,13 @@ int app_cfg_get_show_clock(void) { return g_cfg.show_clock; }
 
 /**
  * @brief 设置是否显示时钟
- * 
+ *
  * @param show 1=显示, 0=不显示
  */
 void app_cfg_set_show_clock(int show)
 {
     g_cfg.show_clock = show ? 1 : 0;
+    cfg_publish(CFG_FIELD_SHOW_CLOCK);
     event_bus_publish(EVENT_CLOCK_LAYOUT_CHANGED, NULL, 0);
     app_cfg_save();
 }
@@ -422,6 +431,7 @@ void app_cfg_set_bg_mode(int m)
     if (m < 0) m = 0;
     if (m > 3) m = 3;
     g_cfg.bg_mode = (uint8_t)m;
+    cfg_publish(CFG_FIELD_BG_MODE);
     event_bus_publish(EVENT_CLOCK_BG_CHANGED, NULL, 0);
     app_cfg_save();
     if (m == 2 && s_callbacks.on_bg_fetch_ensure) {
@@ -431,7 +441,7 @@ void app_cfg_set_bg_mode(int m)
 
 /**
  * @brief 设置背景图片 URL
- * 
+ *
  * @param url 背景图片 URL
  */
 void app_cfg_set_bg_url(const char *url)
@@ -439,6 +449,7 @@ void app_cfg_set_bg_url(const char *url)
     if (!url) url = "";
     strncpy(g_cfg.bg_url, url, sizeof(g_cfg.bg_url) - 1);
     g_cfg.bg_url[sizeof(g_cfg.bg_url) - 1] = 0; /* 确保字符串终止符 */
+    cfg_publish(CFG_FIELD_BG_URL);
     app_cfg_save();
     if (g_cfg.bg_mode == 2 && s_callbacks.on_bg_fetch_ensure) {
         s_callbacks.on_bg_fetch_ensure(); /* 如果是图片模式，确保获取背景 */
@@ -449,12 +460,13 @@ uint32_t app_cfg_get_bg_color(void) { return g_cfg.bg_color; }
 
 /**
  * @brief 设置背景纯色
- * 
+ *
  * @param rgba 背景颜色 (RGBA)
  */
 void app_cfg_set_bg_color(uint32_t rgba)
 {
     g_cfg.bg_color = rgba ? rgba : 0x202020FFu; /* 默认深灰色 */
+    cfg_publish(CFG_FIELD_BG_COLOR);
     if (g_cfg.bg_mode == 3) {
         event_bus_publish(EVENT_CLOCK_BG_CHANGED, NULL, 0);
     }
@@ -463,7 +475,7 @@ void app_cfg_set_bg_color(uint32_t rgba)
 
 /**
  * @brief 设置背景刷新间隔
- * 
+ *
  * @param s 刷新间隔（秒），最大24小时
  */
 void app_cfg_set_bg_refresh_s(int s)
@@ -471,6 +483,7 @@ void app_cfg_set_bg_refresh_s(int s)
     if (s < 0) s = 0;
     if (s > 24 * 3600) s = 24 * 3600; /* 最大24小时 */
     g_cfg.bg_refresh_s = (uint16_t)s;
+    cfg_publish(CFG_FIELD_BG_REFRESH_S);
     app_cfg_save();
 }
 
@@ -515,6 +528,7 @@ void app_cfg_set_quotes_sym_l(const char *s)
     if (!s) s = "";
     strncpy(g_cfg.quotes_sym_l, s, sizeof(g_cfg.quotes_sym_l) - 1);
     g_cfg.quotes_sym_l[sizeof(g_cfg.quotes_sym_l) - 1] = 0;
+    cfg_publish(CFG_FIELD_QUOTES_SYM_L);
     app_cfg_save();
     event_bus_publish(EVENT_QUOTES_CHANGED, NULL, 0);
 }
@@ -529,6 +543,7 @@ void app_cfg_set_quotes_sym_r(const char *s)
     if (!s) s = "";
     strncpy(g_cfg.quotes_sym_r, s, sizeof(g_cfg.quotes_sym_r) - 1);
     g_cfg.quotes_sym_r[sizeof(g_cfg.quotes_sym_r) - 1] = 0;
+    cfg_publish(CFG_FIELD_QUOTES_SYM_R);
     app_cfg_save();
     event_bus_publish(EVENT_QUOTES_CHANGED, NULL, 0);
 }
@@ -543,18 +558,21 @@ void app_cfg_set_quotes_refresh_s(int s)
     if (s < 5) s = 5;      /* 最小5秒 */
     if (s > 3600) s = 3600; /* 最大1小时 */
     g_cfg.quotes_refresh_s = (uint16_t)s;
+    cfg_publish(CFG_FIELD_QUOTES_REFRESH_S);
     app_cfg_save();
 }
 
 void app_cfg_set_quotes_up_rgba(uint32_t v)
 {
     g_cfg.quotes_up_rgba = v;
+    cfg_publish(CFG_FIELD_QUOTES_UP_RGBA);
     app_cfg_save();
 }
 
 void app_cfg_set_quotes_down_rgba(uint32_t v)
 {
     g_cfg.quotes_down_rgba = v;
+    cfg_publish(CFG_FIELD_QUOTES_DOWN_RGBA);
     app_cfg_save();
 }
 
@@ -571,13 +589,14 @@ void app_cfg_set_clock_text(const char *s)
     strncpy(g_cfg.clock_text, s, sizeof(g_cfg.clock_text) - 1);
     g_cfg.clock_text[sizeof(g_cfg.clock_text) - 1] = 0;
     if (g_cfg.clock_text[0]) g_cfg.show_clock = 1; /* 有文本时自动显示时钟 */
+    cfg_publish(CFG_FIELD_CLOCK_TEXT);
     event_bus_publish(EVENT_CLOCK_LAYOUT_CHANGED, NULL, 0);
     app_cfg_save();
 }
 
 /**
  * @brief 设置时钟位置偏移
- * 
+ *
  * @param x 水平偏移
  * @param y 垂直偏移
  */
@@ -589,13 +608,14 @@ void app_cfg_set_clock_pos(int x, int y)
     if (y > 256) y = 256;
     g_cfg.clock_x = (int16_t)x;
     g_cfg.clock_y = (int16_t)y;
+    cfg_publish(CFG_FIELD_CLOCK_POS);
     event_bus_publish(EVENT_CLOCK_LAYOUT_CHANGED, NULL, 0);
     app_cfg_save();
 }
 
 /**
  * @brief 设置时钟字号大小
- * 
+ *
  * @param sz 字号大小 (0-3)
  */
 void app_cfg_set_clock_size(int sz)
@@ -603,30 +623,33 @@ void app_cfg_set_clock_size(int sz)
     if (sz < 0) sz = 0;
     if (sz > 3) sz = 3;
     g_cfg.clock_size = (uint8_t)sz;
+    cfg_publish(CFG_FIELD_CLOCK_SIZE);
     event_bus_publish(EVENT_CLOCK_LAYOUT_CHANGED, NULL, 0);
     app_cfg_save();
 }
 
 /**
  * @brief 设置时钟文字颜色
- * 
+ *
  * @param rgba 文字颜色 (RGBA)
  */
 void app_cfg_set_clock_rgba(uint32_t rgba)
 {
     g_cfg.clock_rgba = rgba ? rgba : 0xFFFFFFFFu; /* 默认白色 */
+    cfg_publish(CFG_FIELD_CLOCK_RGBA);
     event_bus_publish(EVENT_CLOCK_LAYOUT_CHANGED, NULL, 0);
     app_cfg_save();
 }
 
 /**
  * @brief 设置是否显示毫秒
- * 
+ *
  * @param show 1=显示, 0=不显示
  */
 void app_cfg_set_show_ms(int show)
 {
     g_cfg.show_ms = show ? 1 : 0;
+    cfg_publish(CFG_FIELD_SHOW_MS);
     event_bus_publish(EVENT_CLOCK_LAYOUT_CHANGED, NULL, 0);
     app_cfg_save();
 }
@@ -641,12 +664,13 @@ void app_cfg_set_lang(int lang)
     if (lang < 0) lang = 0;
     if (lang >= I18N_LANG_COUNT) lang = 0; /* 超出范围时使用默认语言 */
     g_cfg.lang = (uint8_t)lang;
+    cfg_publish(CFG_FIELD_LANG);
     app_cfg_save();
 }
 
 /**
  * @brief 设置背光亮度
- * 
+ *
  * @param v 亮度值 (0-255)
  */
 void app_cfg_set_brightness(int v)
@@ -654,15 +678,17 @@ void app_cfg_set_brightness(int v)
     if (v < 0) v = 0;
     if (v > 255) v = 255;
     g_cfg.brightness = (uint8_t)v;
+    cfg_publish(CFG_FIELD_BRIGHTNESS);
+    event_bus_publish(EVENT_BACKLIGHT_CHANGED, &g_cfg.brightness, sizeof(g_cfg.brightness));
     if (s_callbacks.on_backlight_changed) {
-        s_callbacks.on_backlight_changed(g_cfg.brightness); /* 通知背光亮度变更 */
+        s_callbacks.on_backlight_changed(g_cfg.brightness); /* 兼容旧回调 */
     }
     app_cfg_save();
 }
 
 /**
  * @brief 设置自动变暗和关闭时间
- * 
+ *
  * @param dim_s 自动变暗延迟时间（秒）
  * @param off_s 自动关闭延迟时间（秒）
  */
@@ -672,8 +698,10 @@ void app_cfg_set_dim_off(int dim_s, int off_s)
     if (off_s < 0) off_s = 0;
     g_cfg.dim_s = (uint16_t)dim_s;
     g_cfg.off_s = (uint16_t)off_s;
+    cfg_publish(CFG_FIELD_DIM_S);
+    cfg_publish(CFG_FIELD_OFF_S);
     if (s_callbacks.on_backlight_changed) {
-        s_callbacks.on_backlight_changed(g_cfg.brightness); /* 通知背光配置变更 */
+        s_callbacks.on_backlight_changed(g_cfg.brightness); /* 兼容旧回调 */
     }
     app_cfg_save();
 }
@@ -687,12 +715,10 @@ void app_cfg_set_dim_off(int dim_s, int off_s)
 void app_cfg_wifi_connect_save(const char *ssid, const char *pass)
 {
     if (!ssid || !*ssid) return;
-    app_cfg_save_ssid_pass(ssid, pass ? pass : ""); /* 保存密码 */
-    strncpy(g_cfg.last_ssid, ssid, sizeof(g_cfg.last_ssid) - 1);
-    g_cfg.last_ssid[sizeof(g_cfg.last_ssid) - 1] = 0;
-    app_cfg_save(); /* 保存配置 */
+    /* 暂存凭证，连接成功后再落地到 NVS（避免错误密码被保存） */
+    app_cfg_wifi_pending_set(ssid, pass ? pass : "");
     if (s_callbacks.on_wifi_connect) {
-        s_callbacks.on_wifi_connect(ssid, pass ? pass : ""); /* 触发 WiFi 连接 */
+        s_callbacks.on_wifi_connect(ssid, pass ? pass : ""); /* 兼容旧回调 */
     }
 }
 
@@ -713,4 +739,133 @@ void app_cfg_set_active_tile(int idx)
         lv_obj_set_tile_id(tv, idx, 0, LV_ANIM_OFF); /* 切换 Tile */
         lvgl_unlock();
     }
+}
+
+/* ==================== 新增 setter ==================== */
+
+void app_cfg_set_tz_idx(int idx)
+{
+    if (idx < 0) idx = 0;
+    g_cfg.tz_idx = (uint16_t)idx;
+    cfg_publish(CFG_FIELD_TZ_IDX);
+    event_bus_publish(EVENT_CLOCK_TIME_FORMAT_CHANGED, NULL, 0);
+    app_cfg_save();
+}
+
+void app_cfg_set_hour24(int enable)
+{
+    g_cfg.hour24 = enable ? 1 : 0;
+    cfg_publish(CFG_FIELD_HOUR24);
+    event_bus_publish(EVENT_CLOCK_TIME_FORMAT_CHANGED, NULL, 0);
+    app_cfg_save();
+}
+
+void app_cfg_set_date_fmt(int fmt)
+{
+    if (fmt < 0) fmt = 0;
+    if (fmt > 3) fmt = 3;
+    g_cfg.date_fmt = (uint8_t)fmt;
+    cfg_publish(CFG_FIELD_DATE_FMT);
+    event_bus_publish(EVENT_CLOCK_TIME_FORMAT_CHANGED, NULL, 0);
+    app_cfg_save();
+}
+
+void app_cfg_set_show_fps(int show)
+{
+    g_cfg.show_fps = show ? 1 : 0;
+    cfg_publish(CFG_FIELD_SHOW_FPS);
+    uint8_t v = g_cfg.show_fps;
+    event_bus_publish(EVENT_SHOW_FPS_CHANGED, &v, sizeof(v));
+    app_cfg_save();
+}
+
+void app_cfg_set_audio_enable(int enable)
+{
+    g_cfg.audio_enable = enable ? 1 : 0;
+    cfg_publish(CFG_FIELD_AUDIO_ENABLE);
+    app_cfg_save();
+}
+
+void app_cfg_set_audio_volume(int vol)
+{
+    if (vol < 0) vol = 0;
+    if (vol > 100) vol = 100;
+    g_cfg.audio_volume = (uint8_t)vol;
+    cfg_publish(CFG_FIELD_AUDIO_VOLUME);
+    event_bus_publish(EVENT_AUDIO_VOLUME_CHANGED, NULL, 0);
+    app_cfg_save();
+}
+
+void app_cfg_set_theme(int theme)
+{
+    if (theme < 0) theme = 0;
+    g_cfg.theme = (uint8_t)theme;
+    cfg_publish(CFG_FIELD_THEME);
+    app_cfg_save();
+}
+
+void app_cfg_set_wifi_autoconnect(int enable)
+{
+    g_cfg.wifi_autoconnect = enable ? 1 : 0;
+    cfg_publish(CFG_FIELD_WIFI_AUTOCONNECT);
+    app_cfg_save();
+}
+
+/* ==================== WiFi 凭证暂存机制 ====================
+ *
+ * 设计动机：避免"密码错误也被保存到 NVS"的问题。
+ * 所有手动连接入口先调用 app_cfg_wifi_pending_set() 暂存凭证，
+ * 再调用 wifi_connect() 发起连接；连接成功事件触发后，
+ * 由订阅者调用 app_cfg_wifi_pending_commit() 落地到 NVS。
+ */
+
+static char s_pending_ssid[33] = {0};
+static char s_pending_pass[65] = {0};
+static bool s_pending_valid = false;
+
+static void on_wifi_connected_evt(const event_t *evt, void *user_data)
+{
+    (void)evt;
+    (void)user_data;
+    if (s_pending_valid) {
+        app_cfg_wifi_pending_commit();
+        ESP_LOGI(TAG, "wifi: pending credential committed to NVS");
+    }
+}
+
+void app_cfg_wifi_pending_set(const char *ssid, const char *pass)
+{
+    if (!ssid || !*ssid) return;
+    strncpy(s_pending_ssid, ssid, sizeof(s_pending_ssid) - 1);
+    s_pending_ssid[sizeof(s_pending_ssid) - 1] = '\0';
+    if (pass) {
+        strncpy(s_pending_pass, pass, sizeof(s_pending_pass) - 1);
+        s_pending_pass[sizeof(s_pending_pass) - 1] = '\0';
+    } else {
+        s_pending_pass[0] = '\0';
+    }
+    s_pending_valid = true;
+}
+
+bool app_cfg_wifi_pending_is_valid(void)
+{
+    return s_pending_valid;
+}
+
+void app_cfg_wifi_pending_commit(void)
+{
+    if (!s_pending_valid) return;
+    app_cfg_save_ssid_pass(s_pending_ssid, s_pending_pass);
+    strncpy(g_cfg.last_ssid, s_pending_ssid, sizeof(g_cfg.last_ssid) - 1);
+    g_cfg.last_ssid[sizeof(g_cfg.last_ssid) - 1] = '\0';
+    cfg_publish(CFG_FIELD_LAST_SSID);
+    app_cfg_save();
+    s_pending_valid = false;
+}
+
+void app_cfg_wifi_pending_clear(void)
+{
+    s_pending_valid = false;
+    s_pending_ssid[0] = '\0';
+    s_pending_pass[0] = '\0';
 }

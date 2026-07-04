@@ -124,6 +124,52 @@ static void init_styles(void)
 static int  g_wifi_sel          = -1;   /* 选中的 AP 索引 */
 static char g_kb_ssid[33]       = {0};  /* 待连接的 SSID */
 
+/* WiFi 状态刷新：1Hz 定时器更新连接中秒数/状态 */
+static lv_timer_t *s_wifi_status_timer = NULL;
+
+static void refresh_wifi_status_text(void)
+{
+    if (!ui_Settings_label_wifi_status) return;
+    char ssid_buf[33];
+    wifi_get_curr_ssid(ssid_buf, sizeof(ssid_buf));
+    char status_buf[128];
+    if (wifi_is_connected()) {
+        snprintf(status_buf, sizeof(status_buf), LV_SYMBOL_OK " %s", ssid_buf);
+        lv_label_set_text(ui_Settings_label_wifi_status, status_buf);
+    } else if (ssid_buf[0]) {
+        uint32_t elapsed = lv_tick_elaps(wifi_get_connect_started_ms());
+        uint8_t reason = wifi_get_last_reason();
+        if (reason) {
+            snprintf(status_buf, sizeof(status_buf), LV_SYMBOL_WARNING " %s: %s",
+                     ssid_buf, wifi_reason_str(reason));
+            lv_label_set_text(ui_Settings_label_wifi_status, status_buf);
+        } else if (elapsed > 15000) {
+            snprintf(status_buf, sizeof(status_buf), LV_SYMBOL_WARNING " %s: timed out",
+                     ssid_buf);
+            lv_label_set_text(ui_Settings_label_wifi_status, status_buf);
+        } else {
+            snprintf(status_buf, sizeof(status_buf), tr(I18N_WIFI_CONNECTING_N),
+                     ssid_buf, (unsigned)(elapsed / 1000));
+            lv_label_set_text(ui_Settings_label_wifi_status, status_buf);
+        }
+    } else {
+        lv_label_set_text(ui_Settings_label_wifi_status, tr(I18N_WIFI_NOT_CONN));
+    }
+}
+
+static void s_wifi_status_timer_cb(lv_timer_t *t)
+{
+    (void)t;
+    refresh_wifi_status_text();
+}
+
+static void s_on_wifi_event(const event_t *evt, void *user_data)
+{
+    (void)evt;
+    (void)user_data;
+    refresh_wifi_status_text();
+}
+
 void settings_set_wifi_status_text(const char *text)
 {
     if (ui_Settings_label_wifi_status && text) {
@@ -171,15 +217,8 @@ static void ui_event_Settings_kb_event(lv_event_t *e)
         ssid[ssid_len] = '\0';
         ESP_LOGI(TAG, "kb: connect ssid=%s pass_len=%u", ssid,
                  (unsigned)strlen(pass_copy));
-        app_cfg_save_ssid_pass(ssid, pass_copy);
-        /* Promote this SSID to "last_ssid" so auto-connect picks it up on
-           the next boot. Without this the password gets stored but the
-           auto-connect path logs "no credentials yet". */
-        size_t last_ssid_len = strlen(ssid);
-        if (last_ssid_len >= sizeof(g_cfg.last_ssid)) last_ssid_len = sizeof(g_cfg.last_ssid) - 1;
-        memcpy(g_cfg.last_ssid, ssid, last_ssid_len);
-        g_cfg.last_ssid[last_ssid_len] = '\0';
-        app_cfg_save();
+        /* 暂存凭证，连接成功后再落地到 NVS（避免错误密码被保存） */
+        app_cfg_wifi_pending_set(ssid, pass_copy);
         wifi_connect(ssid, pass_copy);
         if (ui_Settings_label_wifi_status) lv_label_set_text_fmt(ui_Settings_label_wifi_status, tr(I18N_WIFI_CONNECTING), ssid);
         kb_close();
@@ -353,19 +392,16 @@ static void ui_event_Settings_wifi_connect(lv_event_t *e)
     const wifi_scan_ap_t *ap = wifi_get_scan_ap((uint16_t)idx);
     if (!ap) return;
     if (ap->auth == 0) {
-        app_cfg_save_ssid_pass(ap->ssid, "");
-        strncpy(g_cfg.last_ssid, ap->ssid, sizeof(g_cfg.last_ssid) - 1);
-        g_cfg.last_ssid[sizeof(g_cfg.last_ssid) - 1] = 0;
-        app_cfg_save();
+        /* Open AP：暂存空密码，连接成功后保存 */
+        app_cfg_wifi_pending_set(ap->ssid, "");
         wifi_connect(ap->ssid, "");
         if (ui_Settings_label_wifi_status) lv_label_set_text_fmt(ui_Settings_label_wifi_status, tr(I18N_WIFI_CONNECTING), ap->ssid);
         return;
     }
     char pass[65] = {0};
     if (app_cfg_get_ssid_pass(ap->ssid, pass, sizeof(pass))) {
-        strncpy(g_cfg.last_ssid, ap->ssid, sizeof(g_cfg.last_ssid) - 1);
-        g_cfg.last_ssid[sizeof(g_cfg.last_ssid) - 1] = 0;
-        app_cfg_save();
+        /* 已存密码：暂存凭证，连接成功后刷新 last_ssid */
+        app_cfg_wifi_pending_set(ap->ssid, pass);
         wifi_connect(ap->ssid, pass);
         if (ui_Settings_label_wifi_status) lv_label_set_text_fmt(ui_Settings_label_wifi_status, tr(I18N_WIFI_CONNECTING), ap->ssid);
         return;
@@ -512,12 +548,8 @@ static void ui_event_Settings_tz_city_pick(lv_event_t *e)
     /* user_data carries the city index packed into a void*. */
     uintptr_t idx = (uintptr_t)lv_event_get_user_data(e);
     if (idx >= TZ_CITY_COUNT) return;
-    g_cfg.tz_idx = (uint16_t)idx;
     tz_apply_current();
-    app_cfg_save();
-    clock_update_tz_label();
-    /* Force an immediate clock-face refresh so the user sees the change. */
-    clock_update_cb(NULL);
+    app_cfg_set_tz_idx((int)idx);
 }
 
 static void ui_event_Settings_bri_slider(lv_event_t *e)
@@ -526,9 +558,13 @@ static void ui_event_Settings_bri_slider(lv_event_t *e)
     int v = lv_slider_get_value(s);
     if (v < 0) v = 0;
     if (v > 255) v = 255;
-    g_cfg.brightness = (uint8_t)v;
-    if (ui_state_get_dim_state() == 0) backlight_apply(g_cfg.brightness);
-    if (lv_event_get_code(e) == LV_EVENT_RELEASED) app_cfg_save();
+    if (lv_event_get_code(e) == LV_EVENT_RELEASED) {
+        app_cfg_set_brightness(v);
+    } else {
+        /* 拖动中实时更新背光，不保存 */
+        g_cfg.brightness = (uint8_t)v;
+        event_bus_publish(EVENT_BACKLIGHT_CHANGED, &g_cfg.brightness, sizeof(g_cfg.brightness));
+    }
 }
 
 static void fmt_duration(char *buf, size_t buflen, uint32_t total_s)
@@ -562,7 +598,9 @@ static void ui_event_Settings_dim_s(lv_event_t *e)
         if (g_cfg.dim_s == 0) lv_label_set_text(lbl, tr(I18N_DIM_NEVER));
         else                  lv_label_set_text_fmt(lbl, tr(I18N_DIM_AFTER), d);
     }
-    if (lv_event_get_code(e) == LV_EVENT_RELEASED) app_cfg_save();
+    if (lv_event_get_code(e) == LV_EVENT_RELEASED) {
+        app_cfg_set_dim_off(g_cfg.dim_s, g_cfg.off_s);
+    }
 }
 
 /* ---------- Display sub-page callbacks (12/24h, date fmt, secs/ms, FPS) ---------- */
@@ -570,36 +608,25 @@ static void ui_event_Settings_dim_s(lv_event_t *e)
 static void ui_event_Settings_hour_fmt(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
-    g_cfg.hour24 = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
-    app_cfg_save();
-    clock_update_cb(NULL);
+    app_cfg_set_hour24(lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0);
 }
 
 static void ui_event_Settings_show_sec(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
-    g_cfg.show_seconds = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
-    app_cfg_save();
-    clock_update_cb(NULL);
+    app_cfg_set_show_seconds(lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0);
 }
 
 static void ui_event_Settings_show_ms(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
-    g_cfg.show_ms = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
-    app_cfg_save();
+    app_cfg_set_show_ms(lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0);
 }
 
 static void ui_event_Settings_show_fps(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
-    g_cfg.show_fps = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
-    app_cfg_save();
-    lv_obj_t *fps_lbl = disp_driver_get_fps_label();
-    if (fps_lbl) {
-        if (g_cfg.show_fps) lv_obj_clear_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
-        else                lv_obj_add_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
-    }
+    app_cfg_set_show_fps(lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0);
 }
 
 static void ui_event_Settings_date_fmt(lv_event_t *e)
@@ -608,9 +635,7 @@ static void ui_event_Settings_date_fmt(lv_event_t *e)
     int sel = lv_dropdown_get_selected(r);
     if (sel < 0) sel = 0;
     if (sel > 2) sel = 2;
-    g_cfg.date_fmt = (uint8_t)sel;
-    app_cfg_save();
-    clock_update_cb(NULL);
+    app_cfg_set_date_fmt(sel);
 }
 
 /* ---------- Sound sub-page callbacks (enable + volume) ---------- */
@@ -618,9 +643,9 @@ static void ui_event_Settings_date_fmt(lv_event_t *e)
 static void ui_event_Settings_audio_en(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
-    g_cfg.audio_enable = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
-    if (!g_cfg.audio_enable && audio_min_is_playing()) audio_min_play_midi(false);
-    app_cfg_save();
+    int enable = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
+    if (!enable && audio_min_is_playing()) audio_min_play_midi(false);
+    app_cfg_set_audio_enable(enable);
 }
 
 static void ui_event_Settings_audio_vol(lv_event_t *e)
@@ -629,14 +654,17 @@ static void ui_event_Settings_audio_vol(lv_event_t *e)
     int v = lv_slider_get_value(s);
     if (v < 0) v = 0;
     if (v > 100) v = 100;
-    g_cfg.audio_volume = (uint8_t)v;
-    audio_min_set_volume(g_cfg.audio_volume);
+    audio_min_set_volume((uint8_t)v);
     lv_obj_t *lbl = (lv_obj_t *)lv_event_get_user_data(e);
     if (lbl) lv_label_set_text_fmt(lbl, tr(I18N_VOLUME_PCT), (unsigned)v);
-    /* 发布音量变更事件，供 ui_radio 等模块同步 UI */
-    uint8_t vol = (uint8_t)v;
-    event_bus_publish(EVENT_AUDIO_VOLUME_CHANGED, &vol, sizeof(vol));
-    if (lv_event_get_code(e) == LV_EVENT_RELEASED) app_cfg_save();
+    if (lv_event_get_code(e) == LV_EVENT_RELEASED) {
+        app_cfg_set_audio_volume(v);
+    } else {
+        /* 拖动中实时更新音量，不保存 */
+        g_cfg.audio_volume = (uint8_t)v;
+        uint8_t vol = (uint8_t)v;
+        event_bus_publish(EVENT_AUDIO_VOLUME_CHANGED, &vol, sizeof(vol));
+    }
 }
 
 /* ---------- Theme + Wi-Fi auto-connect ---------- */
@@ -647,8 +675,7 @@ static void ui_event_Settings_theme(lv_event_t *e)
     int sel = lv_dropdown_get_selected(r);
     if (sel < 0) sel = 0;
     if (sel > 2) sel = 2;
-    g_cfg.theme = (uint8_t)sel;
-    app_cfg_save();
+    app_cfg_set_theme(sel);
     /* Sunmap can be re-themed live; menu colors apply on next boot. */
     sunmap_redraw();
 }
@@ -656,8 +683,7 @@ static void ui_event_Settings_theme(lv_event_t *e)
 static void ui_event_Settings_wifi_ac(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
-    g_cfg.wifi_autoconnect = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
-    app_cfg_save();
+    app_cfg_set_wifi_autoconnect(lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0);
 }
 
 /* ---------- Reset to defaults ---------- */
@@ -697,7 +723,9 @@ static void ui_event_Settings_off_s(lv_event_t *e)
         if (g_cfg.off_s == 0) lv_label_set_text(lbl, tr(I18N_SLEEP_NEVER));
         else                  lv_label_set_text_fmt(lbl, tr(I18N_SLEEP_AFTER), d);
     }
-    if (lv_event_get_code(e) == LV_EVENT_RELEASED) app_cfg_save();
+    if (lv_event_get_code(e) == LV_EVENT_RELEASED) {
+        app_cfg_set_dim_off(g_cfg.dim_s, g_cfg.off_s);
+    }
 }
 
 /* ===== 4. 子页构建器 + ui_Settings_create ===== */
@@ -1086,7 +1114,7 @@ void sd_format_worker(void *arg)
                           r == ESP_OK ? "Format SD card"
                                       : "Format failed");
     }
-    recorder_refresh_list();
+    event_bus_publish(EVENT_STORAGE_CHANGED, NULL, 0);
     vTaskDelete(NULL);
 }
 
@@ -1149,6 +1177,15 @@ void ui_Settings_create(lv_obj_t *parent)
     ui_Settings = parent;
     lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_style(parent, &style_tile_bg, 0);
+
+    /* 订阅 WiFi 事件，自动刷新状态文本 */
+    event_bus_subscribe(EVENT_WIFI_CONNECTED, s_on_wifi_event, NULL);
+    event_bus_subscribe(EVENT_WIFI_DISCONNECTED, s_on_wifi_event, NULL);
+    event_bus_subscribe(EVENT_WIFI_SCAN_STARTED, s_on_wifi_event, NULL);
+    event_bus_subscribe(EVENT_WIFI_SCAN_DONE, s_on_wifi_event, NULL);
+    /* 启动 1Hz 定时器，刷新连接中秒数显示 */
+    s_wifi_status_timer = lv_timer_create(s_wifi_status_timer_cb, 1000, NULL);
+    refresh_wifi_status_text();
 
     theme_palette_t pal = theme_get();
     lv_obj_t *menu = lv_menu_create(parent);
@@ -1252,6 +1289,17 @@ void ui_Settings_create(lv_obj_t *parent)
 /* ===== 5. 清理函数 ===== */
 void ui_Settings_cleanup(void)
 {
+    /* 取消 WiFi 事件订阅 */
+    event_bus_unsubscribe(EVENT_WIFI_CONNECTED, s_on_wifi_event);
+    event_bus_unsubscribe(EVENT_WIFI_DISCONNECTED, s_on_wifi_event);
+    event_bus_unsubscribe(EVENT_WIFI_SCAN_STARTED, s_on_wifi_event);
+    event_bus_unsubscribe(EVENT_WIFI_SCAN_DONE, s_on_wifi_event);
+    /* 停止 WiFi 状态定时器 */
+    if (s_wifi_status_timer) {
+        lv_timer_del(s_wifi_status_timer);
+        s_wifi_status_timer = NULL;
+    }
+
     ui_Settings = NULL;
     ui_Settings_label_wifi_status = NULL;
     ui_Settings_obj_wifi_list    = NULL;

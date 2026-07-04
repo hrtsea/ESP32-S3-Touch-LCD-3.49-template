@@ -21,6 +21,7 @@
 #include "esp_timer.h"
 #include "lcd_bl_pwm_bsp.h"
 
+#include "event_bus.h"
 #include "ui_clock.h"
 #include "ui_quotes.h"
 #include "ui_radio.h"
@@ -123,33 +124,6 @@ static void status_timer_cb(lv_timer_t *t)
 
     /* 更新时钟页面的BT图标颜色（暂时禁用，显示为灰色） */
     clock_set_bt_icon_color(lv_color_make(0x40, 0x40, 0x40));
-
-    /* 更新设置页面的WiFi状态文本 */
-    {
-        char status_buf[128];
-        if (wifi_is_connected()) {
-            snprintf(status_buf, sizeof(status_buf), LV_SYMBOL_OK " %s", ssid_buf);
-            settings_set_wifi_status_text(status_buf);
-        } else if (ssid_buf[0]) {
-            uint32_t elapsed = lv_tick_elaps(wifi_get_connect_started_ms());
-            uint8_t reason = wifi_get_last_reason();
-            if (reason) {
-                snprintf(status_buf, sizeof(status_buf), LV_SYMBOL_WARNING " %s: %s",
-                         ssid_buf, wifi_reason_str(reason));
-                settings_set_wifi_status_text(status_buf);
-            } else if (elapsed > 15000) {
-                snprintf(status_buf, sizeof(status_buf), LV_SYMBOL_WARNING " %s: timed out",
-                         ssid_buf);
-                settings_set_wifi_status_text(status_buf);
-            } else {
-                snprintf(status_buf, sizeof(status_buf), tr(I18N_WIFI_CONNECTING_N),
-                         ssid_buf, (unsigned)(elapsed / 1000));
-                settings_set_wifi_status_text(status_buf);
-            }
-        } else {
-            settings_set_wifi_status_text(tr(I18N_WIFI_NOT_CONN));
-        }
-    }
 }
 
 /* ---------------------- 背光控制与自动调光 ---------------------- */
@@ -164,6 +138,31 @@ static void status_timer_cb(lv_timer_t *t)
 void backlight_apply(uint8_t bri)
 {
     setUpduty((uint16_t)(0xFF - bri));
+}
+
+/* 事件总线 handler：背光亮度变更 */
+static void on_backlight_changed_evt(const event_t *evt, void *user_data)
+{
+    (void)user_data;
+    if (!evt || !evt->data || evt->data_len < sizeof(uint8_t)) return;
+    uint8_t bri = *(uint8_t *)evt->data;
+    /* 仅在正常亮度状态（dim_state == 0）时应用；调光/息屏状态保持不变 */
+    if (ui_state_get_dim_state() == 0) {
+        backlight_apply(bri);
+    }
+}
+
+/* 事件总线 handler：FPS显示开关变更 */
+static void on_show_fps_changed_evt(const event_t *evt, void *user_data)
+{
+    (void)user_data;
+    if (!evt || !evt->data || evt->data_len < sizeof(uint8_t)) return;
+    uint8_t show = *(uint8_t *)evt->data;
+    lv_obj_t *fps_lbl = disp_driver_get_fps_label();
+    if (fps_lbl) {
+        if (show) lv_obj_clear_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
+        else      lv_obj_add_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 /**
@@ -306,6 +305,10 @@ void rotate_btn_event_cb(lv_event_t *e)
     /* 删除所有定时器（clock、radio、recorder 定时器已在各自 cleanup 中处理） */
     if (g_dim_timer)      { lv_timer_del(g_dim_timer);      g_dim_timer      = NULL; }
     if (g_status_timer)   { lv_timer_del(g_status_timer);   g_status_timer   = NULL; }
+
+    /* 取消事件总线订阅 */
+    event_bus_unsubscribe(EVENT_BACKLIGHT_CHANGED, on_backlight_changed_evt);
+    event_bus_unsubscribe(EVENT_SHOW_FPS_CHANGED, on_show_fps_changed_evt);
 
     /* 直接调用build_main_ui（已在LVGL任务中，无需再次获取锁） */
     build_main_ui(g_status_text);
@@ -478,6 +481,10 @@ static void build_main_ui(const char *status_text)
     lv_obj_align(fps_lbl, LV_ALIGN_TOP_LEFT, 4, 4);
     lv_obj_clear_flag(fps_lbl, LV_OBJ_FLAG_CLICKABLE);
     if (!g_cfg.show_fps) lv_obj_add_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
+
+    /* 订阅事件总线：背光/FPS 变更 */
+    event_bus_subscribe(EVENT_BACKLIGHT_CHANGED, on_backlight_changed_evt, NULL);
+    event_bus_subscribe(EVENT_SHOW_FPS_CHANGED, on_show_fps_changed_evt, NULL);
 
     /* 创建FPS定时器（只创建一次） */
     if (!fps_timer_created) {

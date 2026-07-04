@@ -209,11 +209,21 @@ static void on_clock_bg_changed_evt(const event_t *evt, void *user_data)
     if (lvgl_lock(50)) { clock_bg_apply(); lvgl_unlock(); }
 }
 
+/* 事件总线 handler：时间格式变更（时区/时制/秒/毫秒/日期格式） */
+static void on_clock_time_fmt_changed_evt(const event_t *evt, void *user_data)
+{
+    (void)evt;
+    (void)user_data;
+    clock_update_tz_label();
+    clock_update_cb(NULL);
+}
+
 void ui_Clock_cleanup(void)
 {
     /* 取消事件订阅 */
     event_bus_unsubscribe(EVENT_CLOCK_LAYOUT_CHANGED, on_clock_layout_changed_evt);
     event_bus_unsubscribe(EVENT_CLOCK_BG_CHANGED, on_clock_bg_changed_evt);
+    event_bus_unsubscribe(EVENT_CLOCK_TIME_FORMAT_CHANGED, on_clock_time_fmt_changed_evt);
 
     if (g_clock_timer)     { lv_timer_del(g_clock_timer);     g_clock_timer     = NULL; }
     if (g_clock_ms_timer)  { lv_timer_del(g_clock_ms_timer);  g_clock_ms_timer  = NULL; }
@@ -386,6 +396,7 @@ void ui_Clock_create(lv_obj_t *parent)
     /* 订阅事件总线：配置变更时刷新 UI */
     event_bus_subscribe(EVENT_CLOCK_LAYOUT_CHANGED, on_clock_layout_changed_evt, NULL);
     event_bus_subscribe(EVENT_CLOCK_BG_CHANGED,     on_clock_bg_changed_evt,     NULL);
+    event_bus_subscribe(EVENT_CLOCK_TIME_FORMAT_CHANGED, on_clock_time_fmt_changed_evt, NULL);
 }
 
 /* ===== 5. tile 清理函数 ===== */

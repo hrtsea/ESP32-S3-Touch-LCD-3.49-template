@@ -25,7 +25,10 @@ typedef enum {
     EVENT_CFG_CHANGED,            /* data: cfg_change_info_t * */
     EVENT_CLOCK_LAYOUT_CHANGED,   /* data: NULL */
     EVENT_CLOCK_BG_CHANGED,       /* data: NULL */
+    EVENT_CLOCK_TIME_FORMAT_CHANGED, /* data: NULL (tz/hour_fmt/sec/ms/date_fmt) */
     EVENT_QUOTES_CHANGED,         /* data: NULL */
+    EVENT_SHOW_FPS_CHANGED,       /* data: uint8_t *show (0/1) */
+    EVENT_STORAGE_CHANGED,        /* data: NULL (SD card formatted/mounted changed) */
 
     /* --- Audio --- */
     EVENT_AUDIO_PLAY_START,       /* data: NULL */

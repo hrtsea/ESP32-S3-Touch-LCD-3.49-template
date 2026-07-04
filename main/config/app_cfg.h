@@ -18,8 +18,58 @@ extern "C" {
 #define DEFAULT_WIFI_PASS  ""
 
 /**
+ * @brief 配置字段枚举
+ *
+ * 用于 EVENT_CFG_CHANGED 事件标识具体变更的字段。
+ * 订阅者可据此过滤关心的事件，避免全量刷新。
+ */
+typedef enum {
+    CFG_FIELD_NONE = 0,
+    CFG_FIELD_ALL,              /* 通配：app_cfg_save() 整体保存 */
+    CFG_FIELD_TZ_IDX,           /* 时区城市索引 */
+    CFG_FIELD_BRIGHTNESS,       /* 背光亮度 */
+    CFG_FIELD_DIM_S,            /* 自动变暗延迟 */
+    CFG_FIELD_OFF_S,            /* 自动关闭延迟 */
+    CFG_FIELD_HOUR24,           /* 24小时制 */
+    CFG_FIELD_DATE_FMT,         /* 日期格式 */
+    CFG_FIELD_SHOW_SECONDS,     /* 显示秒数 */
+    CFG_FIELD_SHOW_MS,          /* 显示毫秒 */
+    CFG_FIELD_SHOW_FPS,         /* 显示 FPS */
+    CFG_FIELD_AUDIO_ENABLE,     /* 音频使能 */
+    CFG_FIELD_AUDIO_VOLUME,     /* 音频音量 */
+    CFG_FIELD_THEME,            /* 主题索引 */
+    CFG_FIELD_WIFI_AUTOCONNECT, /* WiFi 自动连接 */
+    CFG_FIELD_LANG,             /* 语言索引 */
+    CFG_FIELD_LAST_SSID,        /* 最后连接的 SSID（触发 WiFi 连接） */
+    CFG_FIELD_BG_MODE,          /* 背景模式 */
+    CFG_FIELD_BG_URL,           /* 背景图片 URL */
+    CFG_FIELD_BG_COLOR,         /* 背景纯色 */
+    CFG_FIELD_BG_REFRESH_S,     /* 背景刷新间隔 */
+    CFG_FIELD_CLOCK_TEXT,       /* 自定义时钟文本 */
+    CFG_FIELD_CLOCK_POS,        /* 时钟位置偏移 */
+    CFG_FIELD_CLOCK_SIZE,       /* 时钟字号 */
+    CFG_FIELD_CLOCK_RGBA,       /* 时钟文字颜色 */
+    CFG_FIELD_SHOW_CLOCK,       /* 显示时钟 */
+    CFG_FIELD_QUOTES_SYM_L,     /* 左侧行情符号 */
+    CFG_FIELD_QUOTES_SYM_R,     /* 右侧行情符号 */
+    CFG_FIELD_QUOTES_REFRESH_S, /* 行情刷新间隔 */
+    CFG_FIELD_QUOTES_UP_RGBA,   /* 行情上涨颜色 */
+    CFG_FIELD_QUOTES_DOWN_RGBA, /* 行情下跌颜色 */
+} cfg_field_t;
+
+/**
+ * @brief 配置变更事件数据
+ *
+ * EVENT_CFG_CHANGED 事件携带此结构体，标识哪个字段发生了变化。
+ * field == CFG_FIELD_ALL 表示整体保存（如 NVS 批量写入）。
+ */
+typedef struct {
+    cfg_field_t field;
+} cfg_change_info_t;
+
+/**
  * @brief 应用配置结构体
- * 
+ *
  * 存储所有用户可配置的参数，通过 NVS 持久化保存
  */
 typedef struct {
@@ -58,14 +108,10 @@ typedef struct {
 
 /**
  * @brief 配置变更回调函数结构体
- * 
- * 当配置发生变化时，通过回调通知相关模块进行响应
+ *
+ * @deprecated 已迁移到事件总线（EVENT_CFG_CHANGED），
+ *             保留空结构体仅为兼容旧代码，未来版本将移除。
  */
-typedef struct {
-    void (*on_backlight_changed)(uint8_t brightness); /* 背光亮度变更回调 */
-    void (*on_bg_fetch_ensure)(void);             /* 确保背景图片获取回调 */
-    void (*on_wifi_connect)(const char *ssid, const char *pass); /* WiFi 连接回调 */
-} app_cfg_callbacks_t;
 
 /* 全局配置实例 */
 extern app_cfg_t g_cfg;
@@ -76,7 +122,6 @@ void app_cfg_load(void);                                            /* 加载配
 void app_cfg_save(void);                                            /* 保存配置到 NVS */
 void app_cfg_save_ssid_pass(const char *ssid, const char *pass);    /* 保存 WiFi SSID 和密码到 NVS */
 bool app_cfg_get_ssid_pass(const char *ssid, char *pass, size_t pass_len); /* 获取指定 SSID 的密码 */
-void app_cfg_register_callbacks(const app_cfg_callbacks_t *cb);     /* 注册配置变更回调函数 */
 
 /* 获取器 API */
 int  app_cfg_get_lang(void);                        /* 获取语言索引 */
@@ -129,6 +174,23 @@ void app_cfg_set_brightness(int v);                 /* 设置背光亮度 */
 void app_cfg_set_dim_off(int dim_s, int off_s);     /* 设置自动变暗和关闭时间 */
 void app_cfg_wifi_connect_save(const char *ssid, const char *pass); /* 保存 WiFi 连接信息并触发连接 */
 void app_cfg_set_active_tile(int idx);              /* 设置当前活动的 Tile 索引 */
+
+/* 新增 setter：对应 ui_settings.c 中的直接赋值场景 */
+void app_cfg_set_tz_idx(int idx);                   /* 设置时区城市索引 */
+void app_cfg_set_hour24(int enable);                 /* 设置 24 小时制 */
+void app_cfg_set_date_fmt(int fmt);                  /* 设置日期格式 */
+void app_cfg_set_show_seconds(int show);             /* 设置是否显示秒数（已存在） */
+void app_cfg_set_show_fps(int show);                 /* 设置是否显示 FPS */
+void app_cfg_set_audio_enable(int enable);           /* 设置音频使能 */
+void app_cfg_set_audio_volume(int vol);              /* 设置音频音量 */
+void app_cfg_set_theme(int theme);                   /* 设置主题索引 */
+void app_cfg_set_wifi_autoconnect(int enable);       /* 设置 WiFi 自动连接 */
+
+/* WiFi 凭证暂存机制：先连接，成功后再持久化到 NVS */
+void app_cfg_wifi_pending_set(const char *ssid, const char *pass); /* 暂存待确认凭证 */
+bool app_cfg_wifi_pending_is_valid(void);           /* 是否有待确认凭证 */
+void app_cfg_wifi_pending_commit(void);              /* 连接成功：将暂存凭证落地到 NVS */
+void app_cfg_wifi_pending_clear(void);               /* 清除暂存凭证 */
 
 #ifdef __cplusplus
 }

@@ -364,6 +364,15 @@ static void on_record_stop_evt(const event_t *evt, void *user_data)
     g_ui_dirty = true;
 }
 
+/* 事件总线 handler：存储变更（SD格式化/挂载变化） */
+static void on_storage_changed_evt(const event_t *evt, void *user_data)
+{
+    (void)evt;
+    (void)user_data;
+    recorder_refresh_list();
+    g_ui_dirty = true;
+}
+
 /* ===== tile 进入/离开 ===== */
 
 void recorder_tile_on_enter(void)
@@ -395,6 +404,7 @@ void ui_Recorder_cleanup(void)
     event_bus_unsubscribe(EVENT_AUDIO_PLAY_STOP,    on_play_stop_evt);
     event_bus_unsubscribe(EVENT_AUDIO_RECORD_START, on_record_start_evt);
     event_bus_unsubscribe(EVENT_AUDIO_RECORD_STOP,  on_record_stop_evt);
+    event_bus_unsubscribe(EVENT_STORAGE_CHANGED,    on_storage_changed_evt);
 
     if (g_poll) { lv_timer_del(g_poll); g_poll = NULL; }
     ui_Recorder                = NULL;
@@ -487,6 +497,7 @@ void ui_Recorder_create(lv_obj_t *parent)
     event_bus_subscribe(EVENT_AUDIO_PLAY_STOP,    on_play_stop_evt,    NULL);
     event_bus_subscribe(EVENT_AUDIO_RECORD_START, on_record_start_evt, NULL);
     event_bus_subscribe(EVENT_AUDIO_RECORD_STOP,  on_record_stop_evt,  NULL);
+    event_bus_subscribe(EVENT_STORAGE_CHANGED,    on_storage_changed_evt, NULL);
 }
 
 /* ===== 5. tile 清理函数 ===== */

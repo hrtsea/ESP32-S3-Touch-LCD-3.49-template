@@ -46,6 +46,7 @@
 #include "hw_init.h"
 #include "system_monitor.h"
 #include "ui_state.h"
+#include "event_bus.h"
 #include "ui_main.h"
 #include "ui_radio.h"
 #include "ui_clock.h"
@@ -63,21 +64,22 @@ extern "C" const char *tz_current_city_name(void);
 
 extern void wifi_connect(const char *ssid, const char *pass);
 
-static void on_backlight_changed(uint8_t brightness)
+/* 事件总线 handler：背景配置变更时确保获取背景图片 */
+static void on_cfg_changed_evt(const event_t *evt, void *user_data)
 {
-    ui_state_set_dim_state(0);
-    ui_state_set_last_activity_ms(lv_tick_get());
-    backlight_apply(brightness);
-}
-
-static void on_bg_fetch_ensure(void)
-{
-    bg_fetcher_ensure();
-}
-
-static void on_wifi_connect(const char *ssid, const char *pass)
-{
-    wifi_connect(ssid, pass);
+    (void)user_data;
+    if (!evt || !evt->data || evt->data_len < sizeof(cfg_change_info_t)) return;
+    const cfg_change_info_t *info = (const cfg_change_info_t *)evt->data;
+    switch (info->field) {
+        case CFG_FIELD_BG_MODE:
+            if (g_cfg.bg_mode == 2) bg_fetcher_ensure();
+            break;
+        case CFG_FIELD_BG_URL:
+            if (g_cfg.bg_mode == 2) bg_fetcher_ensure();
+            break;
+        default:
+            break;
+    }
 }
 
 static void log_init(void)
@@ -127,12 +129,8 @@ extern "C" void app_main(void)
     network_init();
     ui_init();
 
-    app_cfg_callbacks_t cfg_cbs = {
-        .on_backlight_changed = on_backlight_changed,
-        .on_bg_fetch_ensure = on_bg_fetch_ensure,
-        .on_wifi_connect = on_wifi_connect,
-    };
-    app_cfg_register_callbacks(&cfg_cbs);
+    /* 订阅配置变更事件：背景获取 + WiFi 连接 */
+    event_bus_subscribe(EVENT_CFG_CHANGED, on_cfg_changed_evt, NULL);
 
     cli_init();
 
