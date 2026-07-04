@@ -8,6 +8,10 @@
 #include <sys/stat.h>
 #include "esp_vfs_fat.h"
 
+#ifndef BUILD_EPOCH_UTC
+#define BUILD_EPOCH_UTC 0
+#endif
+
 #include "esp_io_expander_tca9554.h"
 #include "driver/i2c_master.h"
 
@@ -144,23 +148,6 @@ static void cli_init(void)
     cli_start();
 }
 
-/**
- * @brief 应用程序主入口
- * 
- * 负责初始化系统各模块，包括：
- * 1. 日志系统初始化
- * 2. NVS 存储初始化
- * 3. 配置加载与验证
- * 4. 时区设置
- * 5. 硬件驱动初始化（I2C、TCA9554、背光、LCD、RTC/IMU、ADC、音频、SD卡/按钮）
- * 6. 时间同步（RTC → 系统时间）
- * 7. 网络服务初始化（Wi-Fi、WebUI）
- * 8. UI 初始化
- * 9. CLI 初始化
- * 10. 后台任务启动（电台预热、背景图获取）
- * 11. Wi-Fi 自动连接
- * 12. 心跳循环
- */
 extern "C" void app_main(void)
 {
     log_init();

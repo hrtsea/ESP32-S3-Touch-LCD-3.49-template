@@ -270,14 +270,18 @@ static void quotes_task(void *arg)
         if (g_cfg.quotes_sym_l[0]) {
             if (quotes_fetch_one(g_cfg.quotes_sym_l, &ql) == 0) s_qd_l = ql;
             else { s_qd_l.ok = false;
-                   strncpy(s_qd_l.symbol, g_cfg.quotes_sym_l,
-                           sizeof(s_qd_l.symbol) - 1); }
+                   size_t len = strlen(g_cfg.quotes_sym_l);
+                   if (len >= sizeof(s_qd_l.symbol)) len = sizeof(s_qd_l.symbol) - 1;
+                   memcpy(s_qd_l.symbol, g_cfg.quotes_sym_l, len);
+                   s_qd_l.symbol[len] = '\0'; }
         }
         if (g_cfg.quotes_sym_r[0]) {
             if (quotes_fetch_one(g_cfg.quotes_sym_r, &qr) == 0) s_qd_r = qr;
             else { s_qd_r.ok = false;
-                   strncpy(s_qd_r.symbol, g_cfg.quotes_sym_r,
-                           sizeof(s_qd_r.symbol) - 1); }
+                   size_t len = strlen(g_cfg.quotes_sym_r);
+                   if (len >= sizeof(s_qd_r.symbol)) len = sizeof(s_qd_r.symbol) - 1;
+                   memcpy(s_qd_r.symbol, g_cfg.quotes_sym_r, len);
+                   s_qd_r.symbol[len] = '\0'; }
         }
         s_qd_have_new = true;
         ESP_LOGI(TAG, "quotes: %s=%.4f %+.3f%%  %s=%.4f %+.3f%%",

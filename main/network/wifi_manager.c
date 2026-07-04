@@ -41,7 +41,10 @@ static bool wifi_has_remembered(const char *ssid)
 {
     if (!ssid || !*ssid) return false;
     char key[16] = {0};
-    strncpy(key, ssid, 15);
+    size_t len = strlen(ssid);
+    if (len > 15) len = 15;
+    memcpy(key, ssid, len);
+    key[len] = '\0';
     nvs_handle_t h;
     if (nvs_open("wifi", NVS_READONLY, &h) != ESP_OK) return false;
     size_t l = 0;
@@ -101,7 +104,10 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
                 g_wifi_connected = true;
                 g_wifi_last_reason = 0;
                 g_wifi_fail_count = 0;
-                strncpy(g_cfg.last_ssid, g_wifi_curr_ssid, sizeof(g_cfg.last_ssid) - 1);
+                size_t ssid_len = strlen(g_wifi_curr_ssid);
+                if (ssid_len >= sizeof(g_cfg.last_ssid)) ssid_len = sizeof(g_cfg.last_ssid) - 1;
+                memcpy(g_cfg.last_ssid, g_wifi_curr_ssid, ssid_len);
+                g_cfg.last_ssid[ssid_len] = '\0';
                 cfg_save();
                 break;
             case WIFI_EVENT_SCAN_DONE: {

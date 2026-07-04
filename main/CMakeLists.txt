@@ -1,20 +1,34 @@
-idf_component_register(SRCS "main.cpp" "cli.c" "i18n.c" "font_cjk_14.c"
-                          "font_jbmono_24.c" "font_jbmono_48.c"
-                          "font_jbmono_64.c" "font_jbmono_96.c"
-                          "ui_clock.c" "bg_fetcher.c" "ui_quotes.c"
-                          "ui_radio.c" "ui_settings.c" "ui_recorder.c"
-                          "ui_main.c" "app_cfg.c" "disp_driver.c"
-                          "wifi_manager.c" "sntp_manager.c" "backlight.c" "theme.c"
-                          "hw_init.c" "system_monitor.c"
-                    INCLUDE_DIRS "."
-                    REQUIRES audio_min radio recorder webui esp_timer esp_lcd driver
-                         i2c_bsp i2c_equipment lcd_bl_pwm_bsp adc_bsp
-                         sdcard_bsp button_bsp lvgl console
-                         nvs_flash esp_wifi esp_event esp_netif
-                         esp_http_client mbedtls
-                             espressif__esp_lcd_axs15231b
-                             espressif__esp_io_expander_tca9554)
-
-string(TIMESTAMP BUILD_EPOCH_UTC "%s" UTC)
-target_compile_definitions(${COMPONENT_LIB} PRIVATE BUILD_EPOCH_UTC=${BUILD_EPOCH_UTC})
-target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-error=stringop-truncation)
+idf_component_register(
+    SRCS
+        "main.cpp"
+        "ui/ui_main.c"
+        "ui/ui_clock.c"
+        "ui/ui_quotes.c"
+        "ui/ui_settings.c"
+        "ui/ui_radio.c"
+        "ui/ui_recorder.c"
+        "ui/backlight.c"
+        "drivers/disp_driver.c"
+        "network/wifi_manager.c"
+        "network/sntp_manager.c"
+        "network/bg_fetcher.c"
+        "config/app_cfg.c"
+        "utils/i18n.c"
+        "utils/theme.c"
+        "utils/cli.c"
+        "utils/hw_init.c"
+        "utils/system_monitor.c"
+        "fonts/font_jbmono_24.c"
+        "fonts/font_jbmono_48.c"
+        "fonts/font_jbmono_64.c"
+        "fonts/font_jbmono_96.c"
+        "fonts/font_cjk_14.c"
+    INCLUDE_DIRS
+        "."
+        "ui"
+        "drivers"
+        "network"
+        "config"
+        "utils"
+        "fonts"
+)

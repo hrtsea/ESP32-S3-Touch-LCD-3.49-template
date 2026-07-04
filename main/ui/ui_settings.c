@@ -82,17 +82,27 @@ static void kb_event_cb(lv_event_t *e)
            function unwinds. */
         const char *pass = g_set_kb_ta ? lv_textarea_get_text(g_set_kb_ta) : "";
         char pass_copy[65] = {0};
-        if (pass) strncpy(pass_copy, pass, sizeof(pass_copy) - 1);
+        if (pass) {
+            size_t pass_len = strlen(pass);
+            if (pass_len >= sizeof(pass_copy)) pass_len = sizeof(pass_copy) - 1;
+            memcpy(pass_copy, pass, pass_len);
+            pass_copy[pass_len] = '\0';
+        }
         char ssid[33] = {0};
-        strncpy(ssid, g_set_kb_ssid, sizeof(ssid) - 1);
+        size_t ssid_len = strlen(g_set_kb_ssid);
+        if (ssid_len >= sizeof(ssid)) ssid_len = sizeof(ssid) - 1;
+        memcpy(ssid, g_set_kb_ssid, ssid_len);
+        ssid[ssid_len] = '\0';
         ESP_LOGI(TAG, "kb: connect ssid=%s pass_len=%u", ssid,
                  (unsigned)strlen(pass_copy));
         cfg_save_ssid_pass(ssid, pass_copy);
         /* Promote this SSID to "last_ssid" so auto-connect picks it up on
            the next boot. Without this the password gets stored but the
            auto-connect path logs "no credentials yet". */
-        strncpy(g_cfg.last_ssid, ssid, sizeof(g_cfg.last_ssid) - 1);
-        g_cfg.last_ssid[sizeof(g_cfg.last_ssid) - 1] = 0;
+        size_t last_ssid_len = strlen(ssid);
+        if (last_ssid_len >= sizeof(g_cfg.last_ssid)) last_ssid_len = sizeof(g_cfg.last_ssid) - 1;
+        memcpy(g_cfg.last_ssid, ssid, last_ssid_len);
+        g_cfg.last_ssid[last_ssid_len] = '\0';
         cfg_save();
         wifi_connect(ssid, pass_copy);
         if (g_set_wifi_status) lv_label_set_text_fmt(g_set_wifi_status, tr(I18N_WIFI_CONNECTING), ssid);
