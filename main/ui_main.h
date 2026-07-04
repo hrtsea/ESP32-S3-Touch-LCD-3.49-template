@@ -10,6 +10,8 @@ extern "C" {
 
 #define N_TILES 6
 
+extern lv_timer_t *g_status_timer;
+
 /* Top-level UI builder: creates the tileview, all tiles, FPS overlay,
  * gesture handlers, and dim/status timers.  Called from app_main and
  * on rotation rebuild. */

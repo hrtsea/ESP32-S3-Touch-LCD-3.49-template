@@ -18,6 +18,7 @@
 #include "sdcard_bsp.h"
 #include "recorder.h"
 #include "radio.h"
+#include "ui_recorder.h"
 #include "audio_min.h"
 #include "lcd_bl_pwm_bsp.h"
 #include "esp_wifi.h"

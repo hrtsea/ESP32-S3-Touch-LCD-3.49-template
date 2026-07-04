@@ -8,6 +8,14 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
+#define WIFI_MAX_SCAN_AP 16
+typedef struct {
+    char    ssid[33];
+    int8_t  rssi;
+    uint8_t auth;
+} wifi_scan_ap_t;
+
+extern wifi_scan_ap_t g_wifi_scan[WIFI_MAX_SCAN_AP];
 extern bool     g_wifi_connected;
 extern char     g_wifi_curr_ssid[33];
 extern uint8_t  g_wifi_last_reason;

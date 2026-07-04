@@ -44,6 +44,7 @@
 #include "sntp_manager.h"
 #include "bg_fetcher.h"
 #include "ui_common.h"
+#include "ui_main.h"
 #include "ui_radio.h"
 
 static const char *TAG = "skeleton";

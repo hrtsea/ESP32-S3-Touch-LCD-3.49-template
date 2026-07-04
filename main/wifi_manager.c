@@ -16,14 +16,6 @@
 
 static const char *TAG = "wifi_manager";
 
-#define WIFI_MAX_SCAN_AP 16
-
-typedef struct {
-    char    ssid[33];
-    int8_t  rssi;
-    uint8_t auth;
-} wifi_scan_ap_t;
-
 wifi_scan_ap_t g_wifi_scan[WIFI_MAX_SCAN_AP];
 uint16_t       g_wifi_scan_n = 0;
 bool           g_wifi_scanning = false;
