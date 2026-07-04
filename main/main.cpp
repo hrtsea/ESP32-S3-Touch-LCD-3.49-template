@@ -42,6 +42,7 @@
 #include "disp_driver.h"
 #include "wifi_manager.h"
 #include "sntp_manager.h"
+#include "bg_fetcher.h"
 #include "ui_common.h"
 #include "ui_radio.h"
 

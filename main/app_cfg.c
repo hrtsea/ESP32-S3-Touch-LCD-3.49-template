@@ -16,6 +16,7 @@
 #include "disp_driver.h"
 #include "backlight.h"
 #include "wifi_manager.h"
+#include "bg_fetcher.h"
 
 #if __has_include("wifi_secret.h")
 #  include "wifi_secret.h"
@@ -33,7 +34,6 @@ static const char *TAG = "app_cfg";
 extern void clock_apply_layout(void);
 extern void clock_bg_apply(void);
 extern void quotes_kick(void);
-extern void bg_fetcher_ensure(void);
 
 extern lv_obj_t *g_tileview;
 extern lv_obj_t *g_clock_time_label;

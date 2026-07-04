@@ -1,4 +1,4 @@
-#include "ui_bg_fetcher.h"
+#include "bg_fetcher.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -15,10 +15,14 @@
 #include "freertos/task.h"
 
 #include "sdcard_bsp.h"
+#include "app_cfg.h"
+#include "disp_driver.h"
+#include "wifi_manager.h"
+#include "ui_clock.h"
 
 #define CLOCK_BG_PATH "/sdcard/clock_bg.bin"
 
-static const char *TAG = "ui_bg_fetcher";
+static const char *TAG = "bg_fetcher";
 
 /* HTTP fetcher for bg_mode=2 (URL). Runs on its own task; sleeps for
    bg_refresh_s between fetches. Writes to CLOCK_BG_PATH then asks

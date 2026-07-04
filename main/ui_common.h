@@ -50,8 +50,6 @@ void clock_apply_layout(void);
 void clock_update_cb(lv_timer_t *t);
 void sunmap_redraw(void);
 
-void bg_fetcher_ensure(void);
-
 void quotes_ensure(void);
 void quotes_kick(void);
 
