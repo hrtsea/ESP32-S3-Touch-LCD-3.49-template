@@ -11,6 +11,12 @@ extern "C" {
 void build_recorder_tile(lv_obj_t *parent);
 void recorder_refresh_list(void);
 
+/* Called by ui_main when the recorder tile becomes visible / hidden.
+   Starts / stops the VU monitor so we don't waste CPU contending the
+   I2S bus while other tiles (e.g. radio) are active. */
+void recorder_tile_on_enter(void);
+void recorder_tile_on_leave(void);
+
 /* Recorder tile widget pointers (accessed by ui_main for rotate cleanup) */
 extern lv_obj_t *g_rec_tile;
 extern lv_obj_t *g_rec_status;

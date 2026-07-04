@@ -8,7 +8,7 @@ extern "C" {
 #include "lvgl.h"
 #include "ui_common.h"
 
-#define N_TILES 6
+#define N_TILES 7
 
 extern lv_timer_t *g_status_timer;
 extern uint32_t    g_last_activity_ms;

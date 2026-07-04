@@ -10,6 +10,7 @@ idf_component_register(
         "ui/ui_settings.c"
         "ui/ui_radio.c"
         "ui/ui_recorder.c"
+        "ui/ui_audio_test.c"
         "drivers/disp_driver.c"
         "network/wifi_manager.c"
         "network/sntp_manager.c"
@@ -33,6 +34,7 @@ idf_component_register(
         "config"
         "utils"
         "fonts"
+    EMBED_FILES "ui/canon.pcm"
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE BUILD_EPOCH_UTC=${BUILD_EPOCH_UTC})

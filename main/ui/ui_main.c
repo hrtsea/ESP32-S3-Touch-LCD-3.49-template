@@ -27,6 +27,7 @@
 #include "ui_settings.h"
 #include "ui_recorder.h"
 #include "ui_hello.h"
+#include "ui_audio_test.h"
 #include "audio_min.h"
 #include "wifi_manager.h"
 
@@ -419,6 +420,25 @@ static void screen_scroll_stamp_cb(lv_event_t *e)
     }
 }
 
+static int s_current_tile_idx = 0;
+
+static void tile_monitor_cb(lv_timer_t *t)
+{
+    (void)t;
+    if (!g_tileview) return;
+    lv_coord_t x = lv_obj_get_scroll_x(g_tileview);
+    lv_coord_t w = lv_obj_get_width(g_tileview);
+    int idx = (w > 0) ? (x + w / 2) / w : 0;
+    if (idx < 0) idx = 0;
+    if (idx >= N_TILES) idx = N_TILES - 1;
+    if (idx != s_current_tile_idx) {
+        int old = s_current_tile_idx;
+        s_current_tile_idx = idx;
+        if (old == 4) recorder_tile_on_leave();
+        if (idx == 4) recorder_tile_on_enter();
+    }
+}
+
 /* ---------------------- 顶层UI构建器 ---------------------- */
 
 /**
@@ -445,13 +465,14 @@ static void build_main_ui(const char *status_text)
     lv_obj_set_style_bg_opa(g_tileview, LV_OPA_COVER, 0);
     lv_obj_set_scrollbar_mode(g_tileview, LV_SCROLLBAR_MODE_OFF);
 
-    /* 创建6个页面Tile */
+    /* 创建7个页面Tile */
     lv_obj_t *t_clock  = lv_tileview_add_tile(g_tileview, 0, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
     lv_obj_t *t_quotes = lv_tileview_add_tile(g_tileview, 1, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
     lv_obj_t *t_set    = lv_tileview_add_tile(g_tileview, 2, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
     lv_obj_t *t_radio  = lv_tileview_add_tile(g_tileview, 3, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
     lv_obj_t *t_record = lv_tileview_add_tile(g_tileview, 4, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
-    lv_obj_t *t_hello  = lv_tileview_add_tile(g_tileview, 5, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
+    lv_obj_t *t_audio_test = lv_tileview_add_tile(g_tileview, 5, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
+    lv_obj_t *t_hello  = lv_tileview_add_tile(g_tileview, 6, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
 
     (void)status_text;
 
@@ -461,6 +482,7 @@ static void build_main_ui(const char *status_text)
     build_settings_tile(t_set);
     build_radio_tile(t_radio);
     build_recorder_tile(t_record);
+    build_audio_test_tile(t_audio_test);
     build_hello_tile(t_hello, g_status_text);
 
     /* 设置TileView循环滑动手势 */
@@ -490,6 +512,13 @@ static void build_main_ui(const char *status_text)
     /* 创建状态更新定时器 */
     if (!g_status_timer) {
         g_status_timer = lv_timer_create(status_timer_cb, 1000, NULL);
+    }
+
+    /* 创建Tile切换监控定时器（用于页面enter/leave回调） */
+    static bool tile_monitor_created = false;
+    if (!tile_monitor_created) {
+        lv_timer_create(tile_monitor_cb, 100, NULL);
+        tile_monitor_created = true;
     }
 
     /* 设置活动唤醒回调（触摸屏幕时重置调光定时器） */
@@ -531,4 +560,7 @@ void show_main_ui(const char *status_text)
     if (!lvgl_lock(-1)) return;
     build_main_ui(g_status_text);
     lvgl_unlock();
+
+    /* 初始化音频测试模块的worker任务 */
+    audio_test_ui_init();
 }

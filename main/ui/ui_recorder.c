@@ -154,15 +154,6 @@ static int peak_to_pct(uint16_t peak)
 static void rec_poll_cb(lv_timer_t *t)
 {
     (void)t;
-    /* Retry monitor start: at boot time the radio engine is warmed
-       *after* show_main_ui, so build_recorder_tile's first call to
-       recorder_monitor_start() fails (radio engine not yet up). The
-       worker is what feeds peak data to the VU; without it the bars
-       sit at zero. recorder_monitor_start is idempotent. */
-    static bool s_monitor_running = false;
-    if (!s_monitor_running) {
-        if (recorder_monitor_start() == ESP_OK) s_monitor_running = true;
-    }
     bool recording = recorder_is_recording();
     bool playing   = radio_is_playing();
     if (g_rec_btn_lbl) {
@@ -393,9 +384,26 @@ void build_recorder_tile(lv_obj_t *parent)
 
     if (!g_rec_poll) {
         g_rec_poll = lv_timer_create(rec_poll_cb, 100, NULL);
+        lv_timer_pause(g_rec_poll);
     }
-    /* Live VU regardless of recording state. */
-    if (recorder_monitor_start() != ESP_OK) {
-        ESP_LOGW(TAG, "recorder monitor start failed");
+}
+
+void recorder_tile_on_enter(void)
+{
+    if (g_rec_poll) {
+        lv_timer_resume(g_rec_poll);
+    }
+    if (!recorder_is_recording()) {
+        recorder_monitor_start();
+    }
+}
+
+void recorder_tile_on_leave(void)
+{
+    if (!recorder_is_recording()) {
+        recorder_monitor_stop();
+    }
+    if (g_rec_poll) {
+        lv_timer_pause(g_rec_poll);
     }
 }

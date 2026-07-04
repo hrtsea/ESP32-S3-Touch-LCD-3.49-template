@@ -177,15 +177,19 @@ esp_err_t radio_init(void)
     /* TDM with 4 slots * 32 bits * stereo at 16 kHz produces big DMA
        descriptors. The reference example runs before LVGL when there's
        still plenty of internal RAM; we run after, with internal heap
-       fragmented. Cut descriptor count down so the alloc fits. */
-    chan_cfg.dma_desc_num  = 3;
-    chan_cfg.dma_frame_num = 64;
+       fragmented. Use moderate sizing: enough to absorb jitter from
+       LVGL/WiFi interrupts without exhausting internal RAM.
+       4 desc × 96 frames = ~6KB per channel (TX+RX = ~12KB total).
+       Up from the original 3×64 for better glitch resistance. */
+    chan_cfg.dma_desc_num  = 4;
+    chan_cfg.dma_frame_num = 96;
     esp_err_t er = i2s_new_channel(&chan_cfg, &s_i2s_tx, &s_i2s_rx);
     if (er != ESP_OK) { ESP_LOGE(TAG, "i2s_new_channel: %s", esp_err_to_name(er)); return er; }
 
     ESP_LOGI(TAG, "init step 2/9: i2s_channel_init_tdm_mode @ %dHz / 32-bit / 4 slots", I2S_TDM_RATE);
     /* TDM mode is what the reference uses to share one I2S frame
-       between the ES8311 DAC slots and the ES7210 ADC slots. */
+       between the ES8311 DAC slots and the ES7210 ADC slots.
+       4 slots × 32 bits needs MCLK multiple of 384 (not default 256). */
     i2s_tdm_slot_mask_t slot_mask = I2S_TDM_SLOT0 | I2S_TDM_SLOT1 | I2S_TDM_SLOT2 | I2S_TDM_SLOT3;
     i2s_tdm_config_t tdm_cfg = {
         .clk_cfg  = I2S_TDM_CLK_DEFAULT_CONFIG(I2S_TDM_RATE),
@@ -199,6 +203,7 @@ esp_err_t radio_init(void)
         },
     };
     tdm_cfg.slot_cfg.total_slot = 4;
+    tdm_cfg.clk_cfg.mclk_multiple = I2S_MCLK_MULTIPLE_384;
     er = i2s_channel_init_tdm_mode(s_i2s_tx, &tdm_cfg);
     if (er != ESP_OK) { ESP_LOGE(TAG, "i2s_init_tdm tx: %s", esp_err_to_name(er)); return er; }
     er = i2s_channel_init_tdm_mode(s_i2s_rx, &tdm_cfg);
@@ -293,8 +298,8 @@ esp_err_t radio_init(void)
     esp_asp_cfg_t cfg = {
         .out.cb       = radio_out_cb,
         .out.user_ctx = NULL,
-        .task_prio    = 5,
-        .task_stack   = 8 * 1024,
+        .task_prio    = 6,
+        .task_stack   = 12 * 1024,
         .task_stack_in_ext = true,
         .task_core    = 1,
     };
