@@ -21,19 +21,34 @@ static const char *TAG = "ui_audio_test";
 extern const uint8_t music_pcm_start[] asm("_binary_canon_pcm_start");
 extern const uint8_t music_pcm_end[]   asm("_binary_canon_pcm_end");
 
+/* ===== 1. 对象定义 ===== */
+lv_obj_t *ui_AudioTest                  = NULL;
+lv_obj_t *ui_AudioTest_label_title       = NULL;
+lv_obj_t *ui_AudioTest_label_status      = NULL;
+lv_obj_t *ui_AudioTest_label_status_en   = NULL;
+lv_obj_t *ui_AudioTest_btn_record       = NULL;
+lv_obj_t *ui_AudioTest_btn_play         = NULL;
+lv_obj_t *ui_AudioTest_btn_music        = NULL;
+lv_obj_t *ui_AudioTest_btn_stop         = NULL;
+
+/* ===== 2. 静态样式变量 ===== */
+static lv_style_t style_tile_bg;
+static lv_style_t style_title;
+static lv_style_t style_status;
+static lv_style_t style_status_en;
+static lv_style_t style_btnrow;
+static lv_style_t style_btn_record;
+static lv_style_t style_btn_play;
+static lv_style_t style_btn_music;
+static lv_style_t style_btn_stop;
+static bool styles_inited = false;
+
 typedef enum {
     AUDIO_TEST_IDLE = 0,
     AUDIO_TEST_RECORDING,
     AUDIO_TEST_PLAYING,
     AUDIO_TEST_PLAYING_MUSIC,
 } audio_test_state_t;
-
-static lv_obj_t *g_status_lbl = NULL;
-static lv_obj_t *g_status_en_lbl = NULL;
-static lv_obj_t *g_btn_record = NULL;
-static lv_obj_t *g_btn_play = NULL;
-static lv_obj_t *g_btn_music = NULL;
-static lv_obj_t *g_btn_stop = NULL;
 
 static volatile audio_test_state_t g_state = AUDIO_TEST_IDLE;
 static volatile bool g_stop_req = false;
@@ -49,10 +64,148 @@ static uint32_t g_rec_bytes = 0;
 #define MUSIC_BITS         16
 #define MUSIC_CHANNELS     2
 
-/* In TDM mode both TX (play) and RX (record) share the same bit/frame
-   clock, so their sample rates must always match.  This helper switches
-   both codec devices to the given rate, and restores both afterwards
-   by re-reading the current radio rate. */
+static void init_styles(void)
+{
+    if (styles_inited) return;
+
+    lv_style_init(&style_tile_bg);
+    lv_style_set_bg_color(&style_tile_bg, lv_color_black());
+    lv_style_set_bg_opa(&style_tile_bg, LV_OPA_COVER);
+
+    lv_style_init(&style_title);
+    lv_style_set_text_color(&style_title, lv_color_make(0x0f, 0x90, 0x8e));
+    lv_style_set_text_align(&style_title, LV_TEXT_ALIGN_CENTER);
+
+    lv_style_init(&style_status);
+    lv_style_set_text_color(&style_status, lv_color_white());
+    lv_style_set_text_align(&style_status, LV_TEXT_ALIGN_CENTER);
+
+    lv_style_init(&style_status_en);
+    lv_style_set_text_color(&style_status_en, lv_color_make(0xa0, 0xa0, 0xa0));
+    lv_style_set_text_align(&style_status_en, LV_TEXT_ALIGN_CENTER);
+
+    lv_style_init(&style_btnrow);
+    lv_style_set_bg_opa(&style_btnrow, 0);
+    lv_style_set_border_width(&style_btnrow, 0);
+    lv_style_set_pad_all(&style_btnrow, 0);
+
+    lv_style_init(&style_btn_record);
+    lv_style_set_radius(&style_btn_record, 8);
+    lv_style_set_bg_color(&style_btn_record, lv_color_make(0x0E, 0x6B, 0x03));
+
+    lv_style_init(&style_btn_play);
+    lv_style_set_radius(&style_btn_play, 8);
+    lv_style_set_bg_color(&style_btn_play, lv_color_make(0x03, 0x26, 0x6B));
+
+    lv_style_init(&style_btn_music);
+    lv_style_set_radius(&style_btn_music, 8);
+    lv_style_set_bg_color(&style_btn_music, lv_color_make(0x6B, 0x03, 0x6B));
+
+    lv_style_init(&style_btn_stop);
+    lv_style_set_radius(&style_btn_stop, 8);
+    lv_style_set_bg_color(&style_btn_stop, lv_color_make(0x8B, 0x00, 0x00));
+
+    styles_inited = true;
+}
+
+/* ===== 业务辅助函数（UI 相关，供回调调用） ===== */
+static void set_status(const char *cn, const char *en)
+{
+    if (ui_AudioTest_label_status)    lv_label_set_text(ui_AudioTest_label_status, cn);
+    if (ui_AudioTest_label_status_en) lv_label_set_text(ui_AudioTest_label_status_en, en);
+}
+
+static void update_button_states(void)
+{
+    bool idle = (g_state == AUDIO_TEST_IDLE);
+    bool recording = (g_state == AUDIO_TEST_RECORDING);
+    bool playing = (g_state == AUDIO_TEST_PLAYING || g_state == AUDIO_TEST_PLAYING_MUSIC);
+
+    if (ui_AudioTest_btn_record) {
+        lv_obj_set_style_bg_opa(ui_AudioTest_btn_record, idle ? LV_OPA_COVER : LV_OPA_40, 0);
+        lv_obj_clear_flag(ui_AudioTest_btn_record, LV_OBJ_FLAG_CLICKABLE);
+        if (idle) lv_obj_add_flag(ui_AudioTest_btn_record, LV_OBJ_FLAG_CLICKABLE);
+    }
+    if (ui_AudioTest_btn_play) {
+        lv_obj_set_style_bg_opa(ui_AudioTest_btn_play, idle && g_rec_bytes > 0 ? LV_OPA_COVER : LV_OPA_40, 0);
+        lv_obj_clear_flag(ui_AudioTest_btn_play, LV_OBJ_FLAG_CLICKABLE);
+        if (idle && g_rec_bytes > 0) lv_obj_add_flag(ui_AudioTest_btn_play, LV_OBJ_FLAG_CLICKABLE);
+    }
+    if (ui_AudioTest_btn_music) {
+        lv_obj_set_style_bg_opa(ui_AudioTest_btn_music, idle ? LV_OPA_COVER : LV_OPA_40, 0);
+        lv_obj_clear_flag(ui_AudioTest_btn_music, LV_OBJ_FLAG_CLICKABLE);
+        if (idle) lv_obj_add_flag(ui_AudioTest_btn_music, LV_OBJ_FLAG_CLICKABLE);
+    }
+    if (ui_AudioTest_btn_stop) {
+        lv_obj_set_style_bg_opa(ui_AudioTest_btn_stop, (recording || playing) ? LV_OPA_COVER : LV_OPA_40, 0);
+        lv_obj_clear_flag(ui_AudioTest_btn_stop, LV_OBJ_FLAG_CLICKABLE);
+        if (recording || playing) lv_obj_add_flag(ui_AudioTest_btn_stop, LV_OBJ_FLAG_CLICKABLE);
+    }
+}
+
+/* ===== 3. 事件回调函数 ===== */
+void ui_event_AudioTest_btn_record(lv_event_t *e)
+{
+    (void)e;
+    if (g_state != AUDIO_TEST_IDLE) return;
+    if (!g_cfg.audio_enable) return;
+
+    if (!g_rec_buffer) {
+        g_rec_buffer = heap_caps_malloc(REC_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
+        if (!g_rec_buffer) {
+            ESP_LOGE(TAG, "no PSRAM for record buffer");
+            return;
+        }
+    }
+
+    g_state = AUDIO_TEST_RECORDING;
+    g_rec_bytes = 0;
+    set_status("正在录音", "Recording...");
+    update_button_states();
+
+    if (g_worker_task) xTaskNotifyGive(g_worker_task);
+}
+
+void ui_event_AudioTest_btn_play(lv_event_t *e)
+{
+    (void)e;
+    if (g_state != AUDIO_TEST_IDLE) return;
+    if (g_rec_bytes == 0) return;
+    if (!g_cfg.audio_enable) return;
+
+    g_state = AUDIO_TEST_PLAYING;
+    set_status("正在播放", "Playing...");
+    update_button_states();
+
+    if (g_worker_task) xTaskNotifyGive(g_worker_task);
+}
+
+void ui_event_AudioTest_btn_music(lv_event_t *e)
+{
+    (void)e;
+    if (g_state != AUDIO_TEST_IDLE) return;
+    if (!g_cfg.audio_enable) return;
+
+    g_state = AUDIO_TEST_PLAYING_MUSIC;
+    set_status("正在播放音乐", "Play Music");
+    update_button_states();
+
+    if (g_worker_task) xTaskNotifyGive(g_worker_task);
+}
+
+void ui_event_AudioTest_btn_stop(lv_event_t *e)
+{
+    (void)e;
+    if (g_state == AUDIO_TEST_IDLE) return;
+
+    g_stop_req = true;
+    if (g_state == AUDIO_TEST_RECORDING) {
+        recorder_stop();
+    }
+}
+
+/* ===== 业务辅助函数（硬件/编解码相关） ===== */
+
 static void audio_test_set_rate(uint32_t rate, uint8_t bits, uint8_t ch)
 {
     esp_codec_dev_handle_t play_dev =
@@ -110,100 +263,6 @@ static void audio_test_restore_rate(void)
     }
 }
 
-static void set_status(const char *cn, const char *en)
-{
-    if (g_status_lbl) lv_label_set_text(g_status_lbl, cn);
-    if (g_status_en_lbl) lv_label_set_text(g_status_en_lbl, en);
-}
-
-static void update_button_states(void)
-{
-    bool idle = (g_state == AUDIO_TEST_IDLE);
-    bool recording = (g_state == AUDIO_TEST_RECORDING);
-    bool playing = (g_state == AUDIO_TEST_PLAYING || g_state == AUDIO_TEST_PLAYING_MUSIC);
-
-    if (g_btn_record) {
-        lv_obj_set_style_bg_opa(g_btn_record, idle ? LV_OPA_COVER : LV_OPA_40, 0);
-        lv_obj_clear_flag(g_btn_record, LV_OBJ_FLAG_CLICKABLE);
-        if (idle) lv_obj_add_flag(g_btn_record, LV_OBJ_FLAG_CLICKABLE);
-    }
-    if (g_btn_play) {
-        lv_obj_set_style_bg_opa(g_btn_play, idle && g_rec_bytes > 0 ? LV_OPA_COVER : LV_OPA_40, 0);
-        lv_obj_clear_flag(g_btn_play, LV_OBJ_FLAG_CLICKABLE);
-        if (idle && g_rec_bytes > 0) lv_obj_add_flag(g_btn_play, LV_OBJ_FLAG_CLICKABLE);
-    }
-    if (g_btn_music) {
-        lv_obj_set_style_bg_opa(g_btn_music, idle ? LV_OPA_COVER : LV_OPA_40, 0);
-        lv_obj_clear_flag(g_btn_music, LV_OBJ_FLAG_CLICKABLE);
-        if (idle) lv_obj_add_flag(g_btn_music, LV_OBJ_FLAG_CLICKABLE);
-    }
-    if (g_btn_stop) {
-        lv_obj_set_style_bg_opa(g_btn_stop, (recording || playing) ? LV_OPA_COVER : LV_OPA_40, 0);
-        lv_obj_clear_flag(g_btn_stop, LV_OBJ_FLAG_CLICKABLE);
-        if (recording || playing) lv_obj_add_flag(g_btn_stop, LV_OBJ_FLAG_CLICKABLE);
-    }
-}
-
-static void record_btn_cb(lv_event_t *e)
-{
-    (void)e;
-    if (g_state != AUDIO_TEST_IDLE) return;
-    if (!g_cfg.audio_enable) return;
-
-    if (!g_rec_buffer) {
-        g_rec_buffer = heap_caps_malloc(REC_BUFFER_SIZE, MALLOC_CAP_SPIRAM);
-        if (!g_rec_buffer) {
-            ESP_LOGE(TAG, "no PSRAM for record buffer");
-            return;
-        }
-    }
-
-    g_state = AUDIO_TEST_RECORDING;
-    g_rec_bytes = 0;
-    set_status("正在录音", "Recording...");
-    update_button_states();
-
-    if (g_worker_task) xTaskNotifyGive(g_worker_task);
-}
-
-static void play_btn_cb(lv_event_t *e)
-{
-    (void)e;
-    if (g_state != AUDIO_TEST_IDLE) return;
-    if (g_rec_bytes == 0) return;
-    if (!g_cfg.audio_enable) return;
-
-    g_state = AUDIO_TEST_PLAYING;
-    set_status("正在播放", "Playing...");
-    update_button_states();
-
-    if (g_worker_task) xTaskNotifyGive(g_worker_task);
-}
-
-static void music_btn_cb(lv_event_t *e)
-{
-    (void)e;
-    if (g_state != AUDIO_TEST_IDLE) return;
-    if (!g_cfg.audio_enable) return;
-
-    g_state = AUDIO_TEST_PLAYING_MUSIC;
-    set_status("正在播放音乐", "Play Music");
-    update_button_states();
-
-    if (g_worker_task) xTaskNotifyGive(g_worker_task);
-}
-
-static void stop_btn_cb(lv_event_t *e)
-{
-    (void)e;
-    if (g_state == AUDIO_TEST_IDLE) return;
-
-    g_stop_req = true;
-    if (g_state == AUDIO_TEST_RECORDING) {
-        recorder_stop();
-    }
-}
-
 static void audio_test_worker(void *arg)
 {
     (void)arg;
@@ -215,13 +274,11 @@ static void audio_test_worker(void *arg)
 
         if (g_state == AUDIO_TEST_RECORDING) {
             ESP_LOGI(TAG, "start recording test");
-            /* Stop radio playback to avoid echo through the mic. */
             bool was_playing = radio_is_playing();
             if (was_playing) {
                 radio_stop();
                 vTaskDelay(pdMS_TO_TICKS(50));
             }
-            /* Switch both TX and RX to the test rate (TDM shared clock). */
             audio_test_set_rate(REC_SAMPLE_RATE, REC_BITS, REC_CHANNELS);
             uint32_t total = 0;
             uint32_t chunk = 4096;
@@ -235,7 +292,6 @@ static void audio_test_worker(void *arg)
             }
             g_rec_bytes = total;
             ESP_LOGI(TAG, "recorded %u bytes", total);
-            /* Restore both codecs to the radio's current rate. */
             audio_test_restore_rate();
 
             if (lvgl_lock(50)) {
@@ -248,13 +304,11 @@ static void audio_test_worker(void *arg)
 
         } else if (g_state == AUDIO_TEST_PLAYING) {
             ESP_LOGI(TAG, "start playback test, %u bytes", g_rec_bytes);
-            /* Stop the radio player pipeline before reconfiguring the codec. */
             bool was_playing = radio_is_playing();
             if (was_playing) {
                 radio_stop();
                 vTaskDelay(pdMS_TO_TICKS(50));
             }
-            /* Switch both TX and RX to the test rate (TDM shared clock). */
             audio_test_set_rate(REC_SAMPLE_RATE, REC_BITS, REC_CHANNELS);
             uint32_t offset = 0;
             uint32_t chunk = 4096;
@@ -266,7 +320,6 @@ static void audio_test_worker(void *arg)
                     offset += sz;
                 }
             }
-            /* Restore both codecs to the radio's current rate. */
             audio_test_restore_rate();
             ESP_LOGI(TAG, "playback done, %u bytes", offset);
 
@@ -280,17 +333,11 @@ static void audio_test_worker(void *arg)
 
         } else if (g_state == AUDIO_TEST_PLAYING_MUSIC) {
             ESP_LOGI(TAG, "start music playback test");
-            /* Stop the radio player pipeline first so it stops touching
-               the codec; we then reconfigure the codec for our PCM and
-               restore the radio default afterwards. This avoids the
-               "esp_gmf_pipeline_stop: Got NULL Pointer" crash that
-               happens when we yank the codec out from under the player. */
             bool was_playing = radio_is_playing();
             if (was_playing) {
                 radio_stop();
                 vTaskDelay(pdMS_TO_TICKS(100));
             }
-            /* Switch both TX and RX to the test rate (TDM shared clock). */
             audio_test_set_rate(MUSIC_SAMPLE_RATE, MUSIC_BITS, MUSIC_CHANNELS);
             esp_codec_dev_handle_t play_dev = (esp_codec_dev_handle_t)radio_get_play_dev();
             if (play_dev) {
@@ -307,7 +354,6 @@ static void audio_test_worker(void *arg)
                 }
                 ESP_LOGI(TAG, "music playback done, %u bytes", (unsigned)bytes_write);
             }
-            /* Restore both codecs to the radio's current rate. */
             audio_test_restore_rate();
 
             if (lvgl_lock(50)) {
@@ -321,87 +367,103 @@ static void audio_test_worker(void *arg)
     }
 }
 
-void build_audio_test_tile(lv_obj_t *parent)
+/* ===== 4. tile 创建函数 ===== */
+void ui_AudioTest_create(lv_obj_t *parent)
 {
-    lv_obj_set_style_bg_color(parent, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
-    lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
+    init_styles();
 
-    lv_obj_t *title = lv_label_create(parent);
-    lv_label_set_text(title, "Audio Test");
-    lv_obj_set_style_text_color(title, lv_color_make(0x0f, 0x90, 0x8e), 0);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
-    lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 6);
+    /* tile 容器 */
+    ui_AudioTest = parent;
+    lv_obj_clear_flag(ui_AudioTest, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_style(ui_AudioTest, &style_tile_bg, 0);
 
-    g_status_lbl = lv_label_create(parent);
-    lv_label_set_text(g_status_lbl, "等待操作");
-    lv_obj_set_style_text_color(g_status_lbl, lv_color_white(), 0);
-    lv_obj_set_style_text_font(g_status_lbl, i18n_font(), 0);
-    lv_obj_set_style_text_align(g_status_lbl, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(g_status_lbl, LV_ALIGN_TOP_MID, 0, 34);
+    /* 标题 */
+    ui_AudioTest_label_title = lv_label_create(ui_AudioTest);
+    lv_label_set_text(ui_AudioTest_label_title, "Audio Test");
+    lv_obj_add_style(ui_AudioTest_label_title, &style_title, 0);
+    lv_obj_set_style_text_font(ui_AudioTest_label_title, &lv_font_montserrat_16, 0);
+    lv_obj_align(ui_AudioTest_label_title, LV_ALIGN_TOP_MID, 0, 6);
 
-    g_status_en_lbl = lv_label_create(parent);
-    lv_label_set_text(g_status_en_lbl, "Idle");
-    lv_obj_set_style_text_color(g_status_en_lbl, lv_color_make(0xa0, 0xa0, 0xa0), 0);
-    lv_obj_set_style_text_font(g_status_en_lbl, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_align(g_status_en_lbl, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(g_status_en_lbl, LV_ALIGN_TOP_MID, 0, 54);
+    /* 中文状态 */
+    ui_AudioTest_label_status = lv_label_create(ui_AudioTest);
+    lv_label_set_text(ui_AudioTest_label_status, "等待操作");
+    lv_obj_add_style(ui_AudioTest_label_status, &style_status, 0);
+    lv_obj_set_style_text_font(ui_AudioTest_label_status, i18n_font(), 0);
+    lv_obj_align(ui_AudioTest_label_status, LV_ALIGN_TOP_MID, 0, 34);
 
-    lv_obj_t *btn_row = lv_obj_create(parent);
+    /* 英文状态 */
+    ui_AudioTest_label_status_en = lv_label_create(ui_AudioTest);
+    lv_label_set_text(ui_AudioTest_label_status_en, "Idle");
+    lv_obj_add_style(ui_AudioTest_label_status_en, &style_status_en, 0);
+    lv_obj_set_style_text_font(ui_AudioTest_label_status_en, &lv_font_montserrat_12, 0);
+    lv_obj_align(ui_AudioTest_label_status_en, LV_ALIGN_TOP_MID, 0, 54);
+
+    /* 按钮行容器 */
+    lv_obj_t *btn_row = lv_obj_create(ui_AudioTest);
     lv_obj_set_size(btn_row, disp_driver_get_canvas_w() - 32, 56);
-    lv_obj_set_style_bg_opa(btn_row, 0, 0);
-    lv_obj_set_style_border_width(btn_row, 0, 0);
-    lv_obj_set_style_pad_all(btn_row, 0, 0);
+    lv_obj_add_style(btn_row, &style_btnrow, 0);
     lv_obj_align(btn_row, LV_ALIGN_BOTTOM_MID, 0, -8);
     lv_obj_set_flex_flow(btn_row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(btn_row, LV_FLEX_ALIGN_SPACE_AROUND, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    g_btn_record = lv_btn_create(btn_row);
-    lv_obj_set_size(g_btn_record, 72, 44);
-    lv_obj_set_style_radius(g_btn_record, 8, 0);
-    lv_obj_set_style_bg_color(g_btn_record, lv_color_make(0x0E, 0x6B, 0x03), 0);
-    lv_obj_add_event_cb(g_btn_record, record_btn_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_t *rec_lbl = lv_label_create(g_btn_record);
+    /* REC 按钮 */
+    ui_AudioTest_btn_record = lv_btn_create(btn_row);
+    lv_obj_set_size(ui_AudioTest_btn_record, 72, 44);
+    lv_obj_add_style(ui_AudioTest_btn_record, &style_btn_record, 0);
+    lv_obj_add_event_cb(ui_AudioTest_btn_record, ui_event_AudioTest_btn_record, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *rec_lbl = lv_label_create(ui_AudioTest_btn_record);
     lv_label_set_text(rec_lbl, "REC");
     lv_obj_set_style_text_color(rec_lbl, lv_color_white(), 0);
     lv_obj_set_style_text_font(rec_lbl, &lv_font_montserrat_14, 0);
     lv_obj_center(rec_lbl);
 
-    g_btn_play = lv_btn_create(btn_row);
-    lv_obj_set_size(g_btn_play, 72, 44);
-    lv_obj_set_style_radius(g_btn_play, 8, 0);
-    lv_obj_set_style_bg_color(g_btn_play, lv_color_make(0x03, 0x26, 0x6B), 0);
-    lv_obj_add_event_cb(g_btn_play, play_btn_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_t *play_lbl = lv_label_create(g_btn_play);
+    /* Play 按钮 */
+    ui_AudioTest_btn_play = lv_btn_create(btn_row);
+    lv_obj_set_size(ui_AudioTest_btn_play, 72, 44);
+    lv_obj_add_style(ui_AudioTest_btn_play, &style_btn_play, 0);
+    lv_obj_add_event_cb(ui_AudioTest_btn_play, ui_event_AudioTest_btn_play, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *play_lbl = lv_label_create(ui_AudioTest_btn_play);
     lv_label_set_text(play_lbl, "Play");
     lv_obj_set_style_text_color(play_lbl, lv_color_white(), 0);
     lv_obj_set_style_text_font(play_lbl, &lv_font_montserrat_14, 0);
     lv_obj_center(play_lbl);
 
-    g_btn_music = lv_btn_create(btn_row);
-    lv_obj_set_size(g_btn_music, 72, 44);
-    lv_obj_set_style_radius(g_btn_music, 8, 0);
-    lv_obj_set_style_bg_color(g_btn_music, lv_color_make(0x6B, 0x03, 0x6B), 0);
-    lv_obj_add_event_cb(g_btn_music, music_btn_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_t *music_lbl = lv_label_create(g_btn_music);
+    /* Music 按钮 */
+    ui_AudioTest_btn_music = lv_btn_create(btn_row);
+    lv_obj_set_size(ui_AudioTest_btn_music, 72, 44);
+    lv_obj_add_style(ui_AudioTest_btn_music, &style_btn_music, 0);
+    lv_obj_add_event_cb(ui_AudioTest_btn_music, ui_event_AudioTest_btn_music, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *music_lbl = lv_label_create(ui_AudioTest_btn_music);
     lv_label_set_text(music_lbl, "Music");
     lv_obj_set_style_text_color(music_lbl, lv_color_white(), 0);
     lv_obj_set_style_text_font(music_lbl, &lv_font_montserrat_14, 0);
     lv_obj_center(music_lbl);
 
-    g_btn_stop = lv_btn_create(btn_row);
-    lv_obj_set_size(g_btn_stop, 72, 44);
-    lv_obj_set_style_radius(g_btn_stop, 8, 0);
-    lv_obj_set_style_bg_color(g_btn_stop, lv_color_make(0x8B, 0x00, 0x00), 0);
-    lv_obj_add_event_cb(g_btn_stop, stop_btn_cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_t *stop_lbl = lv_label_create(g_btn_stop);
+    /* Stop 按钮 */
+    ui_AudioTest_btn_stop = lv_btn_create(btn_row);
+    lv_obj_set_size(ui_AudioTest_btn_stop, 72, 44);
+    lv_obj_add_style(ui_AudioTest_btn_stop, &style_btn_stop, 0);
+    lv_obj_add_event_cb(ui_AudioTest_btn_stop, ui_event_AudioTest_btn_stop, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *stop_lbl = lv_label_create(ui_AudioTest_btn_stop);
     lv_label_set_text(stop_lbl, "Stop");
     lv_obj_set_style_text_color(stop_lbl, lv_color_white(), 0);
     lv_obj_set_style_text_font(stop_lbl, &lv_font_montserrat_14, 0);
     lv_obj_center(stop_lbl);
 
     update_button_states();
+}
+
+/* ===== 5. tile 清理函数 ===== */
+void ui_AudioTest_cleanup(void)
+{
+    ui_AudioTest                  = NULL;
+    ui_AudioTest_label_title       = NULL;
+    ui_AudioTest_label_status      = NULL;
+    ui_AudioTest_label_status_en   = NULL;
+    ui_AudioTest_btn_record       = NULL;
+    ui_AudioTest_btn_play         = NULL;
+    ui_AudioTest_btn_music        = NULL;
+    ui_AudioTest_btn_stop         = NULL;
 }
 
 void audio_test_ui_init(void)

@@ -284,7 +284,8 @@ void rotate_btn_event_cb(lv_event_t *e)
     /* 清空当前屏幕，重置所有UI指针 */
     lv_obj_clean(lv_scr_act());
     disp_driver_set_fps_label(NULL);
-    g_hello_play_btn_label = NULL;
+    ui_Hello_cleanup();
+    ui_AudioTest_cleanup();
     g_tileview = NULL;
 
     /* 重置时钟页面 */
@@ -456,8 +457,8 @@ static void build_main_ui(const char *status_text)
     build_settings_tile(t_set);
     build_radio_tile(t_radio);
     build_recorder_tile(t_record);
-    build_audio_test_tile(t_audio_test);
-    build_hello_tile(t_hello, g_status_text);
+    ui_AudioTest_create(t_audio_test);
+    ui_Hello_create(t_hello, g_status_text);
 
     /* 设置TileView循环滑动手势 */
     lv_obj_add_event_cb(g_tileview, tileview_gesture_cb, LV_EVENT_GESTURE, NULL);
