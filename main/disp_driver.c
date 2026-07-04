@@ -431,3 +431,27 @@ void disp_driver_init(void)
     esp_lcd_panel_handle_t panel = lcd_init();
     lvgl_init(panel);
 }
+
+int webui_snapshot_fb(void *out, size_t cap)
+{
+    if (!out) return -1;
+    size_t need = (size_t)g_canvas_w * g_canvas_h * 2;
+    if (cap < need) return -1;
+
+    if (!lvgl_lock(50)) return -1;
+
+    lv_disp_t *disp = lv_disp_get_default();
+    if (!disp || !disp->driver || !disp->driver->draw_buf) {
+        lvgl_unlock();
+        return -1;
+    }
+    const void *src = disp->driver->draw_buf->buf1;
+    if (!src) {
+        lvgl_unlock();
+        return -1;
+    }
+
+    memcpy(out, src, need);
+    lvgl_unlock();
+    return (int)need;
+}

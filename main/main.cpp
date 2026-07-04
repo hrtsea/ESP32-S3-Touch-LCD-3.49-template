@@ -62,37 +62,6 @@ extern "C" const lv_font_t font_jbmono_96;
 extern "C" void tz_apply_current(void);
 extern "C" const char *tz_current_city_name(void);
 
-/**
- * @brief 获取 LCD 帧缓冲区快照（用于 WebUI 预览）
- * 
- * @param out 输出缓冲区指针
- * @param cap 输出缓冲区容量（字节）
- * @return 成功返回实际拷贝的字节数，失败返回负数
- */
-extern "C" int webui_snapshot_fb(void *out, size_t cap)
-{
-    if (!out) return -1;
-    size_t need = (size_t)UI_CANVAS_W * UI_CANVAS_H * 2;
-    if (cap < need) return -1;
-    
-    if (!lvgl_lock(50)) return -1;
-    
-    lv_disp_t *disp = lv_disp_get_default();
-    if (!disp || !disp->driver || !disp->driver->draw_buf) {
-        lvgl_unlock();
-        return -1;
-    }
-    const void *src = disp->driver->draw_buf->buf1;
-    if (!src) {
-        lvgl_unlock();
-        return -1;
-    }
-    
-    memcpy(out, src, need);
-    lvgl_unlock();
-    return (int)need;
-}
-
 static void log_init(void)
 {
     esp_log_level_set("*", ESP_LOG_INFO);
