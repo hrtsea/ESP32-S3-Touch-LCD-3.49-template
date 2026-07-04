@@ -17,7 +17,6 @@ extern "C" {
 #include "app_cfg.h"
 #include "disp_driver.h"
 #include "wifi_manager.h"
-#include "backlight.h"
 #include "theme.h"
 
 extern lv_obj_t *g_tileview;

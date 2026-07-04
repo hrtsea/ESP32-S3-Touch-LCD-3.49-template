@@ -30,6 +30,7 @@ void wifi_connect(const char *ssid, const char *pass);
 
 typedef void (*wifi_status_cb_t)(bool connected, const char *ip_addr);
 void wifi_manager_register_status_cb(wifi_status_cb_t cb);
+const char *wifi_reason_str(uint8_t reason);
 
 #ifdef __cplusplus
 }

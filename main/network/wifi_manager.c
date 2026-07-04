@@ -240,6 +240,31 @@ void wifi_start_scan(void)
     }
 }
 
+const char *wifi_reason_str(uint8_t reason)
+{
+    switch (reason) {
+        case 0:                              return "";
+        case WIFI_REASON_AUTH_EXPIRE:        return "auth expired";
+        case WIFI_REASON_AUTH_LEAVE:         return "auth leave";
+        case WIFI_REASON_ASSOC_EXPIRE:       return "assoc expired";
+        case WIFI_REASON_ASSOC_TOOMANY:      return "AP full";
+        case WIFI_REASON_NOT_AUTHED:         return "not authed";
+        case WIFI_REASON_NOT_ASSOCED:        return "not assoced";
+        case WIFI_REASON_ASSOC_LEAVE:        return "assoc leave";
+        case WIFI_REASON_ASSOC_NOT_AUTHED:   return "assoc not authed";
+        case WIFI_REASON_DISASSOC_PWRCAP_BAD:return "pwrcap bad";
+        case WIFI_REASON_BEACON_TIMEOUT:     return "beacon timeout";
+        case WIFI_REASON_NO_AP_FOUND:        return "AP not found";
+        case WIFI_REASON_AUTH_FAIL:          return "auth fail (wrong pass?)";
+        case WIFI_REASON_ASSOC_FAIL:         return "assoc fail";
+        case WIFI_REASON_HANDSHAKE_TIMEOUT:  return "handshake timeout";
+        case WIFI_REASON_CONNECTION_FAIL:    return "connection fail";
+        case WIFI_REASON_AP_TSF_RESET:       return "AP tsf reset";
+        case WIFI_REASON_ROAMING:            return "roaming";
+        default:                             return "disconnected";
+    }
+}
+
 void wifi_connect(const char *ssid, const char *pass)
 {
     wifi_manager_init();

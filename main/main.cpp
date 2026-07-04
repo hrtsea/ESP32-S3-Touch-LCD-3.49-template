@@ -45,7 +45,6 @@
 #include "bg_fetcher.h"
 #include "hw_init.h"
 #include "system_monitor.h"
-#include "backlight.h"
 #include "ui_common.h"
 #include "ui_main.h"
 #include "ui_radio.h"

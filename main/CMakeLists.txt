@@ -18,7 +18,6 @@ idf_component_register(
         "utils/cli.c"
         "utils/hw_init.c"
         "utils/system_monitor.c"
-        "utils/backlight.c"
         "utils/bg_fetcher.c"
         "fonts/font_jbmono_24.c"
         "fonts/font_jbmono_48.c"

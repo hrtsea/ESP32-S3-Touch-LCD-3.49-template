@@ -11,14 +11,12 @@ extern "C" {
 #define N_TILES 6
 
 extern lv_timer_t *g_status_timer;
+extern uint32_t    g_last_activity_ms;
+extern int         g_dim_state;
 
-/* Top-level UI builder: creates the tileview, all tiles, FPS overlay,
- * gesture handlers, and dim/status timers.  Called from app_main and
- * on rotation rebuild. */
 void show_main_ui(const char *status_text);
-
-/* FPS timer callback (defined here, registered in build_main_ui). */
 void fps_timer_cb(lv_timer_t *t);
+void backlight_apply(uint8_t bri);
 
 #ifdef __cplusplus
 }
