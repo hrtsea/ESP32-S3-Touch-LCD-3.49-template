@@ -8,6 +8,8 @@ extern "C" {
 #include "lvgl.h"
 #include "ui_common.h"
 
+#define N_TILES 6
+
 /* Top-level UI builder: creates the tileview, all tiles, FPS overlay,
  * gesture handlers, and dim/status timers.  Called from app_main and
  * on rotation rebuild. */

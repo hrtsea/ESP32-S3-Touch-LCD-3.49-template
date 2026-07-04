@@ -322,7 +322,7 @@ static void tileview_gesture_cb(lv_event_t *e)
     lv_coord_t x = lv_obj_get_scroll_x(tv);
     lv_coord_t w = lv_obj_get_width(tv);
     int idx = (w > 0) ? (x + w / 2) / w : 0;
-    const int last = 5;
+    const int last = N_TILES - 1;
     if (dir == LV_DIR_LEFT && idx == last) {
         lv_obj_set_tile_id(tv, 0, 0, LV_ANIM_OFF);
     } else if (dir == LV_DIR_RIGHT && idx == 0) {
@@ -385,7 +385,7 @@ static void build_main_ui(const char *status_text)
     lv_obj_set_style_bg_opa(g_tileview, LV_OPA_COVER, 0);
     lv_obj_set_scrollbar_mode(g_tileview, LV_SCROLLBAR_MODE_OFF);
 
-    /* 6-tile loop: Clock <-> Quotes <-> Settings <-> Radio <-> Recorder <-> Hello <-> Clock.
+    /* N_TILES loop: Clock <-> Quotes <-> Settings <-> Radio <-> Recorder <-> Hello <-> Clock.
        LVGL tileview doesn't natively wrap; the wrap-around between tile 0
        and the last tile is handled by the gesture cb installed below. */
     lv_obj_t *t_clock  = lv_tileview_add_tile(g_tileview, 0, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
