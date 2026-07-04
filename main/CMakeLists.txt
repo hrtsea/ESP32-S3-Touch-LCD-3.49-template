@@ -1,3 +1,5 @@
+string(TIMESTAMP BUILD_EPOCH_UTC "%s" UTC)
+
 idf_component_register(
     SRCS
         "main.cpp"
@@ -32,3 +34,5 @@ idf_component_register(
         "utils"
         "fonts"
 )
+
+target_compile_definitions(${COMPONENT_LIB} PRIVATE BUILD_EPOCH_UTC=${BUILD_EPOCH_UTC})

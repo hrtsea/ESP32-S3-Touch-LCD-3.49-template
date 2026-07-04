@@ -8,10 +8,6 @@
 #include <sys/stat.h>
 #include "esp_vfs_fat.h"
 
-#ifndef BUILD_EPOCH_UTC
-#define BUILD_EPOCH_UTC 0
-#endif
-
 #include "esp_io_expander_tca9554.h"
 #include "driver/i2c_master.h"
 
@@ -55,9 +51,6 @@
 
 static const char *TAG = "skeleton";
 
-#define TM_YEAR_OFFSET 1900
-#define TM_MONTH_OFFSET 1
-
 extern "C" const lv_font_t font_jbmono_24;
 extern "C" const lv_font_t font_jbmono_48;
 extern "C" const lv_font_t font_jbmono_64;
@@ -72,60 +65,6 @@ static void log_init(void)
     esp_log_level_set(TAG, ESP_LOG_DEBUG);
     esp_log_level_set("lcd_panel.axs15231b", ESP_LOG_VERBOSE);
     esp_log_level_set("lcd_panel.io.spi", ESP_LOG_VERBOSE);
-}
-
-static void time_init(void)
-{
-    setenv("TZ", "UTC0", 1);
-    tzset();
-
-    time_t build_epoch = (time_t)BUILD_EPOCH_UTC;
-    struct tm build_time = {};
-    gmtime_r(&build_epoch, &build_time);
-    int build_year = build_time.tm_year + TM_YEAR_OFFSET;
-    int build_month = build_time.tm_mon + TM_MONTH_OFFSET;
-    int build_day = build_time.tm_mday;
-    int build_hour = build_time.tm_hour;
-    int build_min = build_time.tm_min;
-    int build_sec = build_time.tm_sec;
-
-    RtcDateTime_t rtc_time = i2c_rtc_get();
-    struct tm rtc_tm = {};
-    rtc_tm.tm_year = (int)rtc_time.year - TM_YEAR_OFFSET;
-    rtc_tm.tm_mon = (int)rtc_time.month - TM_MONTH_OFFSET;
-    rtc_tm.tm_mday = rtc_time.day;
-    rtc_tm.tm_hour = rtc_time.hour;
-    rtc_tm.tm_min = rtc_time.minute;
-    rtc_tm.tm_sec = rtc_time.second;
-    time_t rtc_epoch = mktime(&rtc_tm);
-
-    bool need_reseed = (rtc_epoch < build_epoch);
-    if (need_reseed) {
-        ESP_LOGI(TAG, "RTC (%04d-%02d-%02d %02d:%02d:%02d) older than build "
-                      "(%04d-%02d-%02d %02d:%02d:%02d), reseeding",
-                 rtc_time.year, rtc_time.month, rtc_time.day, 
-                 rtc_time.hour, rtc_time.minute, rtc_time.second,
-                 build_year, build_month, build_day,
-                 build_hour, build_min, build_sec);
-        i2c_rtc_setTime((uint16_t)build_year, (uint8_t)build_month, (uint8_t)build_day,
-                        (uint8_t)build_hour, (uint8_t)build_min, (uint8_t)build_sec);
-        rtc_time = i2c_rtc_get();
-    }
-
-    struct tm system_tm = {};
-    system_tm.tm_year = (int)rtc_time.year - TM_YEAR_OFFSET;
-    system_tm.tm_mon = (int)rtc_time.month - TM_MONTH_OFFSET;
-    system_tm.tm_mday = rtc_time.day;
-    system_tm.tm_hour = rtc_time.hour;
-    system_tm.tm_min = rtc_time.minute;
-    system_tm.tm_sec = rtc_time.second;
-    time_t system_epoch = mktime(&system_tm);
-    struct timeval tv = { .tv_sec = system_epoch, .tv_usec = 0 };
-    settimeofday(&tv, NULL);
-    ESP_LOGI(TAG, "RTC seed: %04d-%02d-%02d %02d:%02d:%02d UTC -> epoch %lld",
-             rtc_time.year, rtc_time.month, rtc_time.day,
-             rtc_time.hour, rtc_time.minute, rtc_time.second, 
-             (long long)system_epoch);
 }
 
 static void network_init(void)
@@ -175,7 +114,6 @@ extern "C" void app_main(void)
 
     hw_init();
 
-    time_init();
     tz_apply_current();
     network_init();
     ui_init();
