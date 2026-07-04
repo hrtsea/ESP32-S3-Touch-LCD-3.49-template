@@ -21,17 +21,30 @@ static const char *TAG = "ui_recorder";
    The list of recordings is a separate full-tile overlay shown over
    the parent tile when the user taps "Recordings"; closes on a
    "Back" button. No split screen. */
-lv_obj_t *g_rec_tile         = NULL;
-lv_obj_t *g_rec_status       = NULL;
-lv_obj_t *g_rec_btn_lbl      = NULL;
-lv_obj_t *g_rec_vu_l         = NULL;   /* left bar (grows toward left) */
-lv_obj_t *g_rec_vu_r         = NULL;   /* right bar (grows toward right) */
-lv_obj_t *g_rec_list_overlay = NULL;
-lv_obj_t *g_rec_list         = NULL;
-lv_obj_t *g_rec_overlay_status = NULL;   /* "Playing ..." banner on the list overlay */
-lv_timer_t *g_rec_poll       = NULL;
+static lv_obj_t *g_rec_tile         = NULL;
+static lv_obj_t *g_rec_status       = NULL;
+static lv_obj_t *g_rec_btn_lbl      = NULL;
+static lv_obj_t *g_rec_vu_l         = NULL;   /* left bar (grows toward left) */
+static lv_obj_t *g_rec_vu_r         = NULL;   /* right bar (grows toward right) */
+static lv_obj_t *g_rec_list_overlay = NULL;
+static lv_obj_t *g_rec_list         = NULL;
+static lv_obj_t *g_rec_overlay_status = NULL;   /* "Playing ..." banner on the list overlay */
+static lv_timer_t *g_rec_poll       = NULL;
 static int        g_rec_vu_l_smooth = 0;
 static int        g_rec_vu_r_smooth = 0;
+
+void recorder_cleanup(void)
+{
+    if (g_rec_poll) { lv_timer_del(g_rec_poll); g_rec_poll = NULL; }
+    g_rec_tile         = NULL;
+    g_rec_status       = NULL;
+    g_rec_btn_lbl      = NULL;
+    g_rec_vu_l         = NULL;
+    g_rec_vu_r         = NULL;
+    g_rec_list_overlay = NULL;
+    g_rec_list         = NULL;
+    g_rec_overlay_status = NULL;
+}
 
 static void rec_play_cb(lv_event_t *e)
 {

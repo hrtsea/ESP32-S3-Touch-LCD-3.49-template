@@ -16,17 +16,7 @@ void recorder_refresh_list(void);
    I2S bus while other tiles (e.g. radio) are active. */
 void recorder_tile_on_enter(void);
 void recorder_tile_on_leave(void);
-
-/* Recorder tile widget pointers (accessed by ui_main for rotate cleanup) */
-extern lv_obj_t *g_rec_tile;
-extern lv_obj_t *g_rec_status;
-extern lv_obj_t *g_rec_btn_lbl;
-extern lv_obj_t *g_rec_vu_l;
-extern lv_obj_t *g_rec_vu_r;
-extern lv_obj_t *g_rec_list_overlay;
-extern lv_obj_t *g_rec_list;
-extern lv_obj_t *g_rec_overlay_status;
-extern lv_timer_t *g_rec_poll;
+void recorder_cleanup(void);
 
 #ifdef __cplusplus
 }

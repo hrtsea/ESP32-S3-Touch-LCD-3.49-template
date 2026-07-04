@@ -125,30 +125,29 @@ static void status_timer_cb(lv_timer_t *t)
     clock_set_bt_icon_color(lv_color_make(0x40, 0x40, 0x40));
 
     /* 更新设置页面的WiFi状态文本 */
-    if (g_set_wifi_status) {
+    {
+        char status_buf[128];
         if (wifi_is_connected()) {
-            lv_label_set_text_fmt(g_set_wifi_status, LV_SYMBOL_OK " %s",
-                                  ssid_buf);
+            snprintf(status_buf, sizeof(status_buf), LV_SYMBOL_OK " %s", ssid_buf);
+            settings_set_wifi_status_text(status_buf);
         } else if (ssid_buf[0]) {
             uint32_t elapsed = lv_tick_elaps(wifi_get_connect_started_ms());
             uint8_t reason = wifi_get_last_reason();
             if (reason) {
-                lv_label_set_text_fmt(g_set_wifi_status,
-                                      LV_SYMBOL_WARNING " %s: %s",
-                                      ssid_buf,
-                                      wifi_reason_str(reason));
+                snprintf(status_buf, sizeof(status_buf), LV_SYMBOL_WARNING " %s: %s",
+                         ssid_buf, wifi_reason_str(reason));
+                settings_set_wifi_status_text(status_buf);
             } else if (elapsed > 15000) {
-                lv_label_set_text_fmt(g_set_wifi_status,
-                                      LV_SYMBOL_WARNING " %s: timed out",
-                                      ssid_buf);
+                snprintf(status_buf, sizeof(status_buf), LV_SYMBOL_WARNING " %s: timed out",
+                         ssid_buf);
+                settings_set_wifi_status_text(status_buf);
             } else {
-                lv_label_set_text_fmt(g_set_wifi_status,
-                                      tr(I18N_WIFI_CONNECTING_N),
-                                      ssid_buf,
-                                      (unsigned)(elapsed / 1000));
+                snprintf(status_buf, sizeof(status_buf), tr(I18N_WIFI_CONNECTING_N),
+                         ssid_buf, (unsigned)(elapsed / 1000));
+                settings_set_wifi_status_text(status_buf);
             }
         } else {
-            lv_label_set_text(g_set_wifi_status, tr(I18N_WIFI_NOT_CONN));
+            settings_set_wifi_status_text(tr(I18N_WIFI_NOT_CONN));
         }
     }
 }
@@ -291,29 +290,21 @@ void rotate_btn_event_cb(lv_event_t *e)
     /* 重置时钟页面 */
     clock_cleanup();
 
-    /* 重置设置页面指针 */
-    g_set_wifi_status = NULL;
-    g_set_wifi_list   = NULL;
-    g_set_kb_overlay  = NULL;
-    g_set_kb_ta       = NULL;
+    /* 重置设置页面 */
+    settings_cleanup();
 
     /* 重置行情页面 */
     quotes_cleanup();
 
-    /* 重置收音机页面指针 */
-    g_radio_status_lbl = NULL; g_radio_now_lbl = NULL;
-    g_radio_btn_lbl = NULL; g_radio_list = NULL; g_radio_vol_lbl = NULL;
+    /* 重置收音机页面 */
+    radio_ui_cleanup();
 
-    /* 重置录音器页面指针 */
-    g_rec_status = NULL; g_rec_btn_lbl = NULL;
-    g_rec_vu_l = NULL; g_rec_vu_r = NULL;
-    g_rec_list_overlay = NULL; g_rec_list = NULL; g_rec_overlay_status = NULL;
+    /* 重置录音器页面 */
+    recorder_cleanup();
 
-    /* 删除所有定时器（clock 定时器已在 clock_cleanup 中处理） */
+    /* 删除所有定时器（clock、radio、recorder 定时器已在各自 cleanup 中处理） */
     if (g_dim_timer)      { lv_timer_del(g_dim_timer);      g_dim_timer      = NULL; }
     if (g_status_timer)   { lv_timer_del(g_status_timer);   g_status_timer   = NULL; }
-    if (g_radio_poll_timer) { lv_timer_del(g_radio_poll_timer); g_radio_poll_timer = NULL; }
-    if (g_rec_poll) { lv_timer_del(g_rec_poll); g_rec_poll = NULL; }
 
     /* 直接调用build_main_ui（已在LVGL任务中，无需再次获取锁） */
     build_main_ui(g_status_text);

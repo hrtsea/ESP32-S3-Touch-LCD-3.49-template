@@ -12,14 +12,24 @@
 
 /* ---------------------- Radio tile ---------------------- */
 
-lv_obj_t  *g_radio_status_lbl = NULL;   /* "Connecting...", "Playing", etc. */
-lv_obj_t  *g_radio_now_lbl    = NULL;   /* current station name + genre */
-lv_obj_t  *g_radio_btn_lbl    = NULL;   /* play / stop glyph */
-lv_obj_t  *g_radio_list       = NULL;   /* scrollable station list */
-lv_obj_t  *g_radio_vol_lbl    = NULL;   /* "Vol N" indicator */
+static lv_obj_t  *g_radio_status_lbl = NULL;   /* "Connecting...", "Playing", etc. */
+static lv_obj_t  *g_radio_now_lbl    = NULL;   /* current station name + genre */
+static lv_obj_t  *g_radio_btn_lbl    = NULL;   /* play / stop glyph */
+static lv_obj_t  *g_radio_list       = NULL;   /* scrollable station list */
+static lv_obj_t  *g_radio_vol_lbl    = NULL;   /* "Vol N" indicator */
 static bool       g_radio_engine_up  = false;
-lv_timer_t *g_radio_poll_timer = NULL;
+static lv_timer_t *g_radio_poll_timer = NULL;
 static int        g_radio_pending_idx = -1;    /* set by the LVGL click cb */
+
+void radio_ui_cleanup(void)
+{
+    if (g_radio_poll_timer) { lv_timer_del(g_radio_poll_timer); g_radio_poll_timer = NULL; }
+    g_radio_status_lbl = NULL;
+    g_radio_now_lbl    = NULL;
+    g_radio_btn_lbl    = NULL;
+    g_radio_list       = NULL;
+    g_radio_vol_lbl    = NULL;
+}
 
 typedef enum {
     RADIO_CMD_NONE = 0,

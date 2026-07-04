@@ -38,17 +38,33 @@ static void set_render_wifi_list(void);
 #define SCROLL_CLICK_SUPPRESS_MS 250
 
 /* Settings tile widgets (rebuilt on rotate). */
-lv_obj_t  *g_set_wifi_status = NULL;
-lv_obj_t  *g_set_wifi_list   = NULL;
+static lv_obj_t  *g_set_wifi_status = NULL;
+static lv_obj_t  *g_set_wifi_list   = NULL;
 static int g_set_wifi_sel    = -1;  /* index into scan list or -1 */
-lv_obj_t  *g_set_kb_overlay  = NULL;
-lv_obj_t  *g_set_kb_ta       = NULL;
+static lv_obj_t  *g_set_kb_overlay  = NULL;
+static lv_obj_t  *g_set_kb_ta       = NULL;
 static char g_set_kb_ssid[33] = {0};
 
 /* Transparent shield placed above the menu for MENU_BACK_DEBOUNCE_MS
    after a back-press. It eats every click that would otherwise reach
    the menu item that scrolled in under the finger. */
-lv_obj_t *g_menu_shield = NULL;
+static lv_obj_t *g_menu_shield = NULL;
+
+void settings_cleanup(void)
+{
+    g_set_wifi_status = NULL;
+    g_set_wifi_list   = NULL;
+    g_set_kb_overlay  = NULL;
+    g_set_kb_ta      = NULL;
+    g_menu_shield    = NULL;
+}
+
+void settings_set_wifi_status_text(const char *text)
+{
+    if (g_set_wifi_status && text) {
+        lv_label_set_text(g_set_wifi_status, text);
+    }
+}
 
 /* Storage page widgets we update after a format finishes. */
 static lv_obj_t *g_storage_info_lbl = NULL;
