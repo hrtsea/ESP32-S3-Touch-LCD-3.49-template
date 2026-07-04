@@ -45,9 +45,12 @@
 #include "bg_fetcher.h"
 #include "hw_init.h"
 #include "system_monitor.h"
+#include "backlight.h"
 #include "ui_common.h"
 #include "ui_main.h"
 #include "ui_radio.h"
+#include "ui_clock.h"
+#include "ui_quotes.h"
 
 static const char *TAG = "skeleton";
 
@@ -58,6 +61,46 @@ extern "C" const lv_font_t font_jbmono_96;
 
 extern "C" void tz_apply_current(void);
 extern "C" const char *tz_current_city_name(void);
+
+extern void clock_apply_layout(void);
+extern void clock_bg_apply(void);
+extern void quotes_kick(void);
+extern void wifi_connect(const char *ssid, const char *pass);
+
+extern int g_dim_state;
+extern uint32_t g_last_activity_ms;
+
+static void on_clock_layout_changed(void)
+{
+    if (lvgl_lock(50)) { clock_apply_layout(); lvgl_unlock(); }
+}
+
+static void on_clock_bg_changed(void)
+{
+    if (lvgl_lock(50)) { clock_bg_apply(); lvgl_unlock(); }
+}
+
+static void on_quotes_changed(void)
+{
+    quotes_kick();
+}
+
+static void on_backlight_changed(uint8_t brightness)
+{
+    g_dim_state = 0;
+    g_last_activity_ms = lv_tick_get();
+    backlight_apply(brightness);
+}
+
+static void on_bg_fetch_ensure(void)
+{
+    bg_fetcher_ensure();
+}
+
+static void on_wifi_connect(const char *ssid, const char *pass)
+{
+    wifi_connect(ssid, pass);
+}
 
 static void log_init(void)
 {
@@ -91,7 +134,7 @@ extern "C" void app_main(void)
 {
     log_init();
     
-    cfg_load();
+    app_cfg_load();
     
     ESP_LOGI(TAG, "===== 12_HelloWorld_Skeleton boot =====");
     ESP_LOGI(TAG, "H_RES=%d V_RES=%d  DMA=%d SPIRAM=%d",
@@ -103,6 +146,17 @@ extern "C" void app_main(void)
     tz_apply_current();
     network_init();
     ui_init();
+
+    app_cfg_callbacks_t cfg_cbs = {
+        .on_clock_layout_changed = on_clock_layout_changed,
+        .on_clock_bg_changed = on_clock_bg_changed,
+        .on_quotes_changed = on_quotes_changed,
+        .on_backlight_changed = on_backlight_changed,
+        .on_bg_fetch_ensure = on_bg_fetch_ensure,
+        .on_wifi_connect = on_wifi_connect,
+    };
+    app_cfg_register_callbacks(&cfg_cbs);
+
     cli_init();
 
     radio_engine_warm_at_boot();

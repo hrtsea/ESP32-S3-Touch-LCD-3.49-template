@@ -95,7 +95,7 @@ static void kb_event_cb(lv_event_t *e)
         ssid[ssid_len] = '\0';
         ESP_LOGI(TAG, "kb: connect ssid=%s pass_len=%u", ssid,
                  (unsigned)strlen(pass_copy));
-        cfg_save_ssid_pass(ssid, pass_copy);
+        app_cfg_save_ssid_pass(ssid, pass_copy);
         /* Promote this SSID to "last_ssid" so auto-connect picks it up on
            the next boot. Without this the password gets stored but the
            auto-connect path logs "no credentials yet". */
@@ -103,7 +103,7 @@ static void kb_event_cb(lv_event_t *e)
         if (last_ssid_len >= sizeof(g_cfg.last_ssid)) last_ssid_len = sizeof(g_cfg.last_ssid) - 1;
         memcpy(g_cfg.last_ssid, ssid, last_ssid_len);
         g_cfg.last_ssid[last_ssid_len] = '\0';
-        cfg_save();
+        app_cfg_save();
         wifi_connect(ssid, pass_copy);
         if (g_set_wifi_status) lv_label_set_text_fmt(g_set_wifi_status, tr(I18N_WIFI_CONNECTING), ssid);
         kb_close();
@@ -276,19 +276,19 @@ static void wifi_connect_selected_cb(lv_event_t *e)
     if (idx < 0 || idx >= (int)g_wifi_scan_n) return;
     const wifi_scan_ap_t *ap = &g_wifi_scan[idx];
     if (ap->auth == 0) {
-        cfg_save_ssid_pass(ap->ssid, "");
+        app_cfg_save_ssid_pass(ap->ssid, "");
         strncpy(g_cfg.last_ssid, ap->ssid, sizeof(g_cfg.last_ssid) - 1);
         g_cfg.last_ssid[sizeof(g_cfg.last_ssid) - 1] = 0;
-        cfg_save();
+        app_cfg_save();
         wifi_connect(ap->ssid, "");
         if (g_set_wifi_status) lv_label_set_text_fmt(g_set_wifi_status, tr(I18N_WIFI_CONNECTING), ap->ssid);
         return;
     }
     char pass[65] = {0};
-    if (cfg_get_ssid_pass(ap->ssid, pass, sizeof(pass))) {
+    if (app_cfg_get_ssid_pass(ap->ssid, pass, sizeof(pass))) {
         strncpy(g_cfg.last_ssid, ap->ssid, sizeof(g_cfg.last_ssid) - 1);
         g_cfg.last_ssid[sizeof(g_cfg.last_ssid) - 1] = 0;
-        cfg_save();
+        app_cfg_save();
         wifi_connect(ap->ssid, pass);
         if (g_set_wifi_status) lv_label_set_text_fmt(g_set_wifi_status, tr(I18N_WIFI_CONNECTING), ap->ssid);
         return;
@@ -316,7 +316,7 @@ static void wifi_forget_selected_cb(lv_event_t *e)
     }
     if (strncmp(ap->ssid, g_cfg.last_ssid, sizeof(g_cfg.last_ssid)) == 0) {
         g_cfg.last_ssid[0] = 0;
-        cfg_save();
+        app_cfg_save();
         esp_wifi_disconnect();
         g_wifi_connected = false;
     }
@@ -345,7 +345,7 @@ static void set_render_wifi_list(void)
                                     sizeof(g_wifi_curr_ssid)) == 0;
         bool is_selected  = (i == g_set_wifi_sel);
         char dummy_pass[2];
-        bool is_saved = cfg_get_ssid_pass(ap->ssid, dummy_pass, sizeof(dummy_pass));
+        bool is_saved = app_cfg_get_ssid_pass(ap->ssid, dummy_pass, sizeof(dummy_pass));
         lv_obj_set_style_bg_color(btn,
             is_selected ? lv_color_make(0x40, 0x40, 0x60)
                         : lv_color_make(0x20, 0x20, 0x30), 0);
@@ -444,7 +444,7 @@ static void tz_city_pick_cb(lv_event_t *e)
     if (idx >= TZ_CITY_COUNT) return;
     g_cfg.tz_idx = (uint16_t)idx;
     tz_apply_current();
-    cfg_save();
+    app_cfg_save();
     if (g_clock_tz_label) lv_label_set_text(g_clock_tz_label, tz_current_city_name());
     /* Force an immediate clock-face refresh so the user sees the change. */
     clock_update_cb(NULL);
@@ -458,7 +458,7 @@ static void bri_slider_cb(lv_event_t *e)
     if (v > 255) v = 255;
     g_cfg.brightness = (uint8_t)v;
     if (g_dim_state == 0) backlight_apply(g_cfg.brightness);
-    if (lv_event_get_code(e) == LV_EVENT_RELEASED) cfg_save();
+    if (lv_event_get_code(e) == LV_EVENT_RELEASED) app_cfg_save();
 }
 
 static void fmt_duration(char *buf, size_t buflen, uint32_t total_s)
@@ -492,7 +492,7 @@ static void dim_s_cb(lv_event_t *e)
         if (g_cfg.dim_s == 0) lv_label_set_text(lbl, tr(I18N_DIM_NEVER));
         else                  lv_label_set_text_fmt(lbl, tr(I18N_DIM_AFTER), d);
     }
-    if (lv_event_get_code(e) == LV_EVENT_RELEASED) cfg_save();
+    if (lv_event_get_code(e) == LV_EVENT_RELEASED) app_cfg_save();
 }
 
 /* ---------- Display sub-page callbacks (12/24h, date fmt, secs/ms, FPS) ---------- */
@@ -501,7 +501,7 @@ static void hour_fmt_cb(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
     g_cfg.hour24 = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
-    cfg_save();
+    app_cfg_save();
     clock_update_cb(NULL);
 }
 
@@ -509,7 +509,7 @@ static void show_sec_cb(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
     g_cfg.show_seconds = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
-    cfg_save();
+    app_cfg_save();
     clock_update_cb(NULL);
 }
 
@@ -517,14 +517,14 @@ static void show_ms_cb(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
     g_cfg.show_ms = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
-    cfg_save();
+    app_cfg_save();
 }
 
 static void show_fps_cb(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
     g_cfg.show_fps = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
-    cfg_save();
+    app_cfg_save();
     if (fps_label) {
         if (g_cfg.show_fps) lv_obj_clear_flag(fps_label, LV_OBJ_FLAG_HIDDEN);
         else                lv_obj_add_flag(fps_label, LV_OBJ_FLAG_HIDDEN);
@@ -538,7 +538,7 @@ static void date_fmt_cb(lv_event_t *e)
     if (sel < 0) sel = 0;
     if (sel > 2) sel = 2;
     g_cfg.date_fmt = (uint8_t)sel;
-    cfg_save();
+    app_cfg_save();
     clock_update_cb(NULL);
 }
 
@@ -549,7 +549,7 @@ static void audio_en_cb(lv_event_t *e)
     lv_obj_t *s = lv_event_get_target(e);
     g_cfg.audio_enable = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
     if (!g_cfg.audio_enable && audio_min_is_playing()) audio_min_play_midi(false);
-    cfg_save();
+    app_cfg_save();
 }
 
 static void audio_vol_cb(lv_event_t *e)
@@ -562,7 +562,7 @@ static void audio_vol_cb(lv_event_t *e)
     audio_min_set_volume(g_cfg.audio_volume);
     lv_obj_t *lbl = (lv_obj_t *)lv_event_get_user_data(e);
     if (lbl) lv_label_set_text_fmt(lbl, tr(I18N_VOLUME_PCT), (unsigned)v);
-    if (lv_event_get_code(e) == LV_EVENT_RELEASED) cfg_save();
+    if (lv_event_get_code(e) == LV_EVENT_RELEASED) app_cfg_save();
 }
 
 /* ---------- Theme + Wi-Fi auto-connect ---------- */
@@ -574,7 +574,7 @@ static void theme_cb(lv_event_t *e)
     if (sel < 0) sel = 0;
     if (sel > 2) sel = 2;
     g_cfg.theme = (uint8_t)sel;
-    cfg_save();
+    app_cfg_save();
     /* Sunmap can be re-themed live; menu colors apply on next boot. */
     sunmap_redraw();
 }
@@ -583,7 +583,7 @@ static void wifi_ac_cb(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
     g_cfg.wifi_autoconnect = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
-    cfg_save();
+    app_cfg_save();
 }
 
 /* ---------- Reset to defaults ---------- */
@@ -623,7 +623,7 @@ static void off_s_cb(lv_event_t *e)
         if (g_cfg.off_s == 0) lv_label_set_text(lbl, tr(I18N_SLEEP_NEVER));
         else                  lv_label_set_text_fmt(lbl, tr(I18N_SLEEP_AFTER), d);
     }
-    if (lv_event_get_code(e) == LV_EVENT_RELEASED) cfg_save();
+    if (lv_event_get_code(e) == LV_EVENT_RELEASED) app_cfg_save();
 }
 
 /* Build a sub-page that the menu can navigate to. Returns the page so

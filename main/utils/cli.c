@@ -217,7 +217,7 @@ static int cmd_wifi_connect(int argc, char **argv)
     const char *pass = (s_wifi_connect_args.pass->count > 0)
                         ? s_wifi_connect_args.pass->sval[0] : "";
     printf("wifi_connect: ssid=%s pass_len=%u\n", ssid, (unsigned)strlen(pass));
-    app_wifi_connect_save(ssid, pass);
+    app_cfg_wifi_connect_save(ssid, pass);
     return 0;
 }
 

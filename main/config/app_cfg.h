@@ -49,12 +49,23 @@ typedef struct {
     uint32_t quotes_down_rgba;
 } app_cfg_t;
 
+typedef struct {
+    void (*on_clock_layout_changed)(void);
+    void (*on_clock_bg_changed)(void);
+    void (*on_quotes_changed)(void);
+    void (*on_backlight_changed)(uint8_t brightness);
+    void (*on_bg_fetch_ensure)(void);
+    void (*on_wifi_connect)(const char *ssid, const char *pass);
+} app_cfg_callbacks_t;
+
 extern app_cfg_t g_cfg;
 
-void cfg_load(void);
-void cfg_save(void);
-void cfg_save_ssid_pass(const char *ssid, const char *pass);
-bool cfg_get_ssid_pass(const char *ssid, char *pass, size_t pass_len);
+void app_cfg_init(void);
+void app_cfg_load(void);
+void app_cfg_save(void);
+void app_cfg_save_ssid_pass(const char *ssid, const char *pass);
+bool app_cfg_get_ssid_pass(const char *ssid, char *pass, size_t pass_len);
+void app_cfg_register_callbacks(const app_cfg_callbacks_t *cb);
 
 int  app_cfg_get_lang(void);
 int  app_cfg_get_brightness(void);
@@ -96,7 +107,6 @@ void app_cfg_set_quotes_refresh_s(int s);
 void app_cfg_set_quotes_up_rgba(uint32_t v);
 void app_cfg_set_quotes_down_rgba(uint32_t v);
 
-void app_cfg_set_active_tile(int idx);
 void app_cfg_set_clock_text(const char *s);
 void app_cfg_set_clock_pos(int x, int y);
 void app_cfg_set_clock_size(int sz);
@@ -105,7 +115,8 @@ void app_cfg_set_show_ms(int show);
 void app_cfg_set_lang(int lang);
 void app_cfg_set_brightness(int v);
 void app_cfg_set_dim_off(int dim_s, int off_s);
-void app_wifi_connect_save(const char *ssid, const char *pass);
+void app_cfg_wifi_connect_save(const char *ssid, const char *pass);
+void app_cfg_set_active_tile(int idx);
 
 #ifdef __cplusplus
 }

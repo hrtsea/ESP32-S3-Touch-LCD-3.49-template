@@ -17,7 +17,7 @@ const char *tr(i18n_key_t key);
    if the key isn't in cfg yet, returns 0. */
 int   i18n_lang(void);
 
-/* Set the active language and persist via cfg_save(). UI labels are not
+/* Set the active language and persist via app_cfg_save(). UI labels are not
    re-rendered live; the caller is expected to rebuild the affected tile
    (e.g. settings menu) on next entry. */
 void  i18n_set_lang(int lang_idx);

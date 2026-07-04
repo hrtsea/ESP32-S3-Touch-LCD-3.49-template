@@ -108,7 +108,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
                 if (ssid_len >= sizeof(g_cfg.last_ssid)) ssid_len = sizeof(g_cfg.last_ssid) - 1;
                 memcpy(g_cfg.last_ssid, g_wifi_curr_ssid, ssid_len);
                 g_cfg.last_ssid[ssid_len] = '\0';
-                cfg_save();
+                app_cfg_save();
                 break;
             case WIFI_EVENT_SCAN_DONE: {
                 static wifi_ap_record_t recs[WIFI_MAX_SCAN_AP];
@@ -141,7 +141,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
                     if (best_i >= 0) {
                         const char *ssid = g_wifi_scan[best_i].ssid;
                         char pass[65] = {0};
-                        cfg_get_ssid_pass(ssid, pass, sizeof(pass));
+                        app_cfg_get_ssid_pass(ssid, pass, sizeof(pass));
                         ESP_LOGI(TAG, "wifi: roaming to known %s rssi=%d",
                                  ssid, best_rssi);
                         g_wifi_fail_count = 0;
@@ -185,11 +185,11 @@ static void wifi_autoconnect(void)
     }
 
     char pass[65] = {0};
-    bool have_pass = cfg_get_ssid_pass(g_cfg.last_ssid, pass, sizeof(pass));
+    bool have_pass = app_cfg_get_ssid_pass(g_cfg.last_ssid, pass, sizeof(pass));
     if (!have_pass && DEFAULT_WIFI_SSID[0] && DEFAULT_WIFI_PASS[0] &&
         strcmp(g_cfg.last_ssid, DEFAULT_WIFI_SSID) == 0) {
         strncpy(pass, DEFAULT_WIFI_PASS, sizeof(pass) - 1);
-        cfg_save_ssid_pass(g_cfg.last_ssid, pass);
+        app_cfg_save_ssid_pass(g_cfg.last_ssid, pass);
         have_pass = true;
     }
 
