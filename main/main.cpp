@@ -62,13 +62,7 @@ extern "C" const lv_font_t font_jbmono_96;
 extern "C" void tz_apply_current(void);
 extern "C" const char *tz_current_city_name(void);
 
-extern void quotes_kick(void);
 extern void wifi_connect(const char *ssid, const char *pass);
-
-static void on_quotes_changed(void)
-{
-    quotes_kick();
-}
 
 static void on_backlight_changed(uint8_t brightness)
 {
@@ -135,7 +129,6 @@ extern "C" void app_main(void)
     ui_init();
 
     app_cfg_callbacks_t cfg_cbs = {
-        .on_quotes_changed = on_quotes_changed,
         .on_backlight_changed = on_backlight_changed,
         .on_bg_fetch_ensure = on_bg_fetch_ensure,
         .on_wifi_connect = on_wifi_connect,

@@ -295,13 +295,13 @@ void rotate_btn_event_cb(lv_event_t *e)
     settings_cleanup();
 
     /* 重置行情页面 */
-    quotes_cleanup();
+    ui_Quotes_cleanup();
 
     /* 重置收音机页面 */
-    radio_ui_cleanup();
+    ui_Radio_cleanup();
 
     /* 重置录音器页面 */
-    recorder_cleanup();
+    ui_Recorder_cleanup();
 
     /* 删除所有定时器（clock、radio、recorder 定时器已在各自 cleanup 中处理） */
     if (g_dim_timer)      { lv_timer_del(g_dim_timer);      g_dim_timer      = NULL; }
@@ -453,10 +453,10 @@ static void build_main_ui(const char *status_text)
 
     /* 构建各页面内容 */
     ui_Clock_create(t_clock);
-    build_quotes_tile(t_quotes);
+    ui_Quotes_create(t_quotes);
     build_settings_tile(t_set);
-    build_radio_tile(t_radio);
-    build_recorder_tile(t_record);
+    ui_Radio_create(t_radio);
+    ui_Recorder_create(t_record);
     ui_AudioTest_create(t_audio_test);
     ui_Hello_create(t_hello, g_status_text);
 

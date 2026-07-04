@@ -25,6 +25,7 @@ typedef enum {
     EVENT_CFG_CHANGED,            /* data: cfg_change_info_t * */
     EVENT_CLOCK_LAYOUT_CHANGED,   /* data: NULL */
     EVENT_CLOCK_BG_CHANGED,       /* data: NULL */
+    EVENT_QUOTES_CHANGED,         /* data: NULL */
 
     /* --- Audio --- */
     EVENT_AUDIO_PLAY_START,       /* data: NULL */

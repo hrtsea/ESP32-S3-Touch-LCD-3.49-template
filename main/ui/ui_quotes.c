@@ -13,6 +13,7 @@
 #include "radio.h"
 #include "i18n.h"
 #include "user_config.h"
+#include "event_bus.h"
 
 static const char *TAG = "ui_quotes";
 
@@ -36,43 +37,91 @@ struct quote_data {
     char     currency[8];
 };
 
-static lv_obj_t *g_quotes_tile        = NULL;
-static lv_obj_t *g_quotes_name_l      = NULL;
-static lv_obj_t *g_quotes_name_r      = NULL;
-static lv_obj_t *g_quotes_sym_l_lbl   = NULL;
-static lv_obj_t *g_quotes_sym_r_lbl   = NULL;
-static lv_obj_t *g_quotes_price_l     = NULL;
-static lv_obj_t *g_quotes_price_r     = NULL;
-static lv_obj_t *g_quotes_chg_l       = NULL;
-static lv_obj_t *g_quotes_chg_r       = NULL;
-static lv_obj_t *g_quotes_status      = NULL;   /* small status bar */
-/* Floating status icons on this tile, mirroring the clock tile. */
-static lv_obj_t *g_quotes_wifi_icon   = NULL;
-static lv_obj_t *g_quotes_bt_icon     = NULL;
-static lv_obj_t *g_quotes_clock_lbl   = NULL;
+/* ===== 1. 对象定义 ===== */
+lv_obj_t *ui_Quotes                = NULL;
+lv_obj_t *ui_Quotes_label_name_l    = NULL;
+lv_obj_t *ui_Quotes_label_name_r    = NULL;
+lv_obj_t *ui_Quotes_label_sym_l     = NULL;
+lv_obj_t *ui_Quotes_label_sym_r     = NULL;
+lv_obj_t *ui_Quotes_label_price_l   = NULL;
+lv_obj_t *ui_Quotes_label_price_r   = NULL;
+lv_obj_t *ui_Quotes_label_chg_l     = NULL;
+lv_obj_t *ui_Quotes_label_chg_r     = NULL;
+lv_obj_t *ui_Quotes_label_status    = NULL;
+lv_obj_t *ui_Quotes_icon_wifi       = NULL;
+lv_obj_t *ui_Quotes_icon_bt         = NULL;
+lv_obj_t *ui_Quotes_label_clock     = NULL;
 
-void quotes_cleanup(void)
-{
-    g_quotes_tile      = NULL;
-    g_quotes_name_l    = NULL;
-    g_quotes_name_r    = NULL;
-    g_quotes_sym_l_lbl = NULL;
-    g_quotes_sym_r_lbl = NULL;
-    g_quotes_price_l   = NULL;
-    g_quotes_price_r   = NULL;
-    g_quotes_chg_l     = NULL;
-    g_quotes_chg_r     = NULL;
-    g_quotes_status    = NULL;
-    g_quotes_wifi_icon = NULL;
-    g_quotes_bt_icon   = NULL;
-    g_quotes_clock_lbl = NULL;
-}
+/* ===== 2. 静态样式变量 ===== */
+static lv_style_t style_tile_bg;
+static lv_style_t style_pane;
+static lv_style_t style_name;
+static lv_style_t style_sym;
+static lv_style_t style_price;
+static lv_style_t style_chg;
+static lv_style_t style_status;
+static lv_style_t style_icon;
+static lv_style_t style_clock_lbl;
+static lv_style_t style_divider;
+static bool styles_inited = false;
 
+/* 内部状态变量 */
 static TaskHandle_t  s_quotes_task    = NULL;
 static volatile bool s_quotes_kick    = false;
 static struct quote_data s_qd_l = {0};
 static struct quote_data s_qd_r = {0};
 static volatile bool s_qd_have_new    = false;
+static lv_timer_t   *s_status_timer   = NULL;
+
+static void init_styles(void)
+{
+    if (styles_inited) return;
+
+    lv_style_init(&style_tile_bg);
+    lv_style_set_bg_color(&style_tile_bg, lv_color_black());
+    lv_style_set_bg_opa(&style_tile_bg, LV_OPA_COVER);
+    lv_style_set_pad_all(&style_tile_bg, 0);
+
+    lv_style_init(&style_pane);
+    lv_style_set_bg_color(&style_pane, lv_color_black());
+    lv_style_set_bg_opa(&style_pane, LV_OPA_COVER);
+    lv_style_set_pad_all(&style_pane, 8);
+
+    lv_style_init(&style_name);
+    lv_style_set_text_color(&style_name, lv_color_make(0xc8, 0xc8, 0xe0));
+
+    lv_style_init(&style_sym);
+    lv_style_set_text_color(&style_sym, lv_color_make(0x80, 0x80, 0xa0));
+
+    lv_style_init(&style_price);
+    lv_style_set_text_color(&style_price, lv_color_make(0x60, 0x60, 0x60));
+    lv_style_set_text_font(&style_price, &font_jbmono_48);
+
+    lv_style_init(&style_chg);
+    lv_style_set_text_color(&style_chg, lv_color_make(0x80, 0x80, 0x80));
+
+    lv_style_init(&style_status);
+    lv_style_set_text_color(&style_status, lv_color_make(0x60, 0x60, 0x80));
+
+    lv_style_init(&style_icon);
+    lv_style_set_bg_color(&style_icon, lv_color_black());
+    lv_style_set_bg_opa(&style_icon, LV_OPA_60);
+    lv_style_set_pad_hor(&style_icon, 3);
+
+    lv_style_init(&style_clock_lbl);
+    lv_style_set_text_color(&style_clock_lbl, lv_color_make(0xd0, 0xd0, 0xd0));
+    lv_style_set_bg_color(&style_clock_lbl, lv_color_black());
+    lv_style_set_bg_opa(&style_clock_lbl, LV_OPA_60);
+    lv_style_set_pad_hor(&style_clock_lbl, 3);
+
+    lv_style_init(&style_divider);
+    lv_style_set_bg_color(&style_divider, lv_color_make(0x30, 0x30, 0x40));
+    lv_style_set_bg_opa(&style_divider, LV_OPA_COVER);
+
+    styles_inited = true;
+}
+
+/* ===== 业务辅助函数（数据相关） ===== */
 
 static lv_color_t quotes_rgba_to_color(uint32_t rgba)
 {
@@ -241,22 +290,24 @@ static void quotes_apply_pending(void)
     /* Bail if the tile labels haven't been built yet, or were torn
        down by a rotation rebuild (the fetcher task is independent of
        the LVGL UI lifecycle). */
-    if (!g_quotes_name_l || !g_quotes_price_l || !g_quotes_chg_l ||
-        !g_quotes_name_r || !g_quotes_price_r || !g_quotes_chg_r) return;
+    if (!ui_Quotes_label_name_l || !ui_Quotes_label_price_l || !ui_Quotes_label_chg_l ||
+        !ui_Quotes_label_name_r || !ui_Quotes_label_price_r || !ui_Quotes_label_chg_r) return;
     s_qd_have_new = false;
-    quotes_repaint_one(&s_qd_l, g_quotes_name_l, g_quotes_sym_l_lbl,
-                       g_quotes_price_l, g_quotes_chg_l);
-    quotes_repaint_one(&s_qd_r, g_quotes_name_r, g_quotes_sym_r_lbl,
-                       g_quotes_price_r, g_quotes_chg_r);
-    if (g_quotes_status) {
+    quotes_repaint_one(&s_qd_l, ui_Quotes_label_name_l, ui_Quotes_label_sym_l,
+                       ui_Quotes_label_price_l, ui_Quotes_label_chg_l);
+    quotes_repaint_one(&s_qd_r, ui_Quotes_label_name_r, ui_Quotes_label_sym_r,
+                       ui_Quotes_label_price_r, ui_Quotes_label_chg_r);
+    if (ui_Quotes_label_status) {
         time_t now = time(NULL);
         struct tm tm_local;
         localtime_r(&now, &tm_local);
         char tbuf[16];
         strftime(tbuf, sizeof(tbuf), "%H:%M:%S", &tm_local);
-        lv_label_set_text_fmt(g_quotes_status, "updated %s", tbuf);
+        lv_label_set_text_fmt(ui_Quotes_label_status, "updated %s", tbuf);
     }
 }
+
+/* ===== 业务辅助函数（fetcher task） ===== */
 
 void quotes_kick(void)
 {
@@ -281,9 +332,6 @@ static void quotes_task(void *arg)
     vTaskDelay(pdMS_TO_TICKS(2000));
     while (1) {
         struct quote_data ql = {0}, qr = {0};
-        /* Fetch both sides in series -- two HTTPS connections back to
-           back is fast enough at 60s interval and keeps the working set
-           tiny. */
         if (g_cfg.quotes_sym_l[0]) {
             if (quotes_fetch_one(g_cfg.quotes_sym_l, &ql) == 0) s_qd_l = ql;
             else { s_qd_l.ok = false;
@@ -321,6 +369,8 @@ void quotes_ensure(void)
         MALLOC_CAP_SPIRAM);
 }
 
+/* ===== 定时器回调 ===== */
+
 static void quotes_status_timer_cb(lv_timer_t *t)
 {
     (void)t;
@@ -328,17 +378,17 @@ static void quotes_status_timer_cb(lv_timer_t *t)
        LVGL task here, so direct label updates are safe). */
     quotes_apply_pending();
     /* Repaint the floating clock label, top-right. */
-    if (g_quotes_clock_lbl) {
+    if (ui_Quotes_label_clock) {
         time_t now = time(NULL);
         struct tm tm_local;
         localtime_r(&now, &tm_local);
         char buf[16];
         strftime(buf, sizeof(buf), g_cfg.hour24 ? "%H:%M" : "%I:%M %p", &tm_local);
-        lv_label_set_text(g_quotes_clock_lbl, buf);
+        lv_label_set_text(ui_Quotes_label_clock, buf);
     }
     /* Wi-Fi/BT colors mirror what the clock tile shows via
        status_timer_cb (which reads the same globals). */
-    if (g_quotes_wifi_icon) {
+    if (ui_Quotes_icon_wifi) {
         char ssid_buf[33];
         wifi_get_curr_ssid(ssid_buf, sizeof(ssid_buf));
         lv_color_t c = wifi_is_connected()
@@ -346,13 +396,50 @@ static void quotes_status_timer_cb(lv_timer_t *t)
             : (ssid_buf[0]
                 ? lv_color_make(0xff, 0xa0, 0x40)
                 : lv_color_make(0x40, 0x40, 0x40));
-        lv_obj_set_style_text_color(g_quotes_wifi_icon, c, 0);
+        lv_obj_set_style_text_color(ui_Quotes_icon_wifi, c, 0);
     }
-    if (g_quotes_bt_icon) {
-        lv_obj_set_style_text_color(g_quotes_bt_icon,
+    if (ui_Quotes_icon_bt) {
+        lv_obj_set_style_text_color(ui_Quotes_icon_bt,
             lv_color_make(0x40, 0x40, 0x40), 0);
     }
 }
+
+/* ===== 事件总线 handler ===== */
+
+static void on_quotes_changed_evt(const event_t *evt, void *user_data)
+{
+    (void)evt;
+    (void)user_data;
+    /* 行情配置变更（符号/颜色/刷新间隔），立即触发一次重新拉取 */
+    quotes_kick();
+}
+
+/* ===== 公共 UI API ===== */
+
+void ui_Quotes_cleanup(void)
+{
+    /* 取消事件订阅 */
+    event_bus_unsubscribe(EVENT_QUOTES_CHANGED, on_quotes_changed_evt);
+
+    /* 删除定时器（原代码漏存句柄导致泄漏，此处修复） */
+    if (s_status_timer) { lv_timer_del(s_status_timer); s_status_timer = NULL; }
+
+    ui_Quotes                = NULL;
+    ui_Quotes_label_name_l    = NULL;
+    ui_Quotes_label_name_r    = NULL;
+    ui_Quotes_label_sym_l     = NULL;
+    ui_Quotes_label_sym_r     = NULL;
+    ui_Quotes_label_price_l   = NULL;
+    ui_Quotes_label_price_r   = NULL;
+    ui_Quotes_label_chg_l     = NULL;
+    ui_Quotes_label_chg_r     = NULL;
+    ui_Quotes_label_status    = NULL;
+    ui_Quotes_icon_wifi       = NULL;
+    ui_Quotes_icon_bt         = NULL;
+    ui_Quotes_label_clock     = NULL;
+}
+
+/* ===== 4. tile 创建函数 ===== */
 
 /* Build one pane on the quotes tile. */
 static void build_quotes_pane(lv_obj_t *parent, int x, int w,
@@ -363,10 +450,8 @@ static void build_quotes_pane(lv_obj_t *parent, int x, int w,
     lv_obj_remove_style_all(pane);
     lv_obj_set_size(pane, w, disp_driver_get_canvas_h());
     lv_obj_set_pos(pane, x, 0);
-    lv_obj_set_style_bg_color(pane, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(pane, LV_OPA_COVER, 0);
+    lv_obj_add_style(pane, &style_pane, 0);
     lv_obj_clear_flag(pane, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_pad_all(pane, 8, 0);
 
     /* Pretty name. Pushed right on the left pane so the global FPS pill
        (anchored top-left of the screen, ~64 px wide with padding)
@@ -377,14 +462,14 @@ static void build_quotes_pane(lv_obj_t *parent, int x, int w,
     lv_obj_set_width(name, w - 20 - name_dx);
     lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
     lv_label_set_text(name, "");
-    lv_obj_set_style_text_color(name, lv_color_make(0xc8, 0xc8, 0xe0), 0);
+    lv_obj_add_style(name, &style_name, 0);
     lv_obj_set_style_text_font(name, i18n_font(), 0);
     lv_obj_align(name, LV_ALIGN_TOP_LEFT, name_dx, 0);
 
     /* Symbol + currency, slightly dimmer, beneath the name. */
     lv_obj_t *sym = lv_label_create(pane);
     lv_label_set_text(sym, "");
-    lv_obj_set_style_text_color(sym, lv_color_make(0x80, 0x80, 0xa0), 0);
+    lv_obj_add_style(sym, &style_sym, 0);
     lv_obj_set_style_text_font(sym, i18n_font(), 0);
     lv_obj_align(sym, LV_ALIGN_TOP_LEFT, name_dx, 16);
 
@@ -393,14 +478,13 @@ static void build_quotes_pane(lv_obj_t *parent, int x, int w,
        font ships with the digits + . + - and not much else. */
     lv_obj_t *price = lv_label_create(pane);
     lv_label_set_text(price, "---.--");
-    lv_obj_set_style_text_color(price, lv_color_make(0x60, 0x60, 0x60), 0);
-    lv_obj_set_style_text_font(price, &font_jbmono_48, 0);
+    lv_obj_add_style(price, &style_price, 0);
     lv_obj_align(price, LV_ALIGN_LEFT_MID, 0, 8);
 
     /* Change line beneath the price, colored. */
     lv_obj_t *chg = lv_label_create(pane);
     lv_label_set_text(chg, "");
-    lv_obj_set_style_text_color(chg, lv_color_make(0x80, 0x80, 0x80), 0);
+    lv_obj_add_style(chg, &style_chg, 0);
     lv_obj_set_style_text_font(chg, i18n_font(), 0);
     lv_obj_align(chg, LV_ALIGN_BOTTOM_LEFT, 0, -16);
 
@@ -410,73 +494,71 @@ static void build_quotes_pane(lv_obj_t *parent, int x, int w,
     *chg_out   = chg;
 }
 
-void build_quotes_tile(lv_obj_t *parent)
+void ui_Quotes_create(lv_obj_t *parent)
 {
-    g_quotes_tile = parent;
-    lv_obj_set_style_bg_color(parent, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
-    lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_pad_all(parent, 0, 0);
+    init_styles();
+
+    /* tile 容器 */
+    ui_Quotes = parent;
+    lv_obj_clear_flag(ui_Quotes, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_style(ui_Quotes, &style_tile_bg, 0);
 
     int cw = disp_driver_get_canvas_w();
     int half = cw / 2;
-    build_quotes_pane(parent, 0, half,
-                      &g_quotes_name_l, &g_quotes_sym_l_lbl,
-                      &g_quotes_price_l, &g_quotes_chg_l);
-    build_quotes_pane(parent, half, cw - half,
-                      &g_quotes_name_r, &g_quotes_sym_r_lbl,
-                      &g_quotes_price_r, &g_quotes_chg_r);
+    build_quotes_pane(ui_Quotes, 0, half,
+                      &ui_Quotes_label_name_l, &ui_Quotes_label_sym_l,
+                      &ui_Quotes_label_price_l, &ui_Quotes_label_chg_l);
+    build_quotes_pane(ui_Quotes, half, cw - half,
+                      &ui_Quotes_label_name_r, &ui_Quotes_label_sym_r,
+                      &ui_Quotes_label_price_r, &ui_Quotes_label_chg_r);
 
     /* Thin vertical divider. */
-    lv_obj_t *div = lv_obj_create(parent);
+    lv_obj_t *div = lv_obj_create(ui_Quotes);
     lv_obj_remove_style_all(div);
     lv_obj_set_size(div, 1, disp_driver_get_canvas_h() - 20);
     lv_obj_set_pos(div, half, 10);
-    lv_obj_set_style_bg_color(div, lv_color_make(0x30, 0x30, 0x40), 0);
-    lv_obj_set_style_bg_opa(div, LV_OPA_COVER, 0);
+    lv_obj_add_style(div, &style_divider, 0);
 
     /* Status line at the very bottom, centered. */
-    g_quotes_status = lv_label_create(parent);
-    lv_label_set_text(g_quotes_status, "fetching…");
-    lv_obj_set_style_text_color(g_quotes_status, lv_color_make(0x60, 0x60, 0x80), 0);
-    lv_obj_set_style_text_font(g_quotes_status, i18n_font(), 0);
-    lv_obj_align(g_quotes_status, LV_ALIGN_BOTTOM_MID, 0, -2);
+    ui_Quotes_label_status = lv_label_create(ui_Quotes);
+    lv_label_set_text(ui_Quotes_label_status, "fetching…");
+    lv_obj_add_style(ui_Quotes_label_status, &style_status, 0);
+    lv_obj_set_style_text_font(ui_Quotes_label_status, i18n_font(), 0);
+    lv_obj_align(ui_Quotes_label_status, LV_ALIGN_BOTTOM_MID, 0, -2);
 
     /* Floating status overlay (top-right): wifi, bt, hh:mm. */
-    g_quotes_wifi_icon = lv_label_create(parent);
-    lv_label_set_text(g_quotes_wifi_icon, LV_SYMBOL_WIFI);
-    lv_obj_set_style_text_color(g_quotes_wifi_icon,
+    ui_Quotes_icon_wifi = lv_label_create(ui_Quotes);
+    lv_label_set_text(ui_Quotes_icon_wifi, LV_SYMBOL_WIFI);
+    lv_obj_set_style_text_color(ui_Quotes_icon_wifi,
                                  lv_color_make(0x40, 0x40, 0x40), 0);
-    lv_obj_set_style_text_font(g_quotes_wifi_icon, i18n_font(), 0);
-    lv_obj_set_style_bg_color(g_quotes_wifi_icon, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(g_quotes_wifi_icon, LV_OPA_60, 0);
-    lv_obj_set_style_pad_hor(g_quotes_wifi_icon, 3, 0);
-    lv_obj_align(g_quotes_wifi_icon, LV_ALIGN_TOP_RIGHT, -4, 4);
+    lv_obj_add_style(ui_Quotes_icon_wifi, &style_icon, 0);
+    lv_obj_set_style_text_font(ui_Quotes_icon_wifi, i18n_font(), 0);
+    lv_obj_align(ui_Quotes_icon_wifi, LV_ALIGN_TOP_RIGHT, -4, 4);
 
-    g_quotes_bt_icon = lv_label_create(parent);
-    lv_label_set_text(g_quotes_bt_icon, LV_SYMBOL_BLUETOOTH);
-    lv_obj_set_style_text_color(g_quotes_bt_icon,
+    ui_Quotes_icon_bt = lv_label_create(ui_Quotes);
+    lv_label_set_text(ui_Quotes_icon_bt, LV_SYMBOL_BLUETOOTH);
+    lv_obj_set_style_text_color(ui_Quotes_icon_bt,
                                  lv_color_make(0x40, 0x40, 0x40), 0);
-    lv_obj_set_style_text_font(g_quotes_bt_icon, i18n_font(), 0);
-    lv_obj_set_style_bg_color(g_quotes_bt_icon, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(g_quotes_bt_icon, LV_OPA_60, 0);
-    lv_obj_set_style_pad_hor(g_quotes_bt_icon, 3, 0);
-    lv_obj_align(g_quotes_bt_icon, LV_ALIGN_TOP_RIGHT, -28, 4);
+    lv_obj_add_style(ui_Quotes_icon_bt, &style_icon, 0);
+    lv_obj_set_style_text_font(ui_Quotes_icon_bt, i18n_font(), 0);
+    lv_obj_align(ui_Quotes_icon_bt, LV_ALIGN_TOP_RIGHT, -28, 4);
 
-    g_quotes_clock_lbl = lv_label_create(parent);
-    lv_label_set_text(g_quotes_clock_lbl, "--:--");
-    lv_obj_set_style_text_color(g_quotes_clock_lbl,
-                                 lv_color_make(0xd0, 0xd0, 0xd0), 0);
-    lv_obj_set_style_text_font(g_quotes_clock_lbl, i18n_font(), 0);
-    lv_obj_set_style_bg_color(g_quotes_clock_lbl, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(g_quotes_clock_lbl, LV_OPA_60, 0);
-    lv_obj_set_style_pad_hor(g_quotes_clock_lbl, 3, 0);
-    lv_obj_align(g_quotes_clock_lbl, LV_ALIGN_TOP_RIGHT, -52, 4);
+    ui_Quotes_label_clock = lv_label_create(ui_Quotes);
+    lv_label_set_text(ui_Quotes_label_clock, "--:--");
+    lv_obj_add_style(ui_Quotes_label_clock, &style_clock_lbl, 0);
+    lv_obj_set_style_text_font(ui_Quotes_label_clock, i18n_font(), 0);
+    lv_obj_align(ui_Quotes_label_clock, LV_ALIGN_TOP_RIGHT, -52, 4);
 
     /* 500 ms repaint timer (drains pending fetch results, refreshes
-       the clock and the wifi/bt color). */
-    lv_timer_create(quotes_status_timer_cb, 500, NULL);
+       the clock and the wifi/bt color). 保存句柄以便 cleanup 删除。 */
+    s_status_timer = lv_timer_create(quotes_status_timer_cb, 500, NULL);
 
     /* Spin up the fetcher. */
     quotes_ensure();
+
+    /* 订阅事件总线：行情配置变更时触发重新拉取 */
+    event_bus_subscribe(EVENT_QUOTES_CHANGED, on_quotes_changed_evt, NULL);
 }
+
+/* ===== 5. tile 清理函数 ===== */
+/* (已在上方定义 ui_Quotes_cleanup) */

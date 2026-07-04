@@ -83,7 +83,6 @@ app_cfg_t g_cfg = {
  * 用于保存外部注册的配置变更回调函数
  */
 static struct {
-    void (*on_quotes_changed)(void);              /* 行情配置变更回调 */
     void (*on_backlight_changed)(uint8_t brightness); /* 背光亮度变更回调 */
     void (*on_bg_fetch_ensure)(void);             /* 确保背景图片获取回调 */
     void (*on_wifi_connect)(const char *ssid, const char *pass); /* WiFi 连接回调 */
@@ -97,7 +96,6 @@ static struct {
 void app_cfg_register_callbacks(const app_cfg_callbacks_t *cb)
 {
     if (!cb) return;
-    s_callbacks.on_quotes_changed = cb->on_quotes_changed;
     s_callbacks.on_backlight_changed = cb->on_backlight_changed;
     s_callbacks.on_bg_fetch_ensure = cb->on_bg_fetch_ensure;
     s_callbacks.on_wifi_connect = cb->on_wifi_connect;
@@ -518,9 +516,7 @@ void app_cfg_set_quotes_sym_l(const char *s)
     strncpy(g_cfg.quotes_sym_l, s, sizeof(g_cfg.quotes_sym_l) - 1);
     g_cfg.quotes_sym_l[sizeof(g_cfg.quotes_sym_l) - 1] = 0;
     app_cfg_save();
-    if (s_callbacks.on_quotes_changed) {
-        s_callbacks.on_quotes_changed(); /* 通知行情配置变更 */
-    }
+    event_bus_publish(EVENT_QUOTES_CHANGED, NULL, 0);
 }
 
 /**
@@ -534,9 +530,7 @@ void app_cfg_set_quotes_sym_r(const char *s)
     strncpy(g_cfg.quotes_sym_r, s, sizeof(g_cfg.quotes_sym_r) - 1);
     g_cfg.quotes_sym_r[sizeof(g_cfg.quotes_sym_r) - 1] = 0;
     app_cfg_save();
-    if (s_callbacks.on_quotes_changed) {
-        s_callbacks.on_quotes_changed(); /* 通知行情配置变更 */
-    }
+    event_bus_publish(EVENT_QUOTES_CHANGED, NULL, 0);
 }
 
 /**
