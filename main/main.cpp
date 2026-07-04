@@ -62,20 +62,8 @@ extern "C" const lv_font_t font_jbmono_96;
 extern "C" void tz_apply_current(void);
 extern "C" const char *tz_current_city_name(void);
 
-extern void clock_apply_layout(void);
-extern void clock_bg_apply(void);
 extern void quotes_kick(void);
 extern void wifi_connect(const char *ssid, const char *pass);
-
-static void on_clock_layout_changed(void)
-{
-    if (lvgl_lock(50)) { clock_apply_layout(); lvgl_unlock(); }
-}
-
-static void on_clock_bg_changed(void)
-{
-    if (lvgl_lock(50)) { clock_bg_apply(); lvgl_unlock(); }
-}
 
 static void on_quotes_changed(void)
 {
@@ -147,8 +135,6 @@ extern "C" void app_main(void)
     ui_init();
 
     app_cfg_callbacks_t cfg_cbs = {
-        .on_clock_layout_changed = on_clock_layout_changed,
-        .on_clock_bg_changed = on_clock_bg_changed,
         .on_quotes_changed = on_quotes_changed,
         .on_backlight_changed = on_backlight_changed,
         .on_bg_fetch_ensure = on_bg_fetch_ensure,

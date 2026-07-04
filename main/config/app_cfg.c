@@ -15,6 +15,7 @@
 
 #include "app_cfg.h"
 #include "ui_state.h"
+#include "event_bus.h"
 
 /* 如果存在 wifi_secret.h，则包含它以获取默认 WiFi 凭证 */
 #if __has_include("wifi_secret.h")
@@ -82,12 +83,10 @@ app_cfg_t g_cfg = {
  * 用于保存外部注册的配置变更回调函数
  */
 static struct {
-    void (*on_clock_layout_changed)(void);
-    void (*on_clock_bg_changed)(void);
-    void (*on_quotes_changed)(void);
-    void (*on_backlight_changed)(uint8_t brightness);
-    void (*on_bg_fetch_ensure)(void);
-    void (*on_wifi_connect)(const char *ssid, const char *pass);
+    void (*on_quotes_changed)(void);              /* 行情配置变更回调 */
+    void (*on_backlight_changed)(uint8_t brightness); /* 背光亮度变更回调 */
+    void (*on_bg_fetch_ensure)(void);             /* 确保背景图片获取回调 */
+    void (*on_wifi_connect)(const char *ssid, const char *pass); /* WiFi 连接回调 */
 } s_callbacks = {0};
 
 /**
@@ -98,8 +97,6 @@ static struct {
 void app_cfg_register_callbacks(const app_cfg_callbacks_t *cb)
 {
     if (!cb) return;
-    s_callbacks.on_clock_layout_changed = cb->on_clock_layout_changed;
-    s_callbacks.on_clock_bg_changed = cb->on_clock_bg_changed;
     s_callbacks.on_quotes_changed = cb->on_quotes_changed;
     s_callbacks.on_backlight_changed = cb->on_backlight_changed;
     s_callbacks.on_bg_fetch_ensure = cb->on_bg_fetch_ensure;
@@ -405,9 +402,7 @@ int app_cfg_get_show_clock(void) { return g_cfg.show_clock; }
 void app_cfg_set_show_clock(int show)
 {
     g_cfg.show_clock = show ? 1 : 0;
-    if (s_callbacks.on_clock_layout_changed) {
-        s_callbacks.on_clock_layout_changed(); /* 通知时钟布局变更 */
-    }
+    event_bus_publish(EVENT_CLOCK_LAYOUT_CHANGED, NULL, 0);
     app_cfg_save();
 }
 
@@ -429,9 +424,7 @@ void app_cfg_set_bg_mode(int m)
     if (m < 0) m = 0;
     if (m > 3) m = 3;
     g_cfg.bg_mode = (uint8_t)m;
-    if (s_callbacks.on_clock_bg_changed) {
-        s_callbacks.on_clock_bg_changed(); /* 通知背景变更 */
-    }
+    event_bus_publish(EVENT_CLOCK_BG_CHANGED, NULL, 0);
     app_cfg_save();
     if (m == 2 && s_callbacks.on_bg_fetch_ensure) {
         s_callbacks.on_bg_fetch_ensure(); /* 如果是图片模式，确保获取背景 */
@@ -464,8 +457,8 @@ uint32_t app_cfg_get_bg_color(void) { return g_cfg.bg_color; }
 void app_cfg_set_bg_color(uint32_t rgba)
 {
     g_cfg.bg_color = rgba ? rgba : 0x202020FFu; /* 默认深灰色 */
-    if (g_cfg.bg_mode == 3 && s_callbacks.on_clock_bg_changed) {
-        s_callbacks.on_clock_bg_changed(); /* 如果是纯色模式，通知背景变更 */
+    if (g_cfg.bg_mode == 3) {
+        event_bus_publish(EVENT_CLOCK_BG_CHANGED, NULL, 0);
     }
     app_cfg_save();
 }
@@ -490,9 +483,7 @@ void app_cfg_set_bg_refresh_s(int s)
  */
 void app_cfg_clock_bg_reload(void)
 {
-    if (s_callbacks.on_clock_bg_changed) {
-        s_callbacks.on_clock_bg_changed();
-    }
+    event_bus_publish(EVENT_CLOCK_BG_CHANGED, NULL, 0);
 }
 
 /**
@@ -586,9 +577,7 @@ void app_cfg_set_clock_text(const char *s)
     strncpy(g_cfg.clock_text, s, sizeof(g_cfg.clock_text) - 1);
     g_cfg.clock_text[sizeof(g_cfg.clock_text) - 1] = 0;
     if (g_cfg.clock_text[0]) g_cfg.show_clock = 1; /* 有文本时自动显示时钟 */
-    if (s_callbacks.on_clock_layout_changed) {
-        s_callbacks.on_clock_layout_changed(); /* 通知时钟布局变更 */
-    }
+    event_bus_publish(EVENT_CLOCK_LAYOUT_CHANGED, NULL, 0);
     app_cfg_save();
 }
 
@@ -606,9 +595,7 @@ void app_cfg_set_clock_pos(int x, int y)
     if (y > 256) y = 256;
     g_cfg.clock_x = (int16_t)x;
     g_cfg.clock_y = (int16_t)y;
-    if (s_callbacks.on_clock_layout_changed) {
-        s_callbacks.on_clock_layout_changed(); /* 通知时钟布局变更 */
-    }
+    event_bus_publish(EVENT_CLOCK_LAYOUT_CHANGED, NULL, 0);
     app_cfg_save();
 }
 
@@ -622,9 +609,7 @@ void app_cfg_set_clock_size(int sz)
     if (sz < 0) sz = 0;
     if (sz > 3) sz = 3;
     g_cfg.clock_size = (uint8_t)sz;
-    if (s_callbacks.on_clock_layout_changed) {
-        s_callbacks.on_clock_layout_changed(); /* 通知时钟布局变更 */
-    }
+    event_bus_publish(EVENT_CLOCK_LAYOUT_CHANGED, NULL, 0);
     app_cfg_save();
 }
 
@@ -636,9 +621,7 @@ void app_cfg_set_clock_size(int sz)
 void app_cfg_set_clock_rgba(uint32_t rgba)
 {
     g_cfg.clock_rgba = rgba ? rgba : 0xFFFFFFFFu; /* 默认白色 */
-    if (s_callbacks.on_clock_layout_changed) {
-        s_callbacks.on_clock_layout_changed(); /* 通知时钟布局变更 */
-    }
+    event_bus_publish(EVENT_CLOCK_LAYOUT_CHANGED, NULL, 0);
     app_cfg_save();
 }
 
@@ -650,9 +633,7 @@ void app_cfg_set_clock_rgba(uint32_t rgba)
 void app_cfg_set_show_ms(int show)
 {
     g_cfg.show_ms = show ? 1 : 0;
-    if (s_callbacks.on_clock_layout_changed) {
-        s_callbacks.on_clock_layout_changed(); /* 通知时钟布局变更 */
-    }
+    event_bus_publish(EVENT_CLOCK_LAYOUT_CHANGED, NULL, 0);
     app_cfg_save();
 }
 

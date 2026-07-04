@@ -62,8 +62,6 @@ typedef struct {
  * 当配置发生变化时，通过回调通知相关模块进行响应
  */
 typedef struct {
-    void (*on_clock_layout_changed)(void);        /* 时钟布局变更回调 */
-    void (*on_clock_bg_changed)(void);            /* 背景变更回调 */
     void (*on_quotes_changed)(void);              /* 行情配置变更回调 */
     void (*on_backlight_changed)(uint8_t brightness); /* 背光亮度变更回调 */
     void (*on_bg_fetch_ensure)(void);             /* 确保背景图片获取回调 */

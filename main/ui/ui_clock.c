@@ -7,6 +7,7 @@
 #include <string.h>
 #include "esp_log.h"
 #include "user_config.h"
+#include "event_bus.h"
 
 #define CLOCK_BG_PATH "/sdcard/clock_bg.bin"
 
@@ -192,8 +193,28 @@ static void sunmap_update_cb(lv_timer_t *t);
 
 /* ===== 公共 UI API ===== */
 
+/* 事件总线 handler：时钟布局变更 */
+static void on_clock_layout_changed_evt(const event_t *evt, void *user_data)
+{
+    (void)evt;
+    (void)user_data;
+    if (lvgl_lock(50)) { clock_apply_layout(); lvgl_unlock(); }
+}
+
+/* 事件总线 handler：背景变更 */
+static void on_clock_bg_changed_evt(const event_t *evt, void *user_data)
+{
+    (void)evt;
+    (void)user_data;
+    if (lvgl_lock(50)) { clock_bg_apply(); lvgl_unlock(); }
+}
+
 void ui_Clock_cleanup(void)
 {
+    /* 取消事件订阅 */
+    event_bus_unsubscribe(EVENT_CLOCK_LAYOUT_CHANGED, on_clock_layout_changed_evt);
+    event_bus_unsubscribe(EVENT_CLOCK_BG_CHANGED, on_clock_bg_changed_evt);
+
     if (g_clock_timer)     { lv_timer_del(g_clock_timer);     g_clock_timer     = NULL; }
     if (g_clock_ms_timer)  { lv_timer_del(g_clock_ms_timer);  g_clock_ms_timer  = NULL; }
     if (g_sunmap_timer)    { lv_timer_del(g_sunmap_timer);    g_sunmap_timer    = NULL; }
@@ -361,6 +382,10 @@ void ui_Clock_create(lv_obj_t *parent)
     }
     clock_update_cb(NULL);
     clock_ms_update_cb(NULL);
+
+    /* 订阅事件总线：配置变更时刷新 UI */
+    event_bus_subscribe(EVENT_CLOCK_LAYOUT_CHANGED, on_clock_layout_changed_evt, NULL);
+    event_bus_subscribe(EVENT_CLOCK_BG_CHANGED,     on_clock_bg_changed_evt,     NULL);
 }
 
 /* ===== 5. tile 清理函数 ===== */
