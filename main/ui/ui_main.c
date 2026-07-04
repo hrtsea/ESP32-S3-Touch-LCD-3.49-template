@@ -292,7 +292,7 @@ void rotate_btn_event_cb(lv_event_t *e)
     ui_Clock_cleanup();
 
     /* 重置设置页面 */
-    settings_cleanup();
+    ui_Settings_cleanup();
 
     /* 重置行情页面 */
     ui_Quotes_cleanup();
@@ -454,7 +454,7 @@ static void build_main_ui(const char *status_text)
     /* 构建各页面内容 */
     ui_Clock_create(t_clock);
     ui_Quotes_create(t_quotes);
-    build_settings_tile(t_set);
+    ui_Settings_create(t_set);
     ui_Radio_create(t_radio);
     ui_Recorder_create(t_record);
     ui_AudioTest_create(t_audio_test);

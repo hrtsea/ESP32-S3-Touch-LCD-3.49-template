@@ -24,12 +24,83 @@
 #include "esp_wifi.h"
 #include "ui_clock.h"
 #include "ui_main.h"
+#include "event_bus.h"
 
 static const char *TAG = "ui_settings";
 
 /* Forward declaration of the local wifi-list renderer (defined below). */
 static void set_render_wifi_list(void);
+static void init_styles(void);
 
+/* ===== 1. 对象定义 ===== */
+lv_obj_t *ui_Settings = NULL;
+
+/* ===== 2. 静态样式变量 ===== */
+/* 固定样式（不依赖 theme_palette）抽取为 lv_style_t；
+   依赖 pal 的动态样式（menu/header/back_btn）保留行内设置。 */
+static lv_style_t style_tile_bg;       /* 黑色背景 */
+static lv_style_t style_wifi_list_bg;   /* 0x10,0x10,0x14 */
+static lv_style_t style_wifi_status;   /* 0xc0,0xc0,0xc0 */
+static lv_style_t style_connect_btn;   /* 0x20,0x80,0x40 */
+static lv_style_t style_forget_btn;    /* 0x80,0x40,0x20 */
+static lv_style_t style_format_btn;    /* 0xa0,0x20,0x20 */
+static lv_style_t style_reset_btn;     /* 0xa0,0x20,0x20 */
+static lv_style_t style_label_white;   /* 白色文字 */
+static lv_style_t style_label_dim;    /* 0xa0,0xa0,0xa0 */
+static lv_style_t style_submenu_cont; /* flex column + pad_row 6 */
+static lv_style_t style_toggle_row;   /* flex row space-between */
+static bool styles_inited = false;
+
+static void init_styles(void)
+{
+    if (styles_inited) return;
+
+    lv_style_init(&style_tile_bg);
+    lv_style_set_bg_color(&style_tile_bg, lv_color_black());
+    lv_style_set_bg_opa(&style_tile_bg, LV_OPA_COVER);
+    lv_style_set_pad_all(&style_tile_bg, 0);
+
+    lv_style_init(&style_wifi_list_bg);
+    lv_style_set_bg_color(&style_wifi_list_bg, lv_color_make(0x10, 0x10, 0x14));
+    lv_style_set_pad_row(&style_wifi_list_bg, 2);
+    lv_style_set_pad_all(&style_wifi_list_bg, 2);
+
+    lv_style_init(&style_wifi_status);
+    lv_style_set_text_color(&style_wifi_status, lv_color_make(0xc0, 0xc0, 0xc0));
+
+    lv_style_init(&style_connect_btn);
+    lv_style_set_bg_color(&style_connect_btn, lv_color_make(0x20, 0x80, 0x40));
+
+    lv_style_init(&style_forget_btn);
+    lv_style_set_bg_color(&style_forget_btn, lv_color_make(0x80, 0x40, 0x20));
+
+    lv_style_init(&style_format_btn);
+    lv_style_set_bg_color(&style_format_btn, lv_color_make(0xa0, 0x20, 0x20));
+
+    lv_style_init(&style_reset_btn);
+    lv_style_set_bg_color(&style_reset_btn, lv_color_make(0xa0, 0x20, 0x20));
+
+    lv_style_init(&style_label_white);
+    lv_style_set_text_color(&style_label_white, lv_color_white());
+
+    lv_style_init(&style_label_dim);
+    lv_style_set_text_color(&style_label_dim, lv_color_make(0xa0, 0xa0, 0xa0));
+
+    lv_style_init(&style_submenu_cont);
+    lv_style_set_layout(&style_submenu_cont, LV_LAYOUT_FLEX);
+    lv_style_set_flex_flow(&style_submenu_cont, LV_FLEX_FLOW_COLUMN);
+    lv_style_set_pad_row(&style_submenu_cont, 6);
+
+    lv_style_init(&style_toggle_row);
+    lv_style_set_layout(&style_toggle_row, LV_LAYOUT_FLEX);
+    lv_style_set_flex_flow(&style_toggle_row, LV_FLEX_FLOW_ROW);
+    lv_style_set_flex_main_place(&style_toggle_row, LV_FLEX_ALIGN_SPACE_BETWEEN);
+    lv_style_set_flex_cross_place(&style_toggle_row, LV_FLEX_ALIGN_CENTER);
+
+    styles_inited = true;
+}
+
+/* ===== 内部状态变量（保留原名，文件内 static） ===== */
 /* Block touch-driven menu actions for a short window after a back press,
    so the same gesture that pops a page doesn't also pick the item that
    slides in under the finger. Stamped by the back-button click handler
@@ -50,8 +121,9 @@ static char g_set_kb_ssid[33] = {0};
    the menu item that scrolled in under the finger. */
 static lv_obj_t *g_menu_shield = NULL;
 
-void settings_cleanup(void)
+void ui_Settings_cleanup(void)
 {
+    ui_Settings = NULL;
     g_set_wifi_status = NULL;
     g_set_wifi_list   = NULL;
     g_set_kb_overlay  = NULL;
@@ -351,7 +423,7 @@ static void set_render_wifi_list(void)
     if (scan_n == 0) {
         lv_obj_t *empty = lv_label_create(g_set_wifi_list);
         lv_label_set_text(empty, tr(I18N_WIFI_NO_APS));
-        lv_obj_set_style_text_color(empty, lv_color_make(0xa0, 0xa0, 0xa0), 0);
+        lv_obj_add_style(empty, &style_label_dim, 0);
         lv_obj_set_style_text_font(empty, i18n_font(), 0);
         return;
     }
@@ -572,6 +644,9 @@ static void audio_vol_cb(lv_event_t *e)
     audio_min_set_volume(g_cfg.audio_volume);
     lv_obj_t *lbl = (lv_obj_t *)lv_event_get_user_data(e);
     if (lbl) lv_label_set_text_fmt(lbl, tr(I18N_VOLUME_PCT), (unsigned)v);
+    /* 发布音量变更事件，供 ui_radio 等模块同步 UI */
+    uint8_t vol = (uint8_t)v;
+    event_bus_publish(EVENT_AUDIO_VOLUME_CHANGED, &vol, sizeof(vol));
     if (lv_event_get_code(e) == LV_EVENT_RELEASED) app_cfg_save();
 }
 
@@ -658,9 +733,7 @@ static lv_obj_t *build_subpage_wifi(lv_obj_t *menu)
     lv_obj_set_height(g_set_wifi_list, lv_pct(100));
     lv_obj_set_layout(g_set_wifi_list, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(g_set_wifi_list, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(g_set_wifi_list, 2, 0);
-    lv_obj_set_style_pad_all(g_set_wifi_list, 2, 0);
-    lv_obj_set_style_bg_color(g_set_wifi_list, lv_color_make(0x10, 0x10, 0x14), 0);
+    lv_obj_add_style(g_set_wifi_list, &style_wifi_list_bg, 0);
     lv_obj_set_scroll_dir(g_set_wifi_list, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(g_set_wifi_list, LV_SCROLLBAR_MODE_AUTO);
     set_render_wifi_list();
@@ -699,7 +772,7 @@ static lv_obj_t *build_subpage_wifi(lv_obj_t *menu)
     /* Connect button (acts on selected list row) */
     lv_obj_t *conn_btn = lv_btn_create(side);
     lv_obj_set_size(conn_btn, lv_pct(100), 24);
-    lv_obj_set_style_bg_color(conn_btn, lv_color_make(0x20, 0x80, 0x40), 0);
+    lv_obj_add_style(conn_btn, &style_connect_btn, 0);
     lv_obj_t *conn_l = lv_label_create(conn_btn);
     lv_label_set_text(conn_l, tr(I18N_WIFI_CONNECT_BTN));
     lv_obj_set_style_text_color(conn_l, lv_color_white(), 0);
@@ -710,7 +783,7 @@ static lv_obj_t *build_subpage_wifi(lv_obj_t *menu)
     /* Forget button */
     lv_obj_t *forget_btn = lv_btn_create(side);
     lv_obj_set_size(forget_btn, lv_pct(100), 24);
-    lv_obj_set_style_bg_color(forget_btn, lv_color_make(0x80, 0x40, 0x20), 0);
+    lv_obj_add_style(forget_btn, &style_forget_btn, 0);
     lv_obj_t *forget_l = lv_label_create(forget_btn);
     lv_label_set_text(forget_l, tr(I18N_WIFI_FORGET_BTN));
     lv_obj_set_style_text_color(forget_l, lv_color_white(), 0);
@@ -768,13 +841,11 @@ static lv_obj_t *build_subpage_brightness(lv_obj_t *menu)
 {
     lv_obj_t *page = lv_menu_page_create(menu, (char *)tr(I18N_SET_BRIGHTNESS));
     lv_obj_t *cont = lv_menu_cont_create(page);
-    lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(cont, 6, 0);
+    lv_obj_add_style(cont, &style_submenu_cont, 0);
 
     lv_obj_t *l = lv_label_create(cont);
     lv_label_set_text(l, tr(I18N_BACKLIGHT_LEVEL));
-    lv_obj_set_style_text_color(l, lv_color_white(), 0);
+    lv_obj_add_style(l, &style_label_white, 0);
     lv_obj_set_style_text_font(l, i18n_font(), 0);
 
     lv_obj_t *bri_s = lv_slider_create(cont);
@@ -792,9 +863,7 @@ static lv_obj_t *build_subpage_autodim(lv_obj_t *menu)
 {
     lv_obj_t *page = lv_menu_page_create(menu, (char *)tr(I18N_SET_AUTODIM));
     lv_obj_t *cont = lv_menu_cont_create(page);
-    lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(cont, 6, 0);
+    lv_obj_add_style(cont, &style_submenu_cont, 0);
 
     lv_obj_t *dim_lbl = lv_label_create(cont);
     {
@@ -803,7 +872,7 @@ static lv_obj_t *build_subpage_autodim(lv_obj_t *menu)
         if (g_cfg.dim_s == 0) lv_label_set_text(dim_lbl, tr(I18N_DIM_NEVER));
         else                  lv_label_set_text_fmt(dim_lbl, tr(I18N_DIM_AFTER), d);
     }
-    lv_obj_set_style_text_color(dim_lbl, lv_color_white(), 0);
+    lv_obj_add_style(dim_lbl, &style_label_white, 0);
     lv_obj_set_style_text_font(dim_lbl, i18n_font(), 0);
     lv_obj_t *dim_s = lv_slider_create(cont);
     lv_obj_set_width(dim_s, lv_pct(95));
@@ -822,7 +891,7 @@ static lv_obj_t *build_subpage_autodim(lv_obj_t *menu)
         if (g_cfg.off_s == 0) lv_label_set_text(off_lbl, tr(I18N_SLEEP_NEVER));
         else                  lv_label_set_text_fmt(off_lbl, tr(I18N_SLEEP_AFTER), d);
     }
-    lv_obj_set_style_text_color(off_lbl, lv_color_white(), 0);
+    lv_obj_add_style(off_lbl, &style_label_white, 0);
     lv_obj_set_style_text_font(off_lbl, i18n_font(), 0);
     lv_obj_t *off_s = lv_slider_create(cont);
     lv_obj_set_width(off_s, lv_pct(95));
@@ -843,10 +912,7 @@ static lv_obj_t *add_toggle_row(lv_obj_t *parent, const char *label,
     lv_obj_remove_style_all(row);
     lv_obj_set_width(row, lv_pct(100));
     lv_obj_set_height(row, LV_SIZE_CONTENT);
-    lv_obj_set_layout(row, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN,
-                          LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_add_style(row, &style_toggle_row, 0);
     lv_obj_t *l = lv_label_create(row);
     lv_label_set_text(l, label);
     lv_obj_set_style_text_font(l, i18n_font(), 0);
@@ -908,9 +974,7 @@ static lv_obj_t *build_subpage_display(lv_obj_t *menu)
     lv_obj_set_scroll_dir(page, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(page, LV_SCROLLBAR_MODE_AUTO);
     lv_obj_t *cont = lv_menu_cont_create(page);
-    lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(cont, 6, 0);
+    lv_obj_add_style(cont, &style_submenu_cont, 0);
 
     add_toggle_row(cont, tr(I18N_HOUR_24), g_cfg.hour24, hour_fmt_cb);
     add_toggle_row(cont, tr(I18N_SHOW_SECONDS), g_cfg.show_seconds, show_sec_cb);
@@ -947,9 +1011,7 @@ static lv_obj_t *build_subpage_sound(lv_obj_t *menu)
 {
     lv_obj_t *page = lv_menu_page_create(menu, (char *)tr(I18N_SET_SOUND));
     lv_obj_t *cont = lv_menu_cont_create(page);
-    lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(cont, 6, 0);
+    lv_obj_add_style(cont, &style_submenu_cont, 0);
 
     add_toggle_row(cont, tr(I18N_SOUND_ENABLED), g_cfg.audio_enable, audio_en_cb);
 
@@ -972,9 +1034,7 @@ static lv_obj_t *build_subpage_reset(lv_obj_t *menu)
 {
     lv_obj_t *page = lv_menu_page_create(menu, (char *)tr(I18N_SET_RESET));
     lv_obj_t *cont = lv_menu_cont_create(page);
-    lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(cont, 6, 0);
+    lv_obj_add_style(cont, &style_submenu_cont, 0);
 
     lv_obj_t *l = lv_label_create(cont);
     lv_label_set_text(l, tr(I18N_RESET_WARN));
@@ -985,7 +1045,7 @@ static lv_obj_t *build_subpage_reset(lv_obj_t *menu)
     lv_obj_t *btn = lv_btn_create(cont);
     lv_obj_set_height(btn, 32);
     lv_obj_set_width(btn, 160);
-    lv_obj_set_style_bg_color(btn, lv_color_make(0xa0, 0x20, 0x20), 0);
+    lv_obj_add_style(btn, &style_reset_btn, 0);
     lv_obj_t *bl = lv_label_create(btn);
     lv_label_set_text(bl, tr(I18N_RESET_BTN));
     lv_obj_set_style_text_color(bl, lv_color_white(), 0);
@@ -1055,13 +1115,11 @@ static lv_obj_t *build_subpage_storage(lv_obj_t *menu)
 {
     lv_obj_t *page = lv_menu_page_create(menu, (char *)tr(I18N_SET_STORAGE));
     lv_obj_t *cont = lv_menu_cont_create(page);
-    lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(cont, 6, 0);
+    lv_obj_add_style(cont, &style_submenu_cont, 0);
 
     g_storage_info_lbl = lv_label_create(cont);
     lv_obj_set_style_text_font(g_storage_info_lbl, i18n_font(), 0);
-    lv_obj_set_style_text_color(g_storage_info_lbl, lv_color_white(), 0);
+    lv_obj_add_style(g_storage_info_lbl, &style_label_white, 0);
     /* Don't call esp_vfs_fat_info at tile-build time -- on some cards it
        hangs the SDMMC driver for many seconds and wedges boot. Show a
        static placeholder; storage_info_refresh() is invoked from the
@@ -1074,7 +1132,7 @@ static lv_obj_t *build_subpage_storage(lv_obj_t *menu)
        stays responsive (~30-60s for 64GB). */
     lv_obj_t *fmt_btn = lv_btn_create(cont);
     lv_obj_set_size(fmt_btn, 200, 32);
-    lv_obj_set_style_bg_color(fmt_btn, lv_color_make(0xa0, 0x20, 0x20), 0);
+    lv_obj_add_style(fmt_btn, &style_format_btn, 0);
     g_storage_btn_lbl = lv_label_create(fmt_btn);
     lv_label_set_text(g_storage_btn_lbl, "Format SD card");
     lv_obj_set_style_text_color(g_storage_btn_lbl, lv_color_white(), 0);
@@ -1095,12 +1153,12 @@ static void wifi_subpage_add_autoconnect(lv_obj_t *page)
     add_toggle_row(side, tr(I18N_WIFI_AUTOCONNECT), g_cfg.wifi_autoconnect, wifi_ac_cb);
 }
 
-void build_settings_tile(lv_obj_t *parent)
+void ui_Settings_create(lv_obj_t *parent)
 {
-    lv_obj_set_style_bg_color(parent, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
+    init_styles();
+    ui_Settings = parent;
     lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_pad_all(parent, 0, 0);
+    lv_obj_add_style(parent, &style_tile_bg, 0);
 
     theme_palette_t pal = theme_get();
     lv_obj_t *menu = lv_menu_create(parent);
