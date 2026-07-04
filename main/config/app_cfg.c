@@ -17,6 +17,7 @@
 #include "backlight.h"
 #include "wifi_manager.h"
 #include "bg_fetcher.h"
+#include "ui_clock.h"
 
 #if __has_include("wifi_secret.h")
 #  include "wifi_secret.h"
@@ -150,8 +151,15 @@ static void cfg_read_nvs(nvs_handle_t h)
     g_cfg.quotes_down_rgba = qd;
 }
 
-void cfg_load(void)
+void cfg_init(void)
 {
+    esp_err_t er = nvs_flash_init();
+    if (er == ESP_ERR_NVS_NO_FREE_PAGES || er == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        er = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(er);
+
     nvs_handle_t h;
     if (nvs_open(NVS_NS_CFG, NVS_READONLY, &h) != ESP_OK) return;
     cfg_read_nvs(h);
@@ -168,6 +176,19 @@ void cfg_load(void)
         }
         cfg_save();
     }
+
+    const char *city_name = tz_current_city_name();
+    const char *tz_posix = k_tz_cities[g_cfg.tz_idx].posix_tz;
+    ESP_LOGI(TAG, "cfg: tz=%s (%s) bri=%u dim=%us off=%us last_ssid=%s",
+             city_name ? city_name : "(unknown)", 
+             tz_posix ? tz_posix : "(unknown)",
+             g_cfg.brightness, g_cfg.dim_s, g_cfg.off_s,
+             g_cfg.last_ssid[0] ? g_cfg.last_ssid : "(none)");
+}
+
+void cfg_load(void)
+{
+    cfg_init();
 }
 
 void cfg_save(void)
