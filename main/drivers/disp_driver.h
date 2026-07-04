@@ -27,6 +27,18 @@ void disp_driver_init(void);
 void disp_driver_update_resolution(void);
 int webui_snapshot_fb(void *out, size_t cap);
 
+int         disp_driver_get_rot_state(void);
+void        disp_driver_set_rot_state(int state);
+int         disp_driver_get_canvas_w(void);
+int         disp_driver_get_canvas_h(void);
+void        disp_driver_get_canvas_size(int *w, int *h);
+void        disp_driver_set_canvas_size(int w, int h);
+lv_obj_t   *disp_driver_get_fps_label(void);
+void        disp_driver_set_fps_label(lv_obj_t *label);
+uint32_t    disp_driver_get_fps_frames(void);
+void        disp_driver_inc_fps_frames(void);
+uint32_t    disp_driver_get_and_reset_fps_frames(void);
+
 #ifdef __cplusplus
 }
 #endif

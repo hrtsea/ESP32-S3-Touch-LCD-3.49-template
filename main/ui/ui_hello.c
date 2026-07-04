@@ -39,7 +39,7 @@ void build_hello_tile(lv_obj_t *parent, const char *status_text)
 
     lv_obj_t *hello = lv_label_create(parent);
     lv_label_set_long_mode(hello, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_set_width(hello, canvas_w / 3);
+    lv_obj_set_width(hello, disp_driver_get_canvas_w() / 3);
     lv_label_set_text(hello, "Hello World  *  Hello World  *  Hello World  *  ");
     lv_obj_set_style_text_color(hello, lv_color_white(), 0);
     lv_obj_set_style_text_font(hello, i18n_font(), 0);
@@ -49,7 +49,7 @@ void build_hello_tile(lv_obj_t *parent, const char *status_text)
 
     lv_obj_t *status = lv_label_create(parent);
     lv_label_set_long_mode(status, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(status, canvas_w - 20);
+    lv_obj_set_width(status, disp_driver_get_canvas_w() - 20);
     lv_label_set_text(status, status_text);
     lv_obj_set_style_text_color(status, lv_color_make(0xa0, 0xa0, 0xa0), 0);
     lv_obj_set_style_text_font(status, i18n_font(), 0);

@@ -4,6 +4,7 @@ idf_component_register(
     SRCS
         "main.cpp"
         "ui/ui_main.c"
+        "ui/ui_state.c"
         "ui/ui_hello.c"
         "ui/ui_clock.c"
         "ui/ui_quotes.c"
@@ -15,6 +16,7 @@ idf_component_register(
         "network/wifi_manager.c"
         "network/sntp_manager.c"
         "config/app_cfg.c"
+        "utils/event_bus.c"
         "utils/i18n.c"
         "utils/theme.c"
         "utils/cli.c"

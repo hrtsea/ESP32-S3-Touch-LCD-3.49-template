@@ -8,6 +8,7 @@
 #include "esp_log.h"
 
 #include "ui_common.h"
+#include "ui_state.h"
 #include "esp_io_expander_tca9554.h"
 #include "driver/i2c_master.h"
 #include "freertos/FreeRTOS.h"
@@ -36,22 +37,21 @@ static const char *TAG = "hw_init";
 static void system_time_init(void);
 #define TCA9554_POWER_DELAY_MS 50u
 
-static int status_text_pos = 0;
+#define STATUS_TEXT_BUF_SIZE 256
 
 static void status_text_append(const char *fmt, ...)
 {
-    if (status_text_pos >= (int)sizeof(g_status_text) - 1) return;
+    char buf[STATUS_TEXT_BUF_SIZE];
+    ui_state_get_status_text(buf, sizeof(buf));
+    int pos = (int)strlen(buf);
+    if (pos >= (int)sizeof(buf) - 1) return;
     va_list args;
     va_start(args, fmt);
-    int n = vsnprintf(g_status_text + status_text_pos, 
-                      sizeof(g_status_text) - status_text_pos, fmt, args);
+    int n = vsnprintf(buf + pos, 
+                      sizeof(buf) - pos, fmt, args);
     va_end(args);
     if (n > 0) {
-        status_text_pos += n;
-        if (status_text_pos >= (int)sizeof(g_status_text) - 1) {
-            status_text_pos = (int)sizeof(g_status_text) - 1;
-            g_status_text[status_text_pos] = '\0';
-        }
+        ui_state_set_status_text(buf);
     }
 }
 

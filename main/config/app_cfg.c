@@ -14,6 +14,7 @@
 #include "user_config.h"
 
 #include "app_cfg.h"
+#include "ui_state.h"
 
 /* 如果存在 wifi_secret.h，则包含它以获取默认 WiFi 凭证 */
 #if __has_include("wifi_secret.h")
@@ -30,7 +31,6 @@
 static const char *TAG = "app_cfg";
 
 /* 外部引用 */
-extern lv_obj_t *g_tileview;              /* TileView 实例 */
 extern const char *tz_current_city_name(void); /* 获取当前时区城市名称 */
 extern bool lvgl_lock(int ms);            /* LVGL 互斥锁 */
 extern void lvgl_unlock(void);            /* LVGL 互斥锁释放 */
@@ -730,11 +730,12 @@ void app_cfg_wifi_connect_save(const char *ssid, const char *pass)
  */
 void app_cfg_set_active_tile(int idx)
 {
-    if (!g_tileview) return;
+    lv_obj_t *tv = ui_state_get_tileview();
+    if (!tv) return;
     if (idx < 0) idx = 0;
     if (idx > 5) idx = 5;
     if (lvgl_lock(200)) { /* 获取 LVGL 互斥锁，超时200ms */
-        lv_obj_set_tile_id(g_tileview, idx, 0, LV_ANIM_OFF); /* 切换 Tile */
+        lv_obj_set_tile_id(tv, idx, 0, LV_ANIM_OFF); /* 切换 Tile */
         lvgl_unlock();
     }
 }

@@ -86,7 +86,7 @@ static esp_err_t bg_fetch_once(const char *url)
     char tmp[80];
     snprintf(tmp, sizeof(tmp), "%s.part", CLOCK_BG_PATH);
 
-    size_t need = (size_t)canvas_w * canvas_h * 2;
+    size_t need = (size_t)disp_driver_get_canvas_w() * disp_driver_get_canvas_h() * 2;
     int packed = -1;
     if (magic_have >= 8 && magic[0] == 0x89 && magic[1] == 'P' &&
         magic[2] == 'N' && magic[3] == 'G') {
@@ -133,7 +133,7 @@ static void bg_fetcher_task(void *arg)
        internal RAM to starve radio_init's I2S DMA descriptors on a
        fragmented heap. */
     for (int i = 0; i < 120; i++) {
-        if (g_wifi_connected) break;
+        if (wifi_is_connected()) break;
         vTaskDelay(pdMS_TO_TICKS(100));
     }
     vTaskDelay(pdMS_TO_TICKS(2000));

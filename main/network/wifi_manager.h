@@ -32,6 +32,15 @@ typedef void (*wifi_status_cb_t)(bool connected, const char *ip_addr);
 void wifi_manager_register_status_cb(wifi_status_cb_t cb);
 const char *wifi_reason_str(uint8_t reason);
 
+bool     wifi_is_connected(void);
+void     wifi_get_curr_ssid(char *buf, size_t buf_len);
+uint8_t  wifi_get_last_reason(void);
+int8_t   wifi_get_last_rssi(void);
+uint32_t wifi_get_connect_started_ms(void);
+bool     wifi_is_scanning(void);
+uint16_t wifi_get_scan_count(void);
+const wifi_scan_ap_t *wifi_get_scan_ap(uint16_t idx);
+
 #ifdef __cplusplus
 }
 #endif

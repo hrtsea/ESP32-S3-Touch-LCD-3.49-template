@@ -36,20 +36,37 @@ struct quote_data {
     char     currency[8];
 };
 
-lv_obj_t *g_quotes_tile        = NULL;
-lv_obj_t *g_quotes_name_l      = NULL;
-lv_obj_t *g_quotes_name_r      = NULL;
-lv_obj_t *g_quotes_sym_l_lbl   = NULL;
-lv_obj_t *g_quotes_sym_r_lbl   = NULL;
-lv_obj_t *g_quotes_price_l     = NULL;
-lv_obj_t *g_quotes_price_r     = NULL;
-lv_obj_t *g_quotes_chg_l       = NULL;
-lv_obj_t *g_quotes_chg_r       = NULL;
-lv_obj_t *g_quotes_status      = NULL;   /* small status bar */
+static lv_obj_t *g_quotes_tile        = NULL;
+static lv_obj_t *g_quotes_name_l      = NULL;
+static lv_obj_t *g_quotes_name_r      = NULL;
+static lv_obj_t *g_quotes_sym_l_lbl   = NULL;
+static lv_obj_t *g_quotes_sym_r_lbl   = NULL;
+static lv_obj_t *g_quotes_price_l     = NULL;
+static lv_obj_t *g_quotes_price_r     = NULL;
+static lv_obj_t *g_quotes_chg_l       = NULL;
+static lv_obj_t *g_quotes_chg_r       = NULL;
+static lv_obj_t *g_quotes_status      = NULL;   /* small status bar */
 /* Floating status icons on this tile, mirroring the clock tile. */
-lv_obj_t *g_quotes_wifi_icon   = NULL;
-lv_obj_t *g_quotes_bt_icon     = NULL;
-lv_obj_t *g_quotes_clock_lbl   = NULL;
+static lv_obj_t *g_quotes_wifi_icon   = NULL;
+static lv_obj_t *g_quotes_bt_icon     = NULL;
+static lv_obj_t *g_quotes_clock_lbl   = NULL;
+
+void quotes_cleanup(void)
+{
+    g_quotes_tile      = NULL;
+    g_quotes_name_l    = NULL;
+    g_quotes_name_r    = NULL;
+    g_quotes_sym_l_lbl = NULL;
+    g_quotes_sym_r_lbl = NULL;
+    g_quotes_price_l   = NULL;
+    g_quotes_price_r   = NULL;
+    g_quotes_chg_l     = NULL;
+    g_quotes_chg_r     = NULL;
+    g_quotes_status    = NULL;
+    g_quotes_wifi_icon = NULL;
+    g_quotes_bt_icon   = NULL;
+    g_quotes_clock_lbl = NULL;
+}
 
 static TaskHandle_t  s_quotes_task    = NULL;
 static volatile bool s_quotes_kick    = false;
@@ -256,7 +273,7 @@ static void quotes_task(void *arg)
        Waiting up to ~12s for the IP costs nothing because nothing else
        is consuming this task. */
     for (int i = 0; i < 120; i++) {
-        if (g_wifi_connected) break;
+        if (wifi_is_connected()) break;
         vTaskDelay(pdMS_TO_TICKS(100));
     }
     /* Plus a small extra so radio_engine_warm_at_boot has time to finish
@@ -322,9 +339,11 @@ static void quotes_status_timer_cb(lv_timer_t *t)
     /* Wi-Fi/BT colors mirror what the clock tile shows via
        status_timer_cb (which reads the same globals). */
     if (g_quotes_wifi_icon) {
-        lv_color_t c = g_wifi_connected
+        char ssid_buf[33];
+        wifi_get_curr_ssid(ssid_buf, sizeof(ssid_buf));
+        lv_color_t c = wifi_is_connected()
             ? lv_color_make(0x80, 0xff, 0x80)
-            : (g_wifi_curr_ssid[0]
+            : (ssid_buf[0]
                 ? lv_color_make(0xff, 0xa0, 0x40)
                 : lv_color_make(0x40, 0x40, 0x40));
         lv_obj_set_style_text_color(g_quotes_wifi_icon, c, 0);
@@ -342,7 +361,7 @@ static void build_quotes_pane(lv_obj_t *parent, int x, int w,
 {
     lv_obj_t *pane = lv_obj_create(parent);
     lv_obj_remove_style_all(pane);
-    lv_obj_set_size(pane, w, canvas_h);
+    lv_obj_set_size(pane, w, disp_driver_get_canvas_h());
     lv_obj_set_pos(pane, x, 0);
     lv_obj_set_style_bg_color(pane, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(pane, LV_OPA_COVER, 0);
@@ -399,18 +418,19 @@ void build_quotes_tile(lv_obj_t *parent)
     lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_pad_all(parent, 0, 0);
 
-    int half = canvas_w / 2;
+    int cw = disp_driver_get_canvas_w();
+    int half = cw / 2;
     build_quotes_pane(parent, 0, half,
                       &g_quotes_name_l, &g_quotes_sym_l_lbl,
                       &g_quotes_price_l, &g_quotes_chg_l);
-    build_quotes_pane(parent, half, canvas_w - half,
+    build_quotes_pane(parent, half, cw - half,
                       &g_quotes_name_r, &g_quotes_sym_r_lbl,
                       &g_quotes_price_r, &g_quotes_chg_r);
 
     /* Thin vertical divider. */
     lv_obj_t *div = lv_obj_create(parent);
     lv_obj_remove_style_all(div);
-    lv_obj_set_size(div, 1, canvas_h - 20);
+    lv_obj_set_size(div, 1, disp_driver_get_canvas_h() - 20);
     lv_obj_set_pos(div, half, 10);
     lv_obj_set_style_bg_color(div, lv_color_make(0x30, 0x30, 0x40), 0);
     lv_obj_set_style_bg_opa(div, LV_OPA_COVER, 0);

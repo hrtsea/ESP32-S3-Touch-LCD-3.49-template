@@ -21,6 +21,9 @@
 #include "user_config.h"
 #include "i2c_bsp.h"
 
+#include "disp_driver.h"
+#include "event_bus.h"
+
 static const char *TAG = "disp_driver";
 
 #define LCD_BIT_PER_PIXEL (16)
@@ -397,11 +400,6 @@ static void lvgl_init(esp_lcd_panel_handle_t panel)
     lv_disp_drv_register(&disp_drv);
     s_disp_drv = &disp_drv;
 
-    lv_disp_t *disp = lv_disp_get_default();
-    if (disp && disp->refr_timer) {
-        lv_timer_set_period(disp->refr_timer, 5);
-    }
-
     esp_timer_create_args_t tick_args = {};
     tick_args.callback = &lvgl_tick_inc_cb;
     tick_args.name = "lvgl_tick";
@@ -464,4 +462,67 @@ int webui_snapshot_fb(void *out, size_t cap)
     memcpy(out, src, need);
     lvgl_unlock();
     return (int)need;
+}
+
+int disp_driver_get_rot_state(void)
+{
+    return g_rot_state;
+}
+
+void disp_driver_set_rot_state(int state)
+{
+    if (g_rot_state != state) {
+        g_rot_state = state;
+        int s = state;
+        event_bus_publish(EVENT_ROTATION_CHANGED, &s, sizeof(s));
+    }
+}
+
+int disp_driver_get_canvas_w(void)
+{
+    return g_canvas_w;
+}
+
+int disp_driver_get_canvas_h(void)
+{
+    return g_canvas_h;
+}
+
+void disp_driver_get_canvas_size(int *w, int *h)
+{
+    if (w) *w = g_canvas_w;
+    if (h) *h = g_canvas_h;
+}
+
+void disp_driver_set_canvas_size(int w, int h)
+{
+    g_canvas_w = w;
+    g_canvas_h = h;
+}
+
+lv_obj_t *disp_driver_get_fps_label(void)
+{
+    return g_fps_label;
+}
+
+void disp_driver_set_fps_label(lv_obj_t *label)
+{
+    g_fps_label = label;
+}
+
+uint32_t disp_driver_get_fps_frames(void)
+{
+    return g_fps_frame_count;
+}
+
+void disp_driver_inc_fps_frames(void)
+{
+    g_fps_frame_count++;
+}
+
+uint32_t disp_driver_get_and_reset_fps_frames(void)
+{
+    uint32_t val = g_fps_frame_count;
+    g_fps_frame_count = 0;
+    return val;
 }

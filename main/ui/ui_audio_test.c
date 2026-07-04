@@ -262,7 +262,7 @@ static void audio_test_worker(void *arg)
             if (play_dev) {
                 while (g_state == AUDIO_TEST_PLAYING && !g_stop_req && offset < g_rec_bytes) {
                     uint32_t sz = (offset + chunk > g_rec_bytes) ? (g_rec_bytes - offset) : chunk;
-                    esp_codec_dev_write(play_dev, g_rec_buffer + offset, sz);
+                    esp_codec_dev_write(play_dev, (void *)(g_rec_buffer + offset), sz);
                     offset += sz;
                 }
             }
@@ -302,7 +302,7 @@ static void audio_test_worker(void *arg)
                 ESP_LOGI(TAG, "playing %u bytes of PCM", (unsigned)total);
                 while (bytes_write < total && !g_stop_req) {
                     size_t sz = (bytes_write + chunk > total) ? (total - bytes_write) : chunk;
-                    esp_codec_dev_write(play_dev, data_ptr + bytes_write, sz);
+                    esp_codec_dev_write(play_dev, (void *)(data_ptr + bytes_write), sz);
                     bytes_write += sz;
                 }
                 ESP_LOGI(TAG, "music playback done, %u bytes", (unsigned)bytes_write);
@@ -349,7 +349,7 @@ void build_audio_test_tile(lv_obj_t *parent)
     lv_obj_align(g_status_en_lbl, LV_ALIGN_TOP_MID, 0, 54);
 
     lv_obj_t *btn_row = lv_obj_create(parent);
-    lv_obj_set_size(btn_row, canvas_w - 32, 56);
+    lv_obj_set_size(btn_row, disp_driver_get_canvas_w() - 32, 56);
     lv_obj_set_style_bg_opa(btn_row, 0, 0);
     lv_obj_set_style_border_width(btn_row, 0, 0);
     lv_obj_set_style_pad_all(btn_row, 0, 0);

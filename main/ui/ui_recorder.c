@@ -250,7 +250,7 @@ static void rec_list_open_cb(lv_event_t *e)
        Top layer is above the tileview in the input dispatch order. */
     g_rec_list_overlay = lv_obj_create(lv_layer_top());
     lv_obj_remove_style_all(g_rec_list_overlay);
-    lv_obj_set_size(g_rec_list_overlay, canvas_w, canvas_h);
+    lv_obj_set_size(g_rec_list_overlay, disp_driver_get_canvas_w(), disp_driver_get_canvas_h());
     lv_obj_align(g_rec_list_overlay, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_obj_set_style_bg_color(g_rec_list_overlay, lv_color_make(0x10, 0x10, 0x18), 0);
     lv_obj_set_style_bg_opa(g_rec_list_overlay, LV_OPA_COVER, 0);
@@ -276,7 +276,7 @@ static void rec_list_open_cb(lv_event_t *e)
     lv_obj_set_style_text_font(g_rec_overlay_status, &lv_font_montserrat_16, 0);
     lv_obj_align(g_rec_overlay_status, LV_ALIGN_TOP_LEFT, 64, 2);
     lv_label_set_long_mode(g_rec_overlay_status, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_obj_set_width(g_rec_overlay_status, canvas_w - 70);
+    lv_obj_set_width(g_rec_overlay_status, disp_driver_get_canvas_w() - 70);
 
     g_rec_list = lv_obj_create(g_rec_list_overlay);
     lv_obj_remove_style_all(g_rec_list);

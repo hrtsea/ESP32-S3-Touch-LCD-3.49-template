@@ -46,6 +46,7 @@
 #include "hw_init.h"
 #include "system_monitor.h"
 #include "ui_common.h"
+#include "ui_state.h"
 #include "ui_main.h"
 #include "ui_radio.h"
 #include "ui_clock.h"
@@ -66,9 +67,6 @@ extern void clock_bg_apply(void);
 extern void quotes_kick(void);
 extern void wifi_connect(const char *ssid, const char *pass);
 
-extern int g_dim_state;
-extern uint32_t g_last_activity_ms;
-
 static void on_clock_layout_changed(void)
 {
     if (lvgl_lock(50)) { clock_apply_layout(); lvgl_unlock(); }
@@ -86,8 +84,8 @@ static void on_quotes_changed(void)
 
 static void on_backlight_changed(uint8_t brightness)
 {
-    g_dim_state = 0;
-    g_last_activity_ms = lv_tick_get();
+    ui_state_set_dim_state(0);
+    ui_state_set_last_activity_ms(lv_tick_get());
     backlight_apply(brightness);
 }
 
@@ -120,7 +118,9 @@ static void network_init(void)
 
 static void ui_init(void)
 {
-    show_main_ui(g_status_text);
+    char buf[256];
+    ui_state_get_status_text(buf, sizeof(buf));
+    show_main_ui(buf);
     ESP_LOGI(TAG, "===== All drivers initialized =====");
 }
 

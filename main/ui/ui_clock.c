@@ -19,19 +19,61 @@ extern const lv_font_t font_jbmono_64;
 extern const lv_font_t font_jbmono_96;
 
 /* Tileview-based UI: hello | clock (start) | sunmap. Swipe horizontally. */
-lv_obj_t  *g_clock_time_label = NULL;
-lv_obj_t  *g_clock_ms_label   = NULL;
-lv_obj_t  *g_clock_date_label = NULL;
-lv_obj_t  *g_clock_tz_label   = NULL;
-lv_obj_t  *g_sunmap_canvas    = NULL;
-lv_color_t *g_sunmap_buf      = NULL;
-int        g_sunmap_w         = 0;
-int        g_sunmap_h         = 0;
-lv_timer_t *g_clock_timer     = NULL;
-lv_timer_t *g_clock_ms_timer  = NULL;
-lv_timer_t *g_sunmap_timer    = NULL;
-lv_obj_t  *g_clock_wifi_icon  = NULL;
-lv_obj_t  *g_clock_bt_icon    = NULL;
+static lv_obj_t  *g_clock_time_label = NULL;
+static lv_obj_t  *g_clock_ms_label   = NULL;
+static lv_obj_t  *g_clock_date_label = NULL;
+static lv_obj_t  *g_clock_tz_label   = NULL;
+static lv_obj_t  *g_sunmap_canvas    = NULL;
+static lv_color_t *g_sunmap_buf      = NULL;
+static int        g_sunmap_w         = 0;
+static int        g_sunmap_h         = 0;
+static lv_timer_t *g_clock_timer     = NULL;
+static lv_timer_t *g_clock_ms_timer  = NULL;
+static lv_timer_t *g_sunmap_timer    = NULL;
+static lv_obj_t  *g_clock_wifi_icon  = NULL;
+static lv_obj_t  *g_clock_bt_icon    = NULL;
+
+void clock_cleanup(void)
+{
+    if (g_clock_timer)     { lv_timer_del(g_clock_timer);     g_clock_timer     = NULL; }
+    if (g_clock_ms_timer)  { lv_timer_del(g_clock_ms_timer);  g_clock_ms_timer  = NULL; }
+    if (g_sunmap_timer)    { lv_timer_del(g_sunmap_timer);    g_sunmap_timer    = NULL; }
+    if (g_sunmap_buf)      { lv_mem_free(g_sunmap_buf);       g_sunmap_buf      = NULL; }
+    g_clock_time_label = NULL;
+    g_clock_ms_label   = NULL;
+    g_clock_date_label = NULL;
+    g_clock_tz_label   = NULL;
+    g_sunmap_canvas    = NULL;
+    g_sunmap_w    = 0;
+    g_sunmap_h    = 0;
+    g_clock_wifi_icon = NULL;
+    g_clock_bt_icon   = NULL;
+}
+
+void clock_ms_timer_pause(void)
+{
+    if (g_clock_ms_timer) lv_timer_pause(g_clock_ms_timer);
+}
+
+void clock_ms_timer_resume(void)
+{
+    if (g_clock_ms_timer) lv_timer_resume(g_clock_ms_timer);
+}
+
+void clock_update_tz_label(void)
+{
+    if (g_clock_tz_label) lv_label_set_text(g_clock_tz_label, tz_current_city_name());
+}
+
+void clock_set_wifi_icon_color(lv_color_t color)
+{
+    if (g_clock_wifi_icon) lv_obj_set_style_text_color(g_clock_wifi_icon, color, 0);
+}
+
+void clock_set_bt_icon_color(lv_color_t color)
+{
+    if (g_clock_bt_icon) lv_obj_set_style_text_color(g_clock_bt_icon, color, 0);
+}
 
 /* ---------------------- Clock tile ---------------------- */
 
@@ -226,8 +268,8 @@ void build_clock_tile(lv_obj_t *parent)
     /* Daylight map: stretch to fill the full screen as the clock
        background. Aspect may not match 2:1 (real Earth) -- we accept
        the squash because the map's job here is mostly atmospheric. */
-    int W = canvas_w;
-    int H = canvas_h;
+    int W = disp_driver_get_canvas_w();
+    int H = disp_driver_get_canvas_h();
     g_sunmap_w = W;
     g_sunmap_h = H;
     if (g_sunmap_buf) { lv_mem_free(g_sunmap_buf); g_sunmap_buf = NULL; }

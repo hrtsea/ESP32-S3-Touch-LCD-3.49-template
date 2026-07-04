@@ -15,21 +15,12 @@ void clock_update_cb(lv_timer_t *t);
 void sunmap_redraw(void);
 void tz_apply_current(void);
 const char *tz_current_city_name(void);
-
-/* Clock tile widget pointers (accessed by ui_main for rotate cleanup) */
-extern lv_obj_t *g_clock_time_label;
-extern lv_obj_t *g_clock_ms_label;
-extern lv_obj_t *g_clock_date_label;
-extern lv_obj_t *g_clock_tz_label;
-extern lv_obj_t *g_clock_wifi_icon;
-extern lv_obj_t *g_clock_bt_icon;
-extern lv_obj_t *g_sunmap_canvas;
-extern lv_color_t *g_sunmap_buf;
-extern int g_sunmap_w;
-extern int g_sunmap_h;
-extern lv_timer_t *g_clock_timer;
-extern lv_timer_t *g_clock_ms_timer;
-extern lv_timer_t *g_sunmap_timer;
+void clock_cleanup(void);
+void clock_ms_timer_pause(void);
+void clock_ms_timer_resume(void);
+void clock_update_tz_label(void);
+void clock_set_wifi_icon_color(lv_color_t color);
+void clock_set_bt_icon_color(lv_color_t color);
 
 #ifdef __cplusplus
 }

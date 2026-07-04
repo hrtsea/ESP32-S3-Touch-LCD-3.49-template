@@ -1,4 +1,5 @@
 #include "ui_settings.h"
+#include "ui_state.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -33,15 +34,13 @@ static void set_render_wifi_list(void);
    so the same gesture that pops a page doesn't also pick the item that
    slides in under the finger. Stamped by the back-button click handler
    below; tested by every action callback that mutates state. */
-uint32_t g_menu_input_block_until_ms = 0;
-uint32_t g_last_scroll_ms = 0;
 #define MENU_BACK_DEBOUNCE_MS  350
 #define SCROLL_CLICK_SUPPRESS_MS 250
 
 /* Settings tile widgets (rebuilt on rotate). */
 lv_obj_t  *g_set_wifi_status = NULL;
 lv_obj_t  *g_set_wifi_list   = NULL;
-static int g_set_wifi_sel    = -1;  /* index into g_wifi_scan or -1 */
+static int g_set_wifi_sel    = -1;  /* index into scan list or -1 */
 lv_obj_t  *g_set_kb_overlay  = NULL;
 lv_obj_t  *g_set_kb_ta       = NULL;
 static char g_set_kb_ssid[33] = {0};
@@ -67,7 +66,7 @@ static void kb_close(void)
         g_set_kb_overlay = NULL;
         g_set_kb_ta      = NULL;
     }
-    if (g_clock_ms_timer) lv_timer_resume(g_clock_ms_timer);
+    clock_ms_timer_resume();
 }
 
 static void kb_event_cb(lv_event_t *e)
@@ -192,12 +191,12 @@ static void kb_open_for_ssid(const char *ssid)
     /* Pause the 60 Hz ms-clock while typing -- otherwise every
        keystroke contends with the ms label invalidation and the
        extra compositor passes can blow the LVGL task stack. */
-    if (g_clock_ms_timer) lv_timer_pause(g_clock_ms_timer);
+    clock_ms_timer_pause();
 
     lv_obj_t *scr = lv_scr_act();
     g_set_kb_overlay = lv_obj_create(scr);
     lv_obj_remove_style_all(g_set_kb_overlay);
-    lv_obj_set_size(g_set_kb_overlay, canvas_w, canvas_h);
+    lv_obj_set_size(g_set_kb_overlay, disp_driver_get_canvas_w(), disp_driver_get_canvas_h());
     lv_obj_set_style_bg_color(g_set_kb_overlay, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(g_set_kb_overlay, LV_OPA_90, 0);
     lv_obj_clear_flag(g_set_kb_overlay, LV_OBJ_FLAG_SCROLLABLE);
@@ -212,7 +211,7 @@ static void kb_open_for_ssid(const char *ssid)
     char ph[64];
     snprintf(ph, sizeof(ph), tr(I18N_WIFI_PASS_FOR), ssid);
     lv_textarea_set_placeholder_text(g_set_kb_ta, ph);
-    lv_obj_set_size(g_set_kb_ta, canvas_w - EYE_W, TA_H);
+    lv_obj_set_size(g_set_kb_ta, disp_driver_get_canvas_w() - EYE_W, TA_H);
     lv_obj_align(g_set_kb_ta, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_obj_set_style_text_font(g_set_kb_ta, i18n_font(), 0);
     lv_obj_set_style_pad_top(g_set_kb_ta, 1, 0);
@@ -238,8 +237,8 @@ static void kb_open_for_ssid(const char *ssid)
     lv_obj_add_event_cb(eye, kb_eye_toggle_cb, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *kb = lv_keyboard_create(g_set_kb_overlay);
-    lv_obj_set_width(kb, canvas_w);
-    lv_obj_set_height(kb, canvas_h - TA_H);
+    lv_obj_set_width(kb, disp_driver_get_canvas_w());
+    lv_obj_set_height(kb, disp_driver_get_canvas_h() - TA_H);
     lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, 0);
     /* Tight padding inside the keyboard so each row gets more vertical
        space; gives ~30 px tall keys on the 172 px canvas. */
@@ -259,9 +258,9 @@ static void kb_open_for_ssid(const char *ssid)
    Connect button uses g_set_wifi_sel to drive the actual association. */
 static void wifi_ap_clicked_cb(lv_event_t *e)
 {
-    if (menu_input_blocked()) return;
+    if (ui_state_menu_input_blocked()) return;
     int idx = (int)(intptr_t)lv_event_get_user_data(e);
-    if (idx < 0 || idx >= (int)g_wifi_scan_n) return;
+    if (idx < 0 || idx >= (int)wifi_get_scan_count()) return;
     g_set_wifi_sel = idx;
     set_render_wifi_list();
 }
@@ -271,10 +270,11 @@ static void wifi_ap_clicked_cb(lv_event_t *e)
 static void wifi_connect_selected_cb(lv_event_t *e)
 {
     (void)e;
-    if (menu_input_blocked()) return;
+    if (ui_state_menu_input_blocked()) return;
     int idx = g_set_wifi_sel;
-    if (idx < 0 || idx >= (int)g_wifi_scan_n) return;
-    const wifi_scan_ap_t *ap = &g_wifi_scan[idx];
+    if (idx < 0 || idx >= (int)wifi_get_scan_count()) return;
+    const wifi_scan_ap_t *ap = wifi_get_scan_ap((uint16_t)idx);
+    if (!ap) return;
     if (ap->auth == 0) {
         app_cfg_save_ssid_pass(ap->ssid, "");
         strncpy(g_cfg.last_ssid, ap->ssid, sizeof(g_cfg.last_ssid) - 1);
@@ -302,14 +302,17 @@ static void wifi_forget_selected_cb(lv_event_t *e)
 {
     (void)e;
     int idx = g_set_wifi_sel;
-    if (idx < 0 || idx >= (int)g_wifi_scan_n) return;
-    const wifi_scan_ap_t *ap = &g_wifi_scan[idx];
+    if (idx < 0 || idx >= (int)wifi_get_scan_count()) return;
+    const wifi_scan_ap_t *ap = wifi_get_scan_ap((uint16_t)idx);
+    if (!ap) return;
     /* nvs_erase_key on the per-SSID record + the auto-connect ssid if
        it points here. */
     nvs_handle_t h;
     if (nvs_open(NVS_NS_WIFI, NVS_READWRITE, &h) == ESP_OK) {
         char key[16] = {0};
-        strncpy(key, ap->ssid, sizeof(key) - 1);
+        size_t copy_len = strlen(ap->ssid);
+        if (copy_len > sizeof(key) - 1) copy_len = sizeof(key) - 1;
+        memcpy(key, ap->ssid, copy_len);
         nvs_erase_key(h, key);
         nvs_commit(h);
         nvs_close(h);
@@ -328,21 +331,26 @@ static void set_render_wifi_list(void)
 {
     if (!g_set_wifi_list) return;
     lv_obj_clean(g_set_wifi_list);
-    if (g_wifi_scan_n == 0) {
+    uint16_t scan_n = wifi_get_scan_count();
+    if (scan_n == 0) {
         lv_obj_t *empty = lv_label_create(g_set_wifi_list);
         lv_label_set_text(empty, tr(I18N_WIFI_NO_APS));
         lv_obj_set_style_text_color(empty, lv_color_make(0xa0, 0xa0, 0xa0), 0);
         lv_obj_set_style_text_font(empty, i18n_font(), 0);
         return;
     }
-    for (int i = 0; i < g_wifi_scan_n; i++) {
-        const wifi_scan_ap_t *ap = &g_wifi_scan[i];
+    char curr_ssid[33];
+    wifi_get_curr_ssid(curr_ssid, sizeof(curr_ssid));
+    bool connected = wifi_is_connected();
+    for (int i = 0; i < (int)scan_n; i++) {
+        const wifi_scan_ap_t *ap = wifi_get_scan_ap((uint16_t)i);
+        if (!ap) continue;
         lv_obj_t *btn = lv_btn_create(g_set_wifi_list);
         lv_obj_set_width(btn, lv_pct(100));
         lv_obj_set_height(btn, 22);
-        bool is_connected = g_wifi_connected &&
-                            strncmp(ap->ssid, g_wifi_curr_ssid,
-                                    sizeof(g_wifi_curr_ssid)) == 0;
+        bool is_connected = connected &&
+                            strncmp(ap->ssid, curr_ssid,
+                                    sizeof(curr_ssid)) == 0;
         bool is_selected  = (i == g_set_wifi_sel);
         char dummy_pass[2];
         bool is_saved = app_cfg_get_ssid_pass(ap->ssid, dummy_pass, sizeof(dummy_pass));
@@ -376,7 +384,7 @@ static void set_render_wifi_list(void)
 static void scan_refresh_cb(lv_timer_t *tt)
 {
     if (g_set_wifi_status) {
-        lv_label_set_text_fmt(g_set_wifi_status, "Found %u networks", (unsigned)g_wifi_scan_n);
+        lv_label_set_text_fmt(g_set_wifi_status, "Found %u networks", (unsigned)wifi_get_scan_count());
     }
     set_render_wifi_list();
     lv_timer_del(tt);
@@ -392,21 +400,6 @@ static void scan_btn_cb(lv_event_t *e)
     (void)t;
 }
 
-bool menu_input_blocked(void)
-{
-    uint32_t now = lv_tick_get();
-    /* Block if we're inside the back-press debounce window. */
-    if ((int32_t)(g_menu_input_block_until_ms - now) > 0) return true;
-    /* iOS/Android-style: also block if the last scroll motion was within
-       SCROLL_CLICK_SUPPRESS_MS. Stops a fling-then-release from firing a
-       click on the row the finger happened to lift on. */
-    if (g_last_scroll_ms != 0 &&
-        lv_tick_elaps(g_last_scroll_ms) < SCROLL_CLICK_SUPPRESS_MS) {
-        return true;
-    }
-    return false;
-}
-
 static void menu_shield_drop_cb(lv_timer_t *t)
 {
     if (g_menu_shield) {
@@ -419,13 +412,13 @@ static void menu_shield_drop_cb(lv_timer_t *t)
 static void menu_back_clicked_cb(lv_event_t *e)
 {
     (void)e;
-    g_menu_input_block_until_ms = lv_tick_get() + MENU_BACK_DEBOUNCE_MS;
+    ui_state_set_menu_block_until_ms(lv_tick_get() + MENU_BACK_DEBOUNCE_MS);
     if (g_menu_shield) return;  /* already shielded */
     /* Parent to the active screen so the shield covers the menu and any
        header/back-button that might still be sitting under the finger. */
     g_menu_shield = lv_obj_create(lv_scr_act());
     lv_obj_remove_style_all(g_menu_shield);
-    lv_obj_set_size(g_menu_shield, canvas_w, canvas_h);
+    lv_obj_set_size(g_menu_shield, disp_driver_get_canvas_w(), disp_driver_get_canvas_h());
     lv_obj_align(g_menu_shield, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_bg_opa(g_menu_shield, LV_OPA_TRANSP, 0);
     lv_obj_clear_flag(g_menu_shield, LV_OBJ_FLAG_SCROLLABLE);
@@ -438,14 +431,14 @@ static void menu_back_clicked_cb(lv_event_t *e)
 
 static void tz_city_pick_cb(lv_event_t *e)
 {
-    if (menu_input_blocked()) return;
+    if (ui_state_menu_input_blocked()) return;
     /* user_data carries the city index packed into a void*. */
     uintptr_t idx = (uintptr_t)lv_event_get_user_data(e);
     if (idx >= TZ_CITY_COUNT) return;
     g_cfg.tz_idx = (uint16_t)idx;
     tz_apply_current();
     app_cfg_save();
-    if (g_clock_tz_label) lv_label_set_text(g_clock_tz_label, tz_current_city_name());
+    clock_update_tz_label();
     /* Force an immediate clock-face refresh so the user sees the change. */
     clock_update_cb(NULL);
 }
@@ -457,7 +450,7 @@ static void bri_slider_cb(lv_event_t *e)
     if (v < 0) v = 0;
     if (v > 255) v = 255;
     g_cfg.brightness = (uint8_t)v;
-    if (g_dim_state == 0) backlight_apply(g_cfg.brightness);
+    if (ui_state_get_dim_state() == 0) backlight_apply(g_cfg.brightness);
     if (lv_event_get_code(e) == LV_EVENT_RELEASED) app_cfg_save();
 }
 
@@ -525,9 +518,10 @@ static void show_fps_cb(lv_event_t *e)
     lv_obj_t *s = lv_event_get_target(e);
     g_cfg.show_fps = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
     app_cfg_save();
-    if (fps_label) {
-        if (g_cfg.show_fps) lv_obj_clear_flag(fps_label, LV_OBJ_FLAG_HIDDEN);
-        else                lv_obj_add_flag(fps_label, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t *fps_lbl = disp_driver_get_fps_label();
+    if (fps_lbl) {
+        if (g_cfg.show_fps) lv_obj_clear_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
+        else                lv_obj_add_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
     }
 }
 
@@ -591,7 +585,7 @@ static void wifi_ac_cb(lv_event_t *e)
 static void reset_confirm_cb(lv_event_t *e)
 {
     (void)e;
-    if (menu_input_blocked()) return;
+    if (ui_state_menu_input_blocked()) return;
     nvs_handle_t h;
     if (nvs_open(NVS_NS_CFG, NVS_READWRITE, &h) == ESP_OK) {
         nvs_erase_all(h);
@@ -668,8 +662,12 @@ static lv_obj_t *build_subpage_wifi(lv_obj_t *menu)
     g_set_wifi_status = lv_label_create(side);
     lv_label_set_long_mode(g_set_wifi_status, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(g_set_wifi_status, lv_pct(100));
-    lv_label_set_text_fmt(g_set_wifi_status, "%s",
-                          g_wifi_connected ? g_wifi_curr_ssid : tr(I18N_WIFI_NOT_CONN));
+    {
+        char ssid_buf[33];
+        wifi_get_curr_ssid(ssid_buf, sizeof(ssid_buf));
+        lv_label_set_text_fmt(g_set_wifi_status, "%s",
+                              wifi_is_connected() ? ssid_buf : tr(I18N_WIFI_NOT_CONN));
+    }
     lv_obj_set_style_text_color(g_set_wifi_status, lv_color_make(0xc0, 0xc0, 0xc0), 0);
     lv_obj_set_style_text_font(g_set_wifi_status, i18n_font(), 0);
 
@@ -844,7 +842,7 @@ static lv_obj_t *add_toggle_row(lv_obj_t *parent, const char *label,
 
 static void lang_pick_cb(lv_event_t *e)
 {
-    if (menu_input_blocked()) return;
+    if (ui_state_menu_input_blocked()) return;
     int idx = (int)(intptr_t)lv_event_get_user_data(e);
     ESP_LOGI(TAG, "lang_pick: %d", idx);
     i18n_set_lang(idx);
@@ -1029,7 +1027,7 @@ void sd_format_worker(void *arg)
 static void sd_format_cb(lv_event_t *e)
 {
     (void)e;
-    if (menu_input_blocked()) return;
+    if (ui_state_menu_input_blocked()) return;
     if (g_storage_btn_lbl) lv_label_set_text(g_storage_btn_lbl, "Formatting...");
     /* Format on a worker so the LVGL task keeps drawing. 64GB FAT32
        format takes ~30-60s on this controller. */

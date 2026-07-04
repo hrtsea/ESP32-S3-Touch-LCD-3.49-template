@@ -13,6 +13,7 @@
 #include "app_cfg.h"
 #include "sntp_manager.h"
 #include "wifi_manager.h"
+#include "event_bus.h"
 
 static const char *TAG = "wifi_manager";
 
@@ -90,6 +91,8 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
                          (unsigned)g_wifi_last_reason);
                 g_wifi_connected = false;
                 if (g_wifi_status_cb) g_wifi_status_cb(false, NULL);
+                uint8_t reason = g_wifi_last_reason;
+                event_bus_publish(EVENT_WIFI_DISCONNECTED, &reason, sizeof(reason));
                 g_wifi_fail_count++;
                 if (g_wifi_curr_ssid[0] && !g_wifi_scanning &&
                     g_wifi_fail_count < WIFI_FAILS_BEFORE_ROAM) {
@@ -127,8 +130,9 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
                 }
                 ESP_LOGI(TAG, "wifi: scan done, n=%u", (unsigned)g_wifi_scan_n);
                 g_wifi_scanning = false;
+                uint16_t scan_n = g_wifi_scan_n;
+                event_bus_publish(EVENT_WIFI_SCAN_DONE, &scan_n, sizeof(scan_n));
                 if (g_wifi_roaming_scan) {
-                    g_wifi_roaming_scan = false;
                     int best_i = -1;
                     int best_rssi = -127;
                     for (int i = 0; i < g_wifi_scan_n; i++) {
@@ -164,11 +168,12 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
         ip_event_got_ip_t *ev = (ip_event_got_ip_t *)data;
         ESP_LOGI(TAG, "wifi: got IP " IPSTR, IP2STR(&ev->ip_info.ip));
         sntp_manager_start();
+        char ip_buf[40];
+        snprintf(ip_buf, sizeof(ip_buf), IPSTR, IP2STR(&ev->ip_info.ip));
         if (g_wifi_status_cb) {
-            char buf[40];
-            snprintf(buf, sizeof(buf), IPSTR, IP2STR(&ev->ip_info.ip));
-            g_wifi_status_cb(true, buf);
+            g_wifi_status_cb(true, ip_buf);
         }
+        event_bus_publish(EVENT_WIFI_CONNECTED, ip_buf, strlen(ip_buf) + 1);
     }
 }
 
@@ -229,6 +234,7 @@ void wifi_start_scan(void)
 {
     wifi_manager_init();
     g_wifi_scanning = true;
+    event_bus_publish(EVENT_WIFI_SCAN_STARTED, NULL, 0);
     esp_wifi_disconnect();
     wifi_scan_config_t sc = {};
     sc.show_hidden = false;
@@ -286,4 +292,48 @@ void wifi_connect(const char *ssid, const char *pass)
     ESP_LOGI(TAG, "wifi: connect %s pass_len=%u auth=%d -> %s",
              ssid, (unsigned)(pass ? strlen(pass) : 0),
              (int)wc.sta.threshold.authmode, esp_err_to_name(er));
+}
+
+bool wifi_is_connected(void)
+{
+    return g_wifi_connected;
+}
+
+void wifi_get_curr_ssid(char *buf, size_t buf_len)
+{
+    if (buf && buf_len > 0) {
+        strncpy(buf, g_wifi_curr_ssid, buf_len - 1);
+        buf[buf_len - 1] = '\0';
+    }
+}
+
+uint8_t wifi_get_last_reason(void)
+{
+    return g_wifi_last_reason;
+}
+
+int8_t wifi_get_last_rssi(void)
+{
+    return g_wifi_last_rssi;
+}
+
+uint32_t wifi_get_connect_started_ms(void)
+{
+    return g_wifi_connect_started_ms;
+}
+
+bool wifi_is_scanning(void)
+{
+    return g_wifi_scanning;
+}
+
+uint16_t wifi_get_scan_count(void)
+{
+    return g_wifi_scan_n;
+}
+
+const wifi_scan_ap_t *wifi_get_scan_ap(uint16_t idx)
+{
+    if (idx >= g_wifi_scan_n) return NULL;
+    return &g_wifi_scan[idx];
 }

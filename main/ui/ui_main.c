@@ -43,6 +43,8 @@ char           g_status_text[256];          /* 状态文本缓存，用于旋转
 
 uint32_t       g_last_activity_ms = 0;       /* 最后活动时间戳（用于自动调光） */
 int            g_dim_state = 0;             /* 调光状态（0=正常, 1=变暗, 2=关闭） */
+uint32_t       g_last_scroll_ms = 0;         /* 最后滚动时间戳 */
+uint32_t       g_menu_input_block_until_ms = 0; /* 菜单输入阻塞截止时间 */
 
 static lv_timer_t *g_dim_timer = NULL;      /* 自动调光定时器（1Hz） */
 
@@ -107,46 +109,42 @@ static void status_timer_cb(lv_timer_t *t)
 {
     (void)t;
 
+    char ssid_buf[33];
+    wifi_get_curr_ssid(ssid_buf, sizeof(ssid_buf));
+
     /* 更新时钟页面的WiFi图标颜色 */
-    if (g_clock_wifi_icon) {
-        if (g_wifi_connected) {
-            lv_obj_set_style_text_color(g_clock_wifi_icon,
-                                         lv_color_make(0x80, 0xff, 0x80), 0);
-        } else if (g_wifi_curr_ssid[0]) {
-            lv_obj_set_style_text_color(g_clock_wifi_icon,
-                                         lv_color_make(0xff, 0xa0, 0x40), 0);
-        } else {
-            lv_obj_set_style_text_color(g_clock_wifi_icon,
-                                         lv_color_make(0x40, 0x40, 0x40), 0);
-        }
+    if (wifi_is_connected()) {
+        clock_set_wifi_icon_color(lv_color_make(0x80, 0xff, 0x80));
+    } else if (ssid_buf[0]) {
+        clock_set_wifi_icon_color(lv_color_make(0xff, 0xa0, 0x40));
+    } else {
+        clock_set_wifi_icon_color(lv_color_make(0x40, 0x40, 0x40));
     }
 
     /* 更新时钟页面的BT图标颜色（暂时禁用，显示为灰色） */
-    if (g_clock_bt_icon) {
-        lv_obj_set_style_text_color(g_clock_bt_icon,
-                                     lv_color_make(0x40, 0x40, 0x40), 0);
-    }
+    clock_set_bt_icon_color(lv_color_make(0x40, 0x40, 0x40));
 
     /* 更新设置页面的WiFi状态文本 */
     if (g_set_wifi_status) {
-        if (g_wifi_connected) {
+        if (wifi_is_connected()) {
             lv_label_set_text_fmt(g_set_wifi_status, LV_SYMBOL_OK " %s",
-                                  g_wifi_curr_ssid);
-        } else if (g_wifi_curr_ssid[0]) {
-            uint32_t elapsed = lv_tick_elaps(g_wifi_connect_started_ms);
-            if (g_wifi_last_reason) {
+                                  ssid_buf);
+        } else if (ssid_buf[0]) {
+            uint32_t elapsed = lv_tick_elaps(wifi_get_connect_started_ms());
+            uint8_t reason = wifi_get_last_reason();
+            if (reason) {
                 lv_label_set_text_fmt(g_set_wifi_status,
                                       LV_SYMBOL_WARNING " %s: %s",
-                                      g_wifi_curr_ssid,
-                                      wifi_reason_str(g_wifi_last_reason));
+                                      ssid_buf,
+                                      wifi_reason_str(reason));
             } else if (elapsed > 15000) {
                 lv_label_set_text_fmt(g_set_wifi_status,
                                       LV_SYMBOL_WARNING " %s: timed out",
-                                      g_wifi_curr_ssid);
+                                      ssid_buf);
             } else {
                 lv_label_set_text_fmt(g_set_wifi_status,
                                       tr(I18N_WIFI_CONNECTING_N),
-                                      g_wifi_curr_ssid,
+                                      ssid_buf,
                                       (unsigned)(elapsed / 1000));
             }
         } else {
@@ -238,14 +236,14 @@ void fps_timer_cb(lv_timer_t *t)
 
     if (dt == 0) return;
 
-    uint32_t frames = fps_frame_count;
-    fps_frame_count = 0;
+    uint32_t frames = disp_driver_get_and_reset_fps_frames();
     last_tick = now;
 
     uint32_t fps_x10 = (frames * 10000U) / dt;
 
-    if (fps_label) {
-        lv_label_set_text_fmt(fps_label, "FPS %lu.%lu",
+    lv_obj_t *fps_lbl = disp_driver_get_fps_label();
+    if (fps_lbl) {
+        lv_label_set_text_fmt(fps_lbl, "FPS %lu.%lu",
                               (unsigned long)(fps_x10 / 10),
                               (unsigned long)(fps_x10 % 10));
     }
@@ -270,15 +268,14 @@ void rotate_btn_event_cb(lv_event_t *e)
     (void)e;
 
     /* 循环切换旋转状态 */
-    rot_state = (rot_state + 1) & 3;
+    int new_rot = (disp_driver_get_rot_state() + 1) & 3;
+    disp_driver_set_rot_state(new_rot);
 
     /* 根据旋转状态切换画布尺寸 */
-    if (rot_state == 0 || rot_state == 2) {
-        canvas_w = 172;
-        canvas_h = 640;
+    if (new_rot == 0 || new_rot == 2) {
+        disp_driver_set_canvas_size(172, 640);
     } else {
-        canvas_w = 640;
-        canvas_h = 172;
+        disp_driver_set_canvas_size(640, 172);
     }
 
     /* 更新显示驱动分辨率 */
@@ -287,18 +284,12 @@ void rotate_btn_event_cb(lv_event_t *e)
 
     /* 清空当前屏幕，重置所有UI指针 */
     lv_obj_clean(lv_scr_act());
-    fps_label = NULL;
+    disp_driver_set_fps_label(NULL);
     g_hello_play_btn_label = NULL;
     g_tileview = NULL;
 
-    /* 重置时钟页面指针 */
-    g_clock_time_label = NULL;
-    g_clock_ms_label = NULL;
-    g_clock_date_label = NULL;
-    g_clock_tz_label = NULL;
-    g_clock_wifi_icon = NULL;
-    g_clock_bt_icon = NULL;
-    g_sunmap_canvas = NULL;
+    /* 重置时钟页面 */
+    clock_cleanup();
 
     /* 重置设置页面指针 */
     g_set_wifi_status = NULL;
@@ -306,14 +297,8 @@ void rotate_btn_event_cb(lv_event_t *e)
     g_set_kb_overlay  = NULL;
     g_set_kb_ta       = NULL;
 
-    /* 重置行情页面指针 */
-    g_quotes_name_l = NULL; g_quotes_name_r = NULL;
-    g_quotes_sym_l_lbl = NULL; g_quotes_sym_r_lbl = NULL;
-    g_quotes_price_l = NULL; g_quotes_price_r = NULL;
-    g_quotes_chg_l = NULL; g_quotes_chg_r = NULL;
-    g_quotes_status = NULL;
-    g_quotes_wifi_icon = NULL; g_quotes_bt_icon = NULL;
-    g_quotes_clock_lbl = NULL;
+    /* 重置行情页面 */
+    quotes_cleanup();
 
     /* 重置收音机页面指针 */
     g_radio_status_lbl = NULL; g_radio_now_lbl = NULL;
@@ -324,10 +309,7 @@ void rotate_btn_event_cb(lv_event_t *e)
     g_rec_vu_l = NULL; g_rec_vu_r = NULL;
     g_rec_list_overlay = NULL; g_rec_list = NULL; g_rec_overlay_status = NULL;
 
-    /* 删除所有定时器 */
-    if (g_clock_timer)    { lv_timer_del(g_clock_timer);    g_clock_timer    = NULL; }
-    if (g_clock_ms_timer) { lv_timer_del(g_clock_ms_timer); g_clock_ms_timer = NULL; }
-    if (g_sunmap_timer)   { lv_timer_del(g_sunmap_timer);   g_sunmap_timer   = NULL; }
+    /* 删除所有定时器（clock 定时器已在 clock_cleanup 中处理） */
     if (g_dim_timer)      { lv_timer_del(g_dim_timer);      g_dim_timer      = NULL; }
     if (g_status_timer)   { lv_timer_del(g_status_timer);   g_status_timer   = NULL; }
     if (g_radio_poll_timer) { lv_timer_del(g_radio_poll_timer); g_radio_poll_timer = NULL; }
@@ -336,7 +318,8 @@ void rotate_btn_event_cb(lv_event_t *e)
     /* 直接调用build_main_ui（已在LVGL任务中，无需再次获取锁） */
     build_main_ui(g_status_text);
 
-    ESP_LOGI(TAG, "rotate -> %d deg  canvas=%dx%d", rot_state * 90, canvas_w, canvas_h);
+    ESP_LOGI(TAG, "rotate -> %d deg  canvas=%dx%d",
+             new_rot * 90, disp_driver_get_canvas_w(), disp_driver_get_canvas_h());
 }
 
 /* ---------------------- TileView手势处理器 ---------------------- */
@@ -460,7 +443,7 @@ static void build_main_ui(const char *status_text)
 
     /* 创建TileView */
     g_tileview = lv_tileview_create(scr);
-    lv_obj_set_size(g_tileview, canvas_w, canvas_h);
+    lv_obj_set_size(g_tileview, disp_driver_get_canvas_w(), disp_driver_get_canvas_h());
     lv_obj_set_style_bg_color(g_tileview, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(g_tileview, LV_OPA_COVER, 0);
     lv_obj_set_scrollbar_mode(g_tileview, LV_SCROLLBAR_MODE_OFF);
@@ -492,16 +475,17 @@ static void build_main_ui(const char *status_text)
     lv_obj_add_event_cb(g_tileview, tileview_commit_cb, LV_EVENT_ALL, NULL);
 
     /* 创建FPS显示标签（浮动在所有页面之上） */
-    fps_label = lv_label_create(scr);
-    lv_label_set_text(fps_label, "FPS --");
-    lv_obj_set_style_text_color(fps_label, lv_color_make(0x00, 0xff, 0x80), 0);
-    lv_obj_set_style_text_font(fps_label, i18n_font(), 0);
-    lv_obj_set_style_bg_color(fps_label, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(fps_label, LV_OPA_60, 0);
-    lv_obj_set_style_pad_hor(fps_label, 3, 0);
-    lv_obj_align(fps_label, LV_ALIGN_TOP_LEFT, 4, 4);
-    lv_obj_clear_flag(fps_label, LV_OBJ_FLAG_CLICKABLE);
-    if (!g_cfg.show_fps) lv_obj_add_flag(fps_label, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t *fps_lbl = lv_label_create(scr);
+    disp_driver_set_fps_label(fps_lbl);
+    lv_label_set_text(fps_lbl, "FPS --");
+    lv_obj_set_style_text_color(fps_lbl, lv_color_make(0x00, 0xff, 0x80), 0);
+    lv_obj_set_style_text_font(fps_lbl, i18n_font(), 0);
+    lv_obj_set_style_bg_color(fps_lbl, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(fps_lbl, LV_OPA_60, 0);
+    lv_obj_set_style_pad_hor(fps_lbl, 3, 0);
+    lv_obj_align(fps_lbl, LV_ALIGN_TOP_LEFT, 4, 4);
+    lv_obj_clear_flag(fps_lbl, LV_OBJ_FLAG_CLICKABLE);
+    if (!g_cfg.show_fps) lv_obj_add_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
 
     /* 创建FPS定时器（只创建一次） */
     if (!fps_timer_created) {

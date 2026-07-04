@@ -10,8 +10,6 @@
 #include "recorder.h"
 #include "i18n.h"
 
-static const char *TAG = "ui_radio";
-
 /* ---------------------- Radio tile ---------------------- */
 
 lv_obj_t  *g_radio_status_lbl = NULL;   /* "Connecting...", "Playing", etc. */
@@ -181,12 +179,12 @@ void build_radio_tile(lv_obj_t *parent)
     /* Split horizontally: scrollable station list on the left, now-playing
        info + transport on the right. The 640 px canvas gives ~62/38 split. */
     const int LIST_W = 400;
-    const int INFO_W = canvas_w - LIST_W;
+    const int INFO_W = disp_driver_get_canvas_w() - LIST_W;
 
     /* ---------- Left: station list ---------- */
     g_radio_list = lv_obj_create(parent);
     lv_obj_remove_style_all(g_radio_list);
-    lv_obj_set_size(g_radio_list, LIST_W, canvas_h);
+    lv_obj_set_size(g_radio_list, LIST_W, disp_driver_get_canvas_h());
     lv_obj_align(g_radio_list, LV_ALIGN_LEFT_MID, 0, 0);
     lv_obj_set_layout(g_radio_list, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(g_radio_list, LV_FLEX_FLOW_COLUMN);
@@ -218,7 +216,7 @@ void build_radio_tile(lv_obj_t *parent)
     /* ---------- Right: info panel ---------- */
     lv_obj_t *info = lv_obj_create(parent);
     lv_obj_remove_style_all(info);
-    lv_obj_set_size(info, INFO_W, canvas_h);
+    lv_obj_set_size(info, INFO_W, disp_driver_get_canvas_h());
     lv_obj_align(info, LV_ALIGN_RIGHT_MID, 0, 0);
     lv_obj_set_style_bg_color(info, lv_color_make(0x18, 0x18, 0x24), 0);
     lv_obj_set_style_bg_opa(info, LV_OPA_COVER, 0);
