@@ -49,6 +49,67 @@ static uint32_t g_rec_bytes = 0;
 #define MUSIC_BITS         16
 #define MUSIC_CHANNELS     2
 
+/* In TDM mode both TX (play) and RX (record) share the same bit/frame
+   clock, so their sample rates must always match.  This helper switches
+   both codec devices to the given rate, and restores both afterwards
+   by re-reading the current radio rate. */
+static void audio_test_set_rate(uint32_t rate, uint8_t bits, uint8_t ch)
+{
+    esp_codec_dev_handle_t play_dev =
+        (esp_codec_dev_handle_t)radio_get_play_dev();
+    esp_codec_dev_handle_t rec_dev  =
+        (esp_codec_dev_handle_t)radio_get_record_dev();
+    if (play_dev) {
+        esp_codec_dev_sample_info_t fs = {
+            .sample_rate     = rate,
+            .bits_per_sample = bits,
+            .channel         = ch,
+        };
+        esp_codec_dev_close(play_dev);
+        esp_codec_dev_open(play_dev, &fs);
+        esp_codec_dev_set_out_vol(play_dev, radio_get_volume());
+    }
+    if (rec_dev) {
+        esp_codec_dev_sample_info_t fs = {
+            .sample_rate     = rate,
+            .bits_per_sample = bits,
+            .channel         = ch,
+        };
+        esp_codec_dev_close(rec_dev);
+        esp_codec_dev_open(rec_dev, &fs);
+        esp_codec_dev_set_in_gain(rec_dev, 35.0f);
+    }
+}
+
+static void audio_test_restore_rate(void)
+{
+    uint32_t rate = radio_get_sample_rate();
+    esp_codec_dev_handle_t play_dev =
+        (esp_codec_dev_handle_t)radio_get_play_dev();
+    esp_codec_dev_handle_t rec_dev  =
+        (esp_codec_dev_handle_t)radio_get_record_dev();
+    if (play_dev) {
+        esp_codec_dev_sample_info_t fs = {
+            .sample_rate     = rate,
+            .bits_per_sample = 16,
+            .channel         = 2,
+        };
+        esp_codec_dev_close(play_dev);
+        esp_codec_dev_open(play_dev, &fs);
+        esp_codec_dev_set_out_vol(play_dev, radio_get_volume());
+    }
+    if (rec_dev) {
+        esp_codec_dev_sample_info_t fs = {
+            .sample_rate     = rate,
+            .bits_per_sample = 16,
+            .channel         = 2,
+        };
+        esp_codec_dev_close(rec_dev);
+        esp_codec_dev_open(rec_dev, &fs);
+        esp_codec_dev_set_in_gain(rec_dev, 42.0f);
+    }
+}
+
 static void set_status(const char *cn, const char *en)
 {
     if (g_status_lbl) lv_label_set_text(g_status_lbl, cn);
@@ -160,27 +221,22 @@ static void audio_test_worker(void *arg)
                 radio_stop();
                 vTaskDelay(pdMS_TO_TICKS(50));
             }
+            /* Switch both TX and RX to the test rate (TDM shared clock). */
+            audio_test_set_rate(REC_SAMPLE_RATE, REC_BITS, REC_CHANNELS);
             uint32_t total = 0;
             uint32_t chunk = 4096;
             esp_codec_dev_handle_t rec_dev = (esp_codec_dev_handle_t)radio_get_record_dev();
             if (rec_dev) {
-                esp_codec_dev_sample_info_t rec_fs = {
-                    .sample_rate = REC_SAMPLE_RATE,
-                    .channel = REC_CHANNELS,
-                    .bits_per_sample = REC_BITS,
-                };
-                esp_codec_dev_close(rec_dev);
-                if (esp_codec_dev_open(rec_dev, &rec_fs) == ESP_CODEC_DEV_OK) {
-                    esp_codec_dev_set_in_gain(rec_dev, 35.0f);
-                    while (g_state == AUDIO_TEST_RECORDING && !g_stop_req && total + chunk <= REC_BUFFER_SIZE) {
-                        int rd = esp_codec_dev_read(rec_dev, g_rec_buffer + total, chunk);
-                        if (rd > 0) total += rd;
-                        else vTaskDelay(pdMS_TO_TICKS(5));
-                    }
+                while (g_state == AUDIO_TEST_RECORDING && !g_stop_req && total + chunk <= REC_BUFFER_SIZE) {
+                    int rd = esp_codec_dev_read(rec_dev, g_rec_buffer + total, chunk);
+                    if (rd > 0) total += rd;
+                    else vTaskDelay(pdMS_TO_TICKS(5));
                 }
             }
             g_rec_bytes = total;
             ESP_LOGI(TAG, "recorded %u bytes", total);
+            /* Restore both codecs to the radio's current rate. */
+            audio_test_restore_rate();
 
             if (lvgl_lock(50)) {
                 g_state = AUDIO_TEST_IDLE;
@@ -198,34 +254,20 @@ static void audio_test_worker(void *arg)
                 radio_stop();
                 vTaskDelay(pdMS_TO_TICKS(50));
             }
+            /* Switch both TX and RX to the test rate (TDM shared clock). */
+            audio_test_set_rate(REC_SAMPLE_RATE, REC_BITS, REC_CHANNELS);
             uint32_t offset = 0;
             uint32_t chunk = 4096;
             esp_codec_dev_handle_t play_dev = (esp_codec_dev_handle_t)radio_get_play_dev();
             if (play_dev) {
-                esp_codec_dev_sample_info_t play_fs = {
-                    .sample_rate = REC_SAMPLE_RATE,
-                    .channel = REC_CHANNELS,
-                    .bits_per_sample = REC_BITS,
-                };
-                esp_codec_dev_close(play_dev);
-                if (esp_codec_dev_open(play_dev, &play_fs) == ESP_CODEC_DEV_OK) {
-                    esp_codec_dev_set_out_vol(play_dev, radio_get_volume());
-                    while (g_state == AUDIO_TEST_PLAYING && !g_stop_req && offset < g_rec_bytes) {
-                        uint32_t sz = (offset + chunk > g_rec_bytes) ? (g_rec_bytes - offset) : chunk;
-                        esp_codec_dev_write(play_dev, g_rec_buffer + offset, sz);
-                        offset += sz;
-                    }
+                while (g_state == AUDIO_TEST_PLAYING && !g_stop_req && offset < g_rec_bytes) {
+                    uint32_t sz = (offset + chunk > g_rec_bytes) ? (g_rec_bytes - offset) : chunk;
+                    esp_codec_dev_write(play_dev, g_rec_buffer + offset, sz);
+                    offset += sz;
                 }
-                /* Restore radio default configuration. */
-                esp_codec_dev_close(play_dev);
-                esp_codec_dev_sample_info_t radio_fs = {
-                    .sample_rate = 44100,
-                    .channel = 2,
-                    .bits_per_sample = 16,
-                };
-                esp_codec_dev_open(play_dev, &radio_fs);
-                esp_codec_dev_set_out_vol(play_dev, radio_get_volume());
             }
+            /* Restore both codecs to the radio's current rate. */
+            audio_test_restore_rate();
             ESP_LOGI(TAG, "playback done, %u bytes", offset);
 
             if (lvgl_lock(50)) {
@@ -248,39 +290,25 @@ static void audio_test_worker(void *arg)
                 radio_stop();
                 vTaskDelay(pdMS_TO_TICKS(100));
             }
+            /* Switch both TX and RX to the test rate (TDM shared clock). */
+            audio_test_set_rate(MUSIC_SAMPLE_RATE, MUSIC_BITS, MUSIC_CHANNELS);
             esp_codec_dev_handle_t play_dev = (esp_codec_dev_handle_t)radio_get_play_dev();
             if (play_dev) {
-                esp_codec_dev_sample_info_t music_fs = {
-                    .sample_rate = MUSIC_SAMPLE_RATE,
-                    .channel = MUSIC_CHANNELS,
-                    .bits_per_sample = MUSIC_BITS,
-                };
-                esp_codec_dev_close(play_dev);
-                if (esp_codec_dev_open(play_dev, &music_fs) == ESP_CODEC_DEV_OK) {
-                    esp_codec_dev_set_out_vol(play_dev, 90);
-                    size_t total = music_pcm_end - music_pcm_start;
-                    const uint8_t *data_ptr = music_pcm_start;
-                    size_t bytes_write = 0;
-                    uint32_t chunk = 1024;
-                    ESP_LOGI(TAG, "playing %u bytes of PCM", (unsigned)total);
-                    while (bytes_write < total && !g_stop_req) {
-                        size_t sz = (bytes_write + chunk > total) ? (total - bytes_write) : chunk;
-                        esp_codec_dev_write(play_dev, data_ptr + bytes_write, sz);
-                        bytes_write += sz;
-                    }
-                    ESP_LOGI(TAG, "music playback done, %u bytes", (unsigned)bytes_write);
+                esp_codec_dev_set_out_vol(play_dev, 90);
+                size_t total = music_pcm_end - music_pcm_start;
+                const uint8_t *data_ptr = music_pcm_start;
+                size_t bytes_write = 0;
+                uint32_t chunk = 1024;
+                ESP_LOGI(TAG, "playing %u bytes of PCM", (unsigned)total);
+                while (bytes_write < total && !g_stop_req) {
+                    size_t sz = (bytes_write + chunk > total) ? (total - bytes_write) : chunk;
+                    esp_codec_dev_write(play_dev, data_ptr + bytes_write, sz);
+                    bytes_write += sz;
                 }
-                /* Restore radio's default codec configuration so the
-                   radio pipeline can be used again afterwards. */
-                esp_codec_dev_close(play_dev);
-                esp_codec_dev_sample_info_t radio_fs = {
-                    .sample_rate = 44100,
-                    .channel = 2,
-                    .bits_per_sample = 16,
-                };
-                esp_codec_dev_open(play_dev, &radio_fs);
-                esp_codec_dev_set_out_vol(play_dev, radio_get_volume());
+                ESP_LOGI(TAG, "music playback done, %u bytes", (unsigned)bytes_write);
             }
+            /* Restore both codecs to the radio's current rate. */
+            audio_test_restore_rate();
 
             if (lvgl_lock(50)) {
                 g_state = AUDIO_TEST_IDLE;
