@@ -7,7 +7,7 @@
 #include <sys/time.h>
 #include "esp_log.h"
 
-#include "ui_common.h"
+#include "ui_main.h"
 #include "ui_state.h"
 #include "esp_io_expander_tca9554.h"
 #include "driver/i2c_master.h"

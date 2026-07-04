@@ -9,7 +9,6 @@
 #include "lvgl.h"
 #include "esp_codec_dev.h"
 
-#include "ui_common.h"
 #include "ui_main.h"
 #include "i18n.h"
 #include "radio.h"

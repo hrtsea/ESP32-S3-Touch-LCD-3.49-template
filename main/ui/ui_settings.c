@@ -35,6 +35,18 @@ static void init_styles(void);
 /* ===== 1. 对象定义 ===== */
 lv_obj_t *ui_Settings = NULL;
 
+/* Settings tile widgets (rebuilt on rotate).
+   widget 指针在 ui_settings.h 中 extern 声明，按 SquareLine 命名 */
+lv_obj_t *ui_Settings_label_wifi_status = NULL;
+lv_obj_t *ui_Settings_obj_wifi_list    = NULL;
+lv_obj_t *ui_Settings_kb_overlay       = NULL;
+lv_obj_t *ui_Settings_kb_textarea      = NULL;
+lv_obj_t *ui_Settings_menu_shield      = NULL;
+
+/* Storage page widgets we update after a format finishes. */
+lv_obj_t *ui_Settings_label_storage_info = NULL;
+lv_obj_t *ui_Settings_label_storage_btn  = NULL;
+
 /* ===== 2. 静态样式变量 ===== */
 /* 固定样式（不依赖 theme_palette）抽取为 lv_style_t；
    依赖 pal 的动态样式（menu/header/back_btn）保留行内设置。 */
@@ -108,56 +120,33 @@ static void init_styles(void)
 #define MENU_BACK_DEBOUNCE_MS  350
 #define SCROLL_CLICK_SUPPRESS_MS 250
 
-/* Settings tile widgets (rebuilt on rotate). */
-static lv_obj_t  *g_set_wifi_status = NULL;
-static lv_obj_t  *g_set_wifi_list   = NULL;
-static int g_set_wifi_sel    = -1;  /* index into scan list or -1 */
-static lv_obj_t  *g_set_kb_overlay  = NULL;
-static lv_obj_t  *g_set_kb_ta       = NULL;
-static char g_set_kb_ssid[33] = {0};
-
-/* Transparent shield placed above the menu for MENU_BACK_DEBOUNCE_MS
-   after a back-press. It eats every click that would otherwise reach
-   the menu item that scrolled in under the finger. */
-static lv_obj_t *g_menu_shield = NULL;
-
-void ui_Settings_cleanup(void)
-{
-    ui_Settings = NULL;
-    g_set_wifi_status = NULL;
-    g_set_wifi_list   = NULL;
-    g_set_kb_overlay  = NULL;
-    g_set_kb_ta      = NULL;
-    g_menu_shield    = NULL;
-}
+/* 业务状态变量：非 widget，保留 static 不暴露 */
+static int  g_wifi_sel          = -1;   /* 选中的 AP 索引 */
+static char g_kb_ssid[33]       = {0};  /* 待连接的 SSID */
 
 void settings_set_wifi_status_text(const char *text)
 {
-    if (g_set_wifi_status && text) {
-        lv_label_set_text(g_set_wifi_status, text);
+    if (ui_Settings_label_wifi_status && text) {
+        lv_label_set_text(ui_Settings_label_wifi_status, text);
     }
 }
 
-/* Storage page widgets we update after a format finishes. */
-static lv_obj_t *g_storage_info_lbl = NULL;
-static lv_obj_t *g_storage_btn_lbl  = NULL;
-
-/* ---------------------- Settings tile ---------------------- */
+/* ===== 3. 事件回调函数（含 keyboard 等辅助函数） ===== */
 
 /* Keyboard overlay for password entry. */
 static void kb_close(void)
 {
-    if (g_set_kb_overlay) {
-        lv_obj_del_async(g_set_kb_overlay);  /* deferred to avoid use-
+    if (ui_Settings_kb_overlay) {
+        lv_obj_del_async(ui_Settings_kb_overlay);  /* deferred to avoid use-
                                                 after-free inside the
                                                 lv_keyboard event chain */
-        g_set_kb_overlay = NULL;
-        g_set_kb_ta      = NULL;
+        ui_Settings_kb_overlay = NULL;
+        ui_Settings_kb_textarea      = NULL;
     }
     clock_ms_timer_resume();
 }
 
-static void kb_event_cb(lv_event_t *e)
+static void ui_event_Settings_kb_event(lv_event_t *e)
 {
     lv_event_code_t code = lv_event_get_code(e);
     lv_obj_t *kb = lv_event_get_target(e);
@@ -167,7 +156,7 @@ static void kb_event_cb(lv_event_t *e)
            dereferencing keyboard->ta after we return; we use
            lv_obj_del_async so the actual deletion happens after that
            function unwinds. */
-        const char *pass = g_set_kb_ta ? lv_textarea_get_text(g_set_kb_ta) : "";
+        const char *pass = ui_Settings_kb_textarea ? lv_textarea_get_text(ui_Settings_kb_textarea) : "";
         char pass_copy[65] = {0};
         if (pass) {
             size_t pass_len = strlen(pass);
@@ -176,9 +165,9 @@ static void kb_event_cb(lv_event_t *e)
             pass_copy[pass_len] = '\0';
         }
         char ssid[33] = {0};
-        size_t ssid_len = strlen(g_set_kb_ssid);
+        size_t ssid_len = strlen(g_kb_ssid);
         if (ssid_len >= sizeof(ssid)) ssid_len = sizeof(ssid) - 1;
-        memcpy(ssid, g_set_kb_ssid, ssid_len);
+        memcpy(ssid, g_kb_ssid, ssid_len);
         ssid[ssid_len] = '\0';
         ESP_LOGI(TAG, "kb: connect ssid=%s pass_len=%u", ssid,
                  (unsigned)strlen(pass_copy));
@@ -192,7 +181,7 @@ static void kb_event_cb(lv_event_t *e)
         g_cfg.last_ssid[last_ssid_len] = '\0';
         app_cfg_save();
         wifi_connect(ssid, pass_copy);
-        if (g_set_wifi_status) lv_label_set_text_fmt(g_set_wifi_status, tr(I18N_WIFI_CONNECTING), ssid);
+        if (ui_Settings_label_wifi_status) lv_label_set_text_fmt(ui_Settings_label_wifi_status, tr(I18N_WIFI_CONNECTING), ssid);
         kb_close();
     } else if (code == LV_EVENT_CANCEL) {
         kb_close();
@@ -260,21 +249,21 @@ static const lv_btnmatrix_ctrl_t kKbCtrlUpper[] = {
 /* Eye-toggle callback: tap to show/hide the password text. Was a C++
    lambda inside kb_open_for_ssid; lifted to a named static function so
    the file compiles as C. */
-static void kb_eye_toggle_cb(lv_event_t *e)
+static void ui_event_Settings_kb_eye_toggle(lv_event_t *e)
 {
     lv_obj_t *btn = lv_event_get_target(e);
     lv_obj_t *lbl = lv_obj_get_child(btn, 0);
-    if (!g_set_kb_ta) return;
-    bool was_pw = lv_textarea_get_password_mode(g_set_kb_ta);
-    lv_textarea_set_password_mode(g_set_kb_ta, !was_pw);
+    if (!ui_Settings_kb_textarea) return;
+    bool was_pw = lv_textarea_get_password_mode(ui_Settings_kb_textarea);
+    lv_textarea_set_password_mode(ui_Settings_kb_textarea, !was_pw);
     if (lbl) lv_label_set_text(lbl, was_pw ? LV_SYMBOL_EYE_OPEN
                                            : LV_SYMBOL_EYE_CLOSE);
 }
 
 static void kb_open_for_ssid(const char *ssid)
 {
-    strncpy(g_set_kb_ssid, ssid, sizeof(g_set_kb_ssid) - 1);
-    g_set_kb_ssid[sizeof(g_set_kb_ssid) - 1] = 0;
+    strncpy(g_kb_ssid, ssid, sizeof(g_kb_ssid) - 1);
+    g_kb_ssid[sizeof(g_kb_ssid) - 1] = 0;
 
     /* Pause the 60 Hz ms-clock while typing -- otherwise every
        keystroke contends with the ms label invalidation and the
@@ -282,36 +271,36 @@ static void kb_open_for_ssid(const char *ssid)
     clock_ms_timer_pause();
 
     lv_obj_t *scr = lv_scr_act();
-    g_set_kb_overlay = lv_obj_create(scr);
-    lv_obj_remove_style_all(g_set_kb_overlay);
-    lv_obj_set_size(g_set_kb_overlay, disp_driver_get_canvas_w(), disp_driver_get_canvas_h());
-    lv_obj_set_style_bg_color(g_set_kb_overlay, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(g_set_kb_overlay, LV_OPA_90, 0);
-    lv_obj_clear_flag(g_set_kb_overlay, LV_OBJ_FLAG_SCROLLABLE);
+    ui_Settings_kb_overlay = lv_obj_create(scr);
+    lv_obj_remove_style_all(ui_Settings_kb_overlay);
+    lv_obj_set_size(ui_Settings_kb_overlay, disp_driver_get_canvas_w(), disp_driver_get_canvas_h());
+    lv_obj_set_style_bg_color(ui_Settings_kb_overlay, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(ui_Settings_kb_overlay, LV_OPA_90, 0);
+    lv_obj_clear_flag(ui_Settings_kb_overlay, LV_OBJ_FLAG_SCROLLABLE);
 
     /* Single-line text area at the top + eye toggle on the right edge.
        Pad-tight so the keyboard below gets the rest of the canvas. */
     const int TA_H  = 20;
     const int EYE_W = 28;
-    g_set_kb_ta = lv_textarea_create(g_set_kb_overlay);
-    lv_textarea_set_one_line(g_set_kb_ta, true);
-    lv_textarea_set_password_mode(g_set_kb_ta, true);
+    ui_Settings_kb_textarea = lv_textarea_create(ui_Settings_kb_overlay);
+    lv_textarea_set_one_line(ui_Settings_kb_textarea, true);
+    lv_textarea_set_password_mode(ui_Settings_kb_textarea, true);
     char ph[64];
     snprintf(ph, sizeof(ph), tr(I18N_WIFI_PASS_FOR), ssid);
-    lv_textarea_set_placeholder_text(g_set_kb_ta, ph);
-    lv_obj_set_size(g_set_kb_ta, disp_driver_get_canvas_w() - EYE_W, TA_H);
-    lv_obj_align(g_set_kb_ta, LV_ALIGN_TOP_LEFT, 0, 0);
-    lv_obj_set_style_text_font(g_set_kb_ta, i18n_font(), 0);
-    lv_obj_set_style_pad_top(g_set_kb_ta, 1, 0);
-    lv_obj_set_style_pad_bottom(g_set_kb_ta, 1, 0);
-    lv_obj_set_style_pad_left(g_set_kb_ta, 6, 0);
-    lv_obj_set_style_pad_right(g_set_kb_ta, 6, 0);
-    lv_obj_set_style_border_width(g_set_kb_ta, 0, 0);
-    lv_obj_set_style_radius(g_set_kb_ta, 0, 0);
+    lv_textarea_set_placeholder_text(ui_Settings_kb_textarea, ph);
+    lv_obj_set_size(ui_Settings_kb_textarea, disp_driver_get_canvas_w() - EYE_W, TA_H);
+    lv_obj_align(ui_Settings_kb_textarea, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_set_style_text_font(ui_Settings_kb_textarea, i18n_font(), 0);
+    lv_obj_set_style_pad_top(ui_Settings_kb_textarea, 1, 0);
+    lv_obj_set_style_pad_bottom(ui_Settings_kb_textarea, 1, 0);
+    lv_obj_set_style_pad_left(ui_Settings_kb_textarea, 6, 0);
+    lv_obj_set_style_pad_right(ui_Settings_kb_textarea, 6, 0);
+    lv_obj_set_style_border_width(ui_Settings_kb_textarea, 0, 0);
+    lv_obj_set_style_radius(ui_Settings_kb_textarea, 0, 0);
 
     /* Eye toggle: tap to show/hide the password text. Defaults to hidden
        (eye-closed glyph), since the textarea boots in password mode. */
-    lv_obj_t *eye = lv_btn_create(g_set_kb_overlay);
+    lv_obj_t *eye = lv_btn_create(ui_Settings_kb_overlay);
     lv_obj_set_size(eye, EYE_W, TA_H);
     lv_obj_align(eye, LV_ALIGN_TOP_RIGHT, 0, 0);
     lv_obj_set_style_radius(eye, 0, 0);
@@ -322,9 +311,9 @@ static void kb_open_for_ssid(const char *ssid)
     lv_obj_set_style_text_color(eye_lbl, lv_color_white(), 0);
     lv_obj_set_style_text_font(eye_lbl, i18n_font(), 0);
     lv_obj_center(eye_lbl);
-    lv_obj_add_event_cb(eye, kb_eye_toggle_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(eye, ui_event_Settings_kb_eye_toggle, LV_EVENT_CLICKED, NULL);
 
-    lv_obj_t *kb = lv_keyboard_create(g_set_kb_overlay);
+    lv_obj_t *kb = lv_keyboard_create(ui_Settings_kb_overlay);
     lv_obj_set_width(kb, disp_driver_get_canvas_w());
     lv_obj_set_height(kb, disp_driver_get_canvas_h() - TA_H);
     lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, 0);
@@ -337,29 +326,29 @@ static void kb_open_for_ssid(const char *ssid)
                         (const char **)kKbMapLower, kKbCtrlLower);
     lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_TEXT_UPPER,
                         (const char **)kKbMapUpper, kKbCtrlUpper);
-    lv_keyboard_set_textarea(kb, g_set_kb_ta);
-    lv_obj_add_event_cb(kb, kb_event_cb, LV_EVENT_READY,  NULL);
-    lv_obj_add_event_cb(kb, kb_event_cb, LV_EVENT_CANCEL, NULL);
+    lv_keyboard_set_textarea(kb, ui_Settings_kb_textarea);
+    lv_obj_add_event_cb(kb, ui_event_Settings_kb_event, LV_EVENT_READY,  NULL);
+    lv_obj_add_event_cb(kb, ui_event_Settings_kb_event, LV_EVENT_CANCEL, NULL);
 }
 
 /* Tap-to-select: tapping an AP row just highlights it. The right-side
-   Connect button uses g_set_wifi_sel to drive the actual association. */
-static void wifi_ap_clicked_cb(lv_event_t *e)
+   Connect button uses g_wifi_sel to drive the actual association. */
+static void ui_event_Settings_wifi_ap(lv_event_t *e)
 {
     if (ui_state_menu_input_blocked()) return;
     int idx = (int)(intptr_t)lv_event_get_user_data(e);
     if (idx < 0 || idx >= (int)wifi_get_scan_count()) return;
-    g_set_wifi_sel = idx;
+    g_wifi_sel = idx;
     set_render_wifi_list();
 }
 
 /* Connect the currently selected AP. Open APs go straight; saved-password
    APs reuse the stored password; unknown-password APs open the keyboard. */
-static void wifi_connect_selected_cb(lv_event_t *e)
+static void ui_event_Settings_wifi_connect(lv_event_t *e)
 {
     (void)e;
     if (ui_state_menu_input_blocked()) return;
-    int idx = g_set_wifi_sel;
+    int idx = g_wifi_sel;
     if (idx < 0 || idx >= (int)wifi_get_scan_count()) return;
     const wifi_scan_ap_t *ap = wifi_get_scan_ap((uint16_t)idx);
     if (!ap) return;
@@ -369,7 +358,7 @@ static void wifi_connect_selected_cb(lv_event_t *e)
         g_cfg.last_ssid[sizeof(g_cfg.last_ssid) - 1] = 0;
         app_cfg_save();
         wifi_connect(ap->ssid, "");
-        if (g_set_wifi_status) lv_label_set_text_fmt(g_set_wifi_status, tr(I18N_WIFI_CONNECTING), ap->ssid);
+        if (ui_Settings_label_wifi_status) lv_label_set_text_fmt(ui_Settings_label_wifi_status, tr(I18N_WIFI_CONNECTING), ap->ssid);
         return;
     }
     char pass[65] = {0};
@@ -378,7 +367,7 @@ static void wifi_connect_selected_cb(lv_event_t *e)
         g_cfg.last_ssid[sizeof(g_cfg.last_ssid) - 1] = 0;
         app_cfg_save();
         wifi_connect(ap->ssid, pass);
-        if (g_set_wifi_status) lv_label_set_text_fmt(g_set_wifi_status, tr(I18N_WIFI_CONNECTING), ap->ssid);
+        if (ui_Settings_label_wifi_status) lv_label_set_text_fmt(ui_Settings_label_wifi_status, tr(I18N_WIFI_CONNECTING), ap->ssid);
         return;
     }
     kb_open_for_ssid(ap->ssid);
@@ -386,10 +375,10 @@ static void wifi_connect_selected_cb(lv_event_t *e)
 
 /* Forget the selected AP's saved password and clear last_ssid if it
    matches. Keeps the AP visible in the list. */
-static void wifi_forget_selected_cb(lv_event_t *e)
+static void ui_event_Settings_wifi_forget(lv_event_t *e)
 {
     (void)e;
-    int idx = g_set_wifi_sel;
+    int idx = g_wifi_sel;
     if (idx < 0 || idx >= (int)wifi_get_scan_count()) return;
     const wifi_scan_ap_t *ap = wifi_get_scan_ap((uint16_t)idx);
     if (!ap) return;
@@ -412,16 +401,16 @@ static void wifi_forget_selected_cb(lv_event_t *e)
         g_wifi_connected = false;
     }
     set_render_wifi_list();
-    if (g_set_wifi_status) lv_label_set_text(g_set_wifi_status, tr(I18N_WIFI_NOT_CONN));
+    if (ui_Settings_label_wifi_status) lv_label_set_text(ui_Settings_label_wifi_status, tr(I18N_WIFI_NOT_CONN));
 }
 
 static void set_render_wifi_list(void)
 {
-    if (!g_set_wifi_list) return;
-    lv_obj_clean(g_set_wifi_list);
+    if (!ui_Settings_obj_wifi_list) return;
+    lv_obj_clean(ui_Settings_obj_wifi_list);
     uint16_t scan_n = wifi_get_scan_count();
     if (scan_n == 0) {
-        lv_obj_t *empty = lv_label_create(g_set_wifi_list);
+        lv_obj_t *empty = lv_label_create(ui_Settings_obj_wifi_list);
         lv_label_set_text(empty, tr(I18N_WIFI_NO_APS));
         lv_obj_add_style(empty, &style_label_dim, 0);
         lv_obj_set_style_text_font(empty, i18n_font(), 0);
@@ -433,20 +422,20 @@ static void set_render_wifi_list(void)
     for (int i = 0; i < (int)scan_n; i++) {
         const wifi_scan_ap_t *ap = wifi_get_scan_ap((uint16_t)i);
         if (!ap) continue;
-        lv_obj_t *btn = lv_btn_create(g_set_wifi_list);
+        lv_obj_t *btn = lv_btn_create(ui_Settings_obj_wifi_list);
         lv_obj_set_width(btn, lv_pct(100));
         lv_obj_set_height(btn, 22);
         bool is_connected = connected &&
                             strncmp(ap->ssid, curr_ssid,
                                     sizeof(curr_ssid)) == 0;
-        bool is_selected  = (i == g_set_wifi_sel);
+        bool is_selected  = (i == g_wifi_sel);
         char dummy_pass[2];
         bool is_saved = app_cfg_get_ssid_pass(ap->ssid, dummy_pass, sizeof(dummy_pass));
         lv_obj_set_style_bg_color(btn,
             is_selected ? lv_color_make(0x40, 0x40, 0x60)
                         : lv_color_make(0x20, 0x20, 0x30), 0);
         lv_obj_set_style_pad_all(btn, 2, 0);
-        lv_obj_add_event_cb(btn, wifi_ap_clicked_cb, LV_EVENT_CLICKED, (void *)(intptr_t)i);
+        lv_obj_add_event_cb(btn, ui_event_Settings_wifi_ap, LV_EVENT_CLICKED, (void *)(intptr_t)i);
         lv_obj_t *l = lv_label_create(btn);
         /* Prefix glyphs: ✓ if currently connected; otherwise * if we have
            a saved password but aren't connected. Lock indicates encryption. */
@@ -468,56 +457,56 @@ static void set_render_wifi_list(void)
 }
 
 /* One-shot UI refresh ~3s after a scan kicks off. Was a C++ lambda inside
-   scan_btn_cb; lifted to a named static function so the file compiles as C. */
-static void scan_refresh_cb(lv_timer_t *tt)
+   ui_event_Settings_scan_btn; lifted to a named static function so the file compiles as C. */
+static void ui_Settings_scan_refresh_timer_cb(lv_timer_t *tt)
 {
-    if (g_set_wifi_status) {
-        lv_label_set_text_fmt(g_set_wifi_status, "Found %u networks", (unsigned)wifi_get_scan_count());
+    if (ui_Settings_label_wifi_status) {
+        lv_label_set_text_fmt(ui_Settings_label_wifi_status, "Found %u networks", (unsigned)wifi_get_scan_count());
     }
     set_render_wifi_list();
     lv_timer_del(tt);
 }
 
-static void scan_btn_cb(lv_event_t *e)
+static void ui_event_Settings_scan_btn(lv_event_t *e)
 {
     (void)e;
-    if (g_set_wifi_status) lv_label_set_text(g_set_wifi_status, tr(I18N_WIFI_SCANNING));
+    if (ui_Settings_label_wifi_status) lv_label_set_text(ui_Settings_label_wifi_status, tr(I18N_WIFI_SCANNING));
     wifi_start_scan();
     /* Schedule a one-shot UI refresh ~3s later when scan_done has fired. */
-    lv_timer_t *t = lv_timer_create(scan_refresh_cb, 3000, NULL);
+    lv_timer_t *t = lv_timer_create(ui_Settings_scan_refresh_timer_cb, 3000, NULL);
     (void)t;
 }
 
-static void menu_shield_drop_cb(lv_timer_t *t)
+static void ui_Settings_menu_shield_drop_timer_cb(lv_timer_t *t)
 {
-    if (g_menu_shield) {
-        lv_obj_del(g_menu_shield);
-        g_menu_shield = NULL;
+    if (ui_Settings_menu_shield) {
+        lv_obj_del(ui_Settings_menu_shield);
+        ui_Settings_menu_shield = NULL;
     }
     lv_timer_del(t);
 }
 
-static void menu_back_clicked_cb(lv_event_t *e)
+static void ui_event_Settings_menu_back(lv_event_t *e)
 {
     (void)e;
     ui_state_set_menu_block_until_ms(lv_tick_get() + MENU_BACK_DEBOUNCE_MS);
-    if (g_menu_shield) return;  /* already shielded */
+    if (ui_Settings_menu_shield) return;  /* already shielded */
     /* Parent to the active screen so the shield covers the menu and any
        header/back-button that might still be sitting under the finger. */
-    g_menu_shield = lv_obj_create(lv_scr_act());
-    lv_obj_remove_style_all(g_menu_shield);
-    lv_obj_set_size(g_menu_shield, disp_driver_get_canvas_w(), disp_driver_get_canvas_h());
-    lv_obj_align(g_menu_shield, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_set_style_bg_opa(g_menu_shield, LV_OPA_TRANSP, 0);
-    lv_obj_clear_flag(g_menu_shield, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(g_menu_shield, LV_OBJ_FLAG_CLICKABLE);
+    ui_Settings_menu_shield = lv_obj_create(lv_scr_act());
+    lv_obj_remove_style_all(ui_Settings_menu_shield);
+    lv_obj_set_size(ui_Settings_menu_shield, disp_driver_get_canvas_w(), disp_driver_get_canvas_h());
+    lv_obj_align(ui_Settings_menu_shield, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_bg_opa(ui_Settings_menu_shield, LV_OPA_TRANSP, 0);
+    lv_obj_clear_flag(ui_Settings_menu_shield, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ui_Settings_menu_shield, LV_OBJ_FLAG_CLICKABLE);
     /* Move to top z-order so subsequent clicks land on the shield. */
-    lv_obj_move_foreground(g_menu_shield);
-    lv_timer_t *t = lv_timer_create(menu_shield_drop_cb, MENU_BACK_DEBOUNCE_MS, NULL);
+    lv_obj_move_foreground(ui_Settings_menu_shield);
+    lv_timer_t *t = lv_timer_create(ui_Settings_menu_shield_drop_timer_cb, MENU_BACK_DEBOUNCE_MS, NULL);
     (void)t;
 }
 
-static void tz_city_pick_cb(lv_event_t *e)
+static void ui_event_Settings_tz_city_pick(lv_event_t *e)
 {
     if (ui_state_menu_input_blocked()) return;
     /* user_data carries the city index packed into a void*. */
@@ -531,7 +520,7 @@ static void tz_city_pick_cb(lv_event_t *e)
     clock_update_cb(NULL);
 }
 
-static void bri_slider_cb(lv_event_t *e)
+static void ui_event_Settings_bri_slider(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
     int v = lv_slider_get_value(s);
@@ -559,7 +548,7 @@ static void fmt_duration(char *buf, size_t buflen, uint32_t total_s)
 
 #define IDLE_SLIDER_MAX (8 * 3600)
 
-static void dim_s_cb(lv_event_t *e)
+static void ui_event_Settings_dim_s(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
     int v = lv_slider_get_value(s);
@@ -578,7 +567,7 @@ static void dim_s_cb(lv_event_t *e)
 
 /* ---------- Display sub-page callbacks (12/24h, date fmt, secs/ms, FPS) ---------- */
 
-static void hour_fmt_cb(lv_event_t *e)
+static void ui_event_Settings_hour_fmt(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
     g_cfg.hour24 = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
@@ -586,7 +575,7 @@ static void hour_fmt_cb(lv_event_t *e)
     clock_update_cb(NULL);
 }
 
-static void show_sec_cb(lv_event_t *e)
+static void ui_event_Settings_show_sec(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
     g_cfg.show_seconds = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
@@ -594,14 +583,14 @@ static void show_sec_cb(lv_event_t *e)
     clock_update_cb(NULL);
 }
 
-static void show_ms_cb(lv_event_t *e)
+static void ui_event_Settings_show_ms(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
     g_cfg.show_ms = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
     app_cfg_save();
 }
 
-static void show_fps_cb(lv_event_t *e)
+static void ui_event_Settings_show_fps(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
     g_cfg.show_fps = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
@@ -613,7 +602,7 @@ static void show_fps_cb(lv_event_t *e)
     }
 }
 
-static void date_fmt_cb(lv_event_t *e)
+static void ui_event_Settings_date_fmt(lv_event_t *e)
 {
     lv_obj_t *r = lv_event_get_target(e);
     int sel = lv_dropdown_get_selected(r);
@@ -626,7 +615,7 @@ static void date_fmt_cb(lv_event_t *e)
 
 /* ---------- Sound sub-page callbacks (enable + volume) ---------- */
 
-static void audio_en_cb(lv_event_t *e)
+static void ui_event_Settings_audio_en(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
     g_cfg.audio_enable = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
@@ -634,7 +623,7 @@ static void audio_en_cb(lv_event_t *e)
     app_cfg_save();
 }
 
-static void audio_vol_cb(lv_event_t *e)
+static void ui_event_Settings_audio_vol(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
     int v = lv_slider_get_value(s);
@@ -652,7 +641,7 @@ static void audio_vol_cb(lv_event_t *e)
 
 /* ---------- Theme + Wi-Fi auto-connect ---------- */
 
-static void theme_cb(lv_event_t *e)
+static void ui_event_Settings_theme(lv_event_t *e)
 {
     lv_obj_t *r = lv_event_get_target(e);
     int sel = lv_dropdown_get_selected(r);
@@ -664,7 +653,7 @@ static void theme_cb(lv_event_t *e)
     sunmap_redraw();
 }
 
-static void wifi_ac_cb(lv_event_t *e)
+static void ui_event_Settings_wifi_ac(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
     g_cfg.wifi_autoconnect = lv_obj_has_state(s, LV_STATE_CHECKED) ? 1 : 0;
@@ -673,7 +662,7 @@ static void wifi_ac_cb(lv_event_t *e)
 
 /* ---------- Reset to defaults ---------- */
 
-static void reset_confirm_cb(lv_event_t *e)
+static void ui_event_Settings_reset_confirm(lv_event_t *e)
 {
     (void)e;
     if (ui_state_menu_input_blocked()) return;
@@ -694,7 +683,7 @@ static void reset_confirm_cb(lv_event_t *e)
 
 /* ---------- Auto-dim sliders ---------- */
 
-static void off_s_cb(lv_event_t *e)
+static void ui_event_Settings_off_s(lv_event_t *e)
 {
     lv_obj_t *s = lv_event_get_target(e);
     int v = lv_slider_get_value(s);
@@ -711,10 +700,11 @@ static void off_s_cb(lv_event_t *e)
     if (lv_event_get_code(e) == LV_EVENT_RELEASED) app_cfg_save();
 }
 
+/* ===== 4. 子页构建器 + ui_Settings_create ===== */
 /* Build a sub-page that the menu can navigate to. Returns the page so
    the caller can attach it via lv_menu_set_load_page_event. */
 
-static lv_obj_t *build_subpage_wifi(lv_obj_t *menu)
+static lv_obj_t *ui_Settings_subpage_wifi_create(lv_obj_t *menu)
 {
     lv_obj_t *page = lv_menu_page_create(menu, (char *)tr(I18N_SET_WIFI));
 
@@ -728,14 +718,14 @@ static lv_obj_t *build_subpage_wifi(lv_obj_t *menu)
     lv_obj_set_height(cont, lv_pct(100));
 
     /* ---------- Left: AP list ---------- */
-    g_set_wifi_list = lv_obj_create(cont);
-    lv_obj_set_width(g_set_wifi_list, lv_pct(60));
-    lv_obj_set_height(g_set_wifi_list, lv_pct(100));
-    lv_obj_set_layout(g_set_wifi_list, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(g_set_wifi_list, LV_FLEX_FLOW_COLUMN);
-    lv_obj_add_style(g_set_wifi_list, &style_wifi_list_bg, 0);
-    lv_obj_set_scroll_dir(g_set_wifi_list, LV_DIR_VER);
-    lv_obj_set_scrollbar_mode(g_set_wifi_list, LV_SCROLLBAR_MODE_AUTO);
+    ui_Settings_obj_wifi_list = lv_obj_create(cont);
+    lv_obj_set_width(ui_Settings_obj_wifi_list, lv_pct(60));
+    lv_obj_set_height(ui_Settings_obj_wifi_list, lv_pct(100));
+    lv_obj_set_layout(ui_Settings_obj_wifi_list, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(ui_Settings_obj_wifi_list, LV_FLEX_FLOW_COLUMN);
+    lv_obj_add_style(ui_Settings_obj_wifi_list, &style_wifi_list_bg, 0);
+    lv_obj_set_scroll_dir(ui_Settings_obj_wifi_list, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(ui_Settings_obj_wifi_list, LV_SCROLLBAR_MODE_AUTO);
     set_render_wifi_list();
 
     /* ---------- Right: actions + status ---------- */
@@ -748,17 +738,17 @@ static lv_obj_t *build_subpage_wifi(lv_obj_t *menu)
     lv_obj_set_style_pad_row(side, 4, 0);
     lv_obj_clear_flag(side, LV_OBJ_FLAG_SCROLLABLE);
 
-    g_set_wifi_status = lv_label_create(side);
-    lv_label_set_long_mode(g_set_wifi_status, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(g_set_wifi_status, lv_pct(100));
+    ui_Settings_label_wifi_status = lv_label_create(side);
+    lv_label_set_long_mode(ui_Settings_label_wifi_status, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(ui_Settings_label_wifi_status, lv_pct(100));
     {
         char ssid_buf[33];
         wifi_get_curr_ssid(ssid_buf, sizeof(ssid_buf));
-        lv_label_set_text_fmt(g_set_wifi_status, "%s",
+        lv_label_set_text_fmt(ui_Settings_label_wifi_status, "%s",
                               wifi_is_connected() ? ssid_buf : tr(I18N_WIFI_NOT_CONN));
     }
-    lv_obj_set_style_text_color(g_set_wifi_status, lv_color_make(0xc0, 0xc0, 0xc0), 0);
-    lv_obj_set_style_text_font(g_set_wifi_status, i18n_font(), 0);
+    lv_obj_set_style_text_color(ui_Settings_label_wifi_status, lv_color_make(0xc0, 0xc0, 0xc0), 0);
+    lv_obj_set_style_text_font(ui_Settings_label_wifi_status, i18n_font(), 0);
 
     /* Scan button */
     lv_obj_t *scan_btn = lv_btn_create(side);
@@ -767,7 +757,7 @@ static lv_obj_t *build_subpage_wifi(lv_obj_t *menu)
     lv_label_set_text(scan_l, tr(I18N_WIFI_SCAN_BTN));
     lv_obj_set_style_text_font(scan_l, i18n_font(), 0);
     lv_obj_center(scan_l);
-    lv_obj_add_event_cb(scan_btn, scan_btn_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(scan_btn, ui_event_Settings_scan_btn, LV_EVENT_CLICKED, NULL);
 
     /* Connect button (acts on selected list row) */
     lv_obj_t *conn_btn = lv_btn_create(side);
@@ -778,7 +768,7 @@ static lv_obj_t *build_subpage_wifi(lv_obj_t *menu)
     lv_obj_set_style_text_color(conn_l, lv_color_white(), 0);
     lv_obj_set_style_text_font(conn_l, i18n_font(), 0);
     lv_obj_center(conn_l);
-    lv_obj_add_event_cb(conn_btn, wifi_connect_selected_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(conn_btn, ui_event_Settings_wifi_connect, LV_EVENT_CLICKED, NULL);
 
     /* Forget button */
     lv_obj_t *forget_btn = lv_btn_create(side);
@@ -789,12 +779,12 @@ static lv_obj_t *build_subpage_wifi(lv_obj_t *menu)
     lv_obj_set_style_text_color(forget_l, lv_color_white(), 0);
     lv_obj_set_style_text_font(forget_l, i18n_font(), 0);
     lv_obj_center(forget_l);
-    lv_obj_add_event_cb(forget_btn, wifi_forget_selected_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(forget_btn, ui_event_Settings_wifi_forget, LV_EVENT_CLICKED, NULL);
 
     return page;
 }
 
-static lv_obj_t *build_subpage_tz_city_list(lv_obj_t *menu, uint16_t first, uint16_t last,
+static lv_obj_t *ui_Settings_subpage_tz_city_list_create(lv_obj_t *menu, uint16_t first, uint16_t last,
                                               const char *title)
 {
     lv_obj_t *page = lv_menu_page_create(menu, (char *)title);
@@ -809,13 +799,13 @@ static lv_obj_t *build_subpage_tz_city_list(lv_obj_t *menu, uint16_t first, uint
             lv_obj_set_style_text_color(l, lv_color_make(0x40, 0xc0, 0x80), 0);
         }
         lv_obj_add_flag(cont, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_event_cb(cont, tz_city_pick_cb, LV_EVENT_CLICKED,
+        lv_obj_add_event_cb(cont, ui_event_Settings_tz_city_pick, LV_EVENT_CLICKED,
                             (void *)(uintptr_t)i);
     }
     return page;
 }
 
-static lv_obj_t *build_subpage_tz(lv_obj_t *menu)
+static lv_obj_t *ui_Settings_subpage_tz_create(lv_obj_t *menu)
 {
     /* Build the per-continent city pages first, then a continent-list
        root page that links to them. Two-level navigation matches the
@@ -824,7 +814,7 @@ static lv_obj_t *build_subpage_tz(lv_obj_t *menu)
     lv_obj_set_scroll_dir(page, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(page, LV_SCROLLBAR_MODE_AUTO);
     for (uint16_t c = 0; c < TZ_CONTINENT_COUNT; c++) {
-        lv_obj_t *city_page = build_subpage_tz_city_list(menu,
+        lv_obj_t *city_page = ui_Settings_subpage_tz_city_list_create(menu,
             k_tz_continents[c].first, k_tz_continents[c].last,
             k_tz_continents[c].name);
         lv_obj_t *cont = lv_menu_cont_create(page);
@@ -832,12 +822,12 @@ static lv_obj_t *build_subpage_tz(lv_obj_t *menu)
         lv_label_set_text(l, k_tz_continents[c].name);
         lv_obj_set_style_text_font(l, i18n_font(), 0);
         lv_menu_set_load_page_event(menu, cont, city_page);
-        lv_obj_add_event_cb(cont, menu_back_clicked_cb, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(cont, ui_event_Settings_menu_back, LV_EVENT_CLICKED, NULL);
     }
     return page;
 }
 
-static lv_obj_t *build_subpage_brightness(lv_obj_t *menu)
+static lv_obj_t *ui_Settings_subpage_brightness_create(lv_obj_t *menu)
 {
     lv_obj_t *page = lv_menu_page_create(menu, (char *)tr(I18N_SET_BRIGHTNESS));
     lv_obj_t *cont = lv_menu_cont_create(page);
@@ -852,14 +842,14 @@ static lv_obj_t *build_subpage_brightness(lv_obj_t *menu)
     lv_obj_set_width(bri_s, lv_pct(95));
     lv_slider_set_range(bri_s, 8, 255);
     lv_slider_set_value(bri_s, g_cfg.brightness, LV_ANIM_OFF);
-    lv_obj_add_event_cb(bri_s, bri_slider_cb, LV_EVENT_VALUE_CHANGED, NULL);
-    lv_obj_add_event_cb(bri_s, bri_slider_cb, LV_EVENT_RELEASED,      NULL);
+    lv_obj_add_event_cb(bri_s, ui_event_Settings_bri_slider, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(bri_s, ui_event_Settings_bri_slider, LV_EVENT_RELEASED,      NULL);
     lv_obj_clear_flag(bri_s, LV_OBJ_FLAG_GESTURE_BUBBLE);
 
     return page;
 }
 
-static lv_obj_t *build_subpage_autodim(lv_obj_t *menu)
+static lv_obj_t *ui_Settings_subpage_autodim_create(lv_obj_t *menu)
 {
     lv_obj_t *page = lv_menu_page_create(menu, (char *)tr(I18N_SET_AUTODIM));
     lv_obj_t *cont = lv_menu_cont_create(page);
@@ -881,8 +871,8 @@ static lv_obj_t *build_subpage_autodim(lv_obj_t *menu)
     /* Don't let horizontal slider drags bubble up and trigger a tileview
        page swipe. Same for the gesture flag. */
     lv_obj_clear_flag(dim_s, LV_OBJ_FLAG_GESTURE_BUBBLE);
-    lv_obj_add_event_cb(dim_s, dim_s_cb, LV_EVENT_VALUE_CHANGED, dim_lbl);
-    lv_obj_add_event_cb(dim_s, dim_s_cb, LV_EVENT_RELEASED,      dim_lbl);
+    lv_obj_add_event_cb(dim_s, ui_event_Settings_dim_s, LV_EVENT_VALUE_CHANGED, dim_lbl);
+    lv_obj_add_event_cb(dim_s, ui_event_Settings_dim_s, LV_EVENT_RELEASED,      dim_lbl);
 
     lv_obj_t *off_lbl = lv_label_create(cont);
     {
@@ -898,8 +888,8 @@ static lv_obj_t *build_subpage_autodim(lv_obj_t *menu)
     lv_slider_set_range(off_s, 0, IDLE_SLIDER_MAX);
     lv_slider_set_value(off_s, g_cfg.off_s, LV_ANIM_OFF);
     lv_obj_clear_flag(off_s, LV_OBJ_FLAG_GESTURE_BUBBLE);
-    lv_obj_add_event_cb(off_s, off_s_cb, LV_EVENT_VALUE_CHANGED, off_lbl);
-    lv_obj_add_event_cb(off_s, off_s_cb, LV_EVENT_RELEASED,      off_lbl);
+    lv_obj_add_event_cb(off_s, ui_event_Settings_off_s, LV_EVENT_VALUE_CHANGED, off_lbl);
+    lv_obj_add_event_cb(off_s, ui_event_Settings_off_s, LV_EVENT_RELEASED,      off_lbl);
 
     return page;
 }
@@ -922,7 +912,7 @@ static lv_obj_t *add_toggle_row(lv_obj_t *parent, const char *label,
     return row;
 }
 
-static void lang_pick_cb(lv_event_t *e)
+static void ui_event_Settings_lang_pick(lv_event_t *e)
 {
     if (ui_state_menu_input_blocked()) return;
     int idx = (int)(intptr_t)lv_event_get_user_data(e);
@@ -946,7 +936,7 @@ static void lang_pick_cb(lv_event_t *e)
     }
 }
 
-static lv_obj_t *build_subpage_language(lv_obj_t *menu)
+static lv_obj_t *ui_Settings_subpage_language_create(lv_obj_t *menu)
 {
     lv_obj_t *page = lv_menu_page_create(menu, (char *)tr(I18N_SET_LANGUAGE));
     lv_obj_set_scroll_dir(page, LV_DIR_VER);
@@ -962,13 +952,13 @@ static lv_obj_t *build_subpage_language(lv_obj_t *menu)
             lv_obj_set_style_text_color(l, lv_color_make(0x40, 0xc0, 0x80), 0);
         }
         lv_obj_add_flag(cont, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_add_event_cb(cont, lang_pick_cb, LV_EVENT_CLICKED,
+        lv_obj_add_event_cb(cont, ui_event_Settings_lang_pick, LV_EVENT_CLICKED,
                             (void *)(intptr_t)i);
     }
     return page;
 }
 
-static lv_obj_t *build_subpage_display(lv_obj_t *menu)
+static lv_obj_t *ui_Settings_subpage_display_create(lv_obj_t *menu)
 {
     lv_obj_t *page = lv_menu_page_create(menu, (char *)tr(I18N_SET_DISPLAY));
     lv_obj_set_scroll_dir(page, LV_DIR_VER);
@@ -976,10 +966,10 @@ static lv_obj_t *build_subpage_display(lv_obj_t *menu)
     lv_obj_t *cont = lv_menu_cont_create(page);
     lv_obj_add_style(cont, &style_submenu_cont, 0);
 
-    add_toggle_row(cont, tr(I18N_HOUR_24), g_cfg.hour24, hour_fmt_cb);
-    add_toggle_row(cont, tr(I18N_SHOW_SECONDS), g_cfg.show_seconds, show_sec_cb);
-    add_toggle_row(cont, tr(I18N_SHOW_MS), g_cfg.show_ms, show_ms_cb);
-    add_toggle_row(cont, tr(I18N_SHOW_FPS), g_cfg.show_fps, show_fps_cb);
+    add_toggle_row(cont, tr(I18N_HOUR_24), g_cfg.hour24, ui_event_Settings_hour_fmt);
+    add_toggle_row(cont, tr(I18N_SHOW_SECONDS), g_cfg.show_seconds, ui_event_Settings_show_sec);
+    add_toggle_row(cont, tr(I18N_SHOW_MS), g_cfg.show_ms, ui_event_Settings_show_ms);
+    add_toggle_row(cont, tr(I18N_SHOW_FPS), g_cfg.show_fps, ui_event_Settings_show_fps);
 
     lv_obj_t *df_l = lv_label_create(cont);
     lv_label_set_text(df_l, tr(I18N_DATE_FORMAT));
@@ -988,7 +978,7 @@ static lv_obj_t *build_subpage_display(lv_obj_t *menu)
     lv_dropdown_set_options_static(df,
         "YYYY.MM.DD\nDD.MM.YYYY\nMM.DD.YYYY");
     lv_dropdown_set_selected(df, g_cfg.date_fmt);
-    lv_obj_add_event_cb(df, date_fmt_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(df, ui_event_Settings_date_fmt, LV_EVENT_VALUE_CHANGED, NULL);
 
     lv_obj_t *th_l = lv_label_create(cont);
     lv_label_set_text(th_l, tr(I18N_THEME));
@@ -1002,18 +992,18 @@ static lv_obj_t *build_subpage_display(lv_obj_t *menu)
              tr(I18N_THEME_DARK), tr(I18N_THEME_LIGHT), tr(I18N_THEME_HICONTRAST));
     lv_dropdown_set_options_static(th, theme_opts);
     lv_dropdown_set_selected(th, g_cfg.theme);
-    lv_obj_add_event_cb(th, theme_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_add_event_cb(th, ui_event_Settings_theme, LV_EVENT_VALUE_CHANGED, NULL);
 
     return page;
 }
 
-static lv_obj_t *build_subpage_sound(lv_obj_t *menu)
+static lv_obj_t *ui_Settings_subpage_sound_create(lv_obj_t *menu)
 {
     lv_obj_t *page = lv_menu_page_create(menu, (char *)tr(I18N_SET_SOUND));
     lv_obj_t *cont = lv_menu_cont_create(page);
     lv_obj_add_style(cont, &style_submenu_cont, 0);
 
-    add_toggle_row(cont, tr(I18N_SOUND_ENABLED), g_cfg.audio_enable, audio_en_cb);
+    add_toggle_row(cont, tr(I18N_SOUND_ENABLED), g_cfg.audio_enable, ui_event_Settings_audio_en);
 
     lv_obj_t *vol_lbl = lv_label_create(cont);
     lv_label_set_text_fmt(vol_lbl, tr(I18N_VOLUME_PCT), (unsigned)g_cfg.audio_volume);
@@ -1024,13 +1014,13 @@ static lv_obj_t *build_subpage_sound(lv_obj_t *menu)
     lv_slider_set_range(vol_s, 0, 100);
     lv_slider_set_value(vol_s, g_cfg.audio_volume, LV_ANIM_OFF);
     lv_obj_clear_flag(vol_s, LV_OBJ_FLAG_GESTURE_BUBBLE);
-    lv_obj_add_event_cb(vol_s, audio_vol_cb, LV_EVENT_VALUE_CHANGED, vol_lbl);
-    lv_obj_add_event_cb(vol_s, audio_vol_cb, LV_EVENT_RELEASED,      vol_lbl);
+    lv_obj_add_event_cb(vol_s, ui_event_Settings_audio_vol, LV_EVENT_VALUE_CHANGED, vol_lbl);
+    lv_obj_add_event_cb(vol_s, ui_event_Settings_audio_vol, LV_EVENT_RELEASED,      vol_lbl);
 
     return page;
 }
 
-static lv_obj_t *build_subpage_reset(lv_obj_t *menu)
+static lv_obj_t *ui_Settings_subpage_reset_create(lv_obj_t *menu)
 {
     lv_obj_t *page = lv_menu_page_create(menu, (char *)tr(I18N_SET_RESET));
     lv_obj_t *cont = lv_menu_cont_create(page);
@@ -1051,25 +1041,25 @@ static lv_obj_t *build_subpage_reset(lv_obj_t *menu)
     lv_obj_set_style_text_color(bl, lv_color_white(), 0);
     lv_obj_set_style_text_font(bl, i18n_font(), 0);
     lv_obj_center(bl);
-    lv_obj_add_event_cb(btn, reset_confirm_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(btn, ui_event_Settings_reset_confirm, LV_EVENT_CLICKED, NULL);
 
     return page;
 }
 
 void storage_info_refresh(void)
 {
-    if (!g_storage_info_lbl) return;
+    if (!ui_Settings_label_storage_info) return;
     if (!sdcard_is_mounted()) {
-        lv_label_set_text(g_storage_info_lbl, "SD: not mounted");
+        lv_label_set_text(ui_Settings_label_storage_info, "SD: not mounted");
         return;
     }
     uint64_t total = 0, free = 0;
     if (esp_vfs_fat_info("/sdcard", &total, &free) == ESP_OK && total > 0) {
-        lv_label_set_text_fmt(g_storage_info_lbl, "SD: %llu MB free of %llu MB",
+        lv_label_set_text_fmt(ui_Settings_label_storage_info, "SD: %llu MB free of %llu MB",
                               (unsigned long long)(free / (1024 * 1024)),
                               (unsigned long long)(total / (1024 * 1024)));
     } else {
-        lv_label_set_text(g_storage_info_lbl, "SD: read err");
+        lv_label_set_text(ui_Settings_label_storage_info, "SD: read err");
     }
 }
 
@@ -1091,8 +1081,8 @@ void sd_format_worker(void *arg)
        recorder tile's poll handle it. We log here and let the next
        poll repaint. */
     storage_info_refresh();
-    if (g_storage_btn_lbl) {
-        lv_label_set_text(g_storage_btn_lbl,
+    if (ui_Settings_label_storage_btn) {
+        lv_label_set_text(ui_Settings_label_storage_btn,
                           r == ESP_OK ? "Format SD card"
                                       : "Format failed");
     }
@@ -1100,31 +1090,31 @@ void sd_format_worker(void *arg)
     vTaskDelete(NULL);
 }
 
-static void sd_format_cb(lv_event_t *e)
+static void ui_event_Settings_sd_format(lv_event_t *e)
 {
     (void)e;
     if (ui_state_menu_input_blocked()) return;
-    if (g_storage_btn_lbl) lv_label_set_text(g_storage_btn_lbl, "Formatting...");
+    if (ui_Settings_label_storage_btn) lv_label_set_text(ui_Settings_label_storage_btn, "Formatting...");
     /* Format on a worker so the LVGL task keeps drawing. 64GB FAT32
        format takes ~30-60s on this controller. */
     xTaskCreatePinnedToCore(sd_format_worker, "sd_fmt", 4 * 1024,
                             NULL, 4, NULL, 1);
 }
 
-static lv_obj_t *build_subpage_storage(lv_obj_t *menu)
+static lv_obj_t *ui_Settings_subpage_storage_create(lv_obj_t *menu)
 {
     lv_obj_t *page = lv_menu_page_create(menu, (char *)tr(I18N_SET_STORAGE));
     lv_obj_t *cont = lv_menu_cont_create(page);
     lv_obj_add_style(cont, &style_submenu_cont, 0);
 
-    g_storage_info_lbl = lv_label_create(cont);
-    lv_obj_set_style_text_font(g_storage_info_lbl, i18n_font(), 0);
-    lv_obj_add_style(g_storage_info_lbl, &style_label_white, 0);
+    ui_Settings_label_storage_info = lv_label_create(cont);
+    lv_obj_set_style_text_font(ui_Settings_label_storage_info, i18n_font(), 0);
+    lv_obj_add_style(ui_Settings_label_storage_info, &style_label_white, 0);
     /* Don't call esp_vfs_fat_info at tile-build time -- on some cards it
        hangs the SDMMC driver for many seconds and wedges boot. Show a
        static placeholder; storage_info_refresh() is invoked from the
        sd_format_worker after a format completes. */
-    lv_label_set_text(g_storage_info_lbl,
+    lv_label_set_text(ui_Settings_label_storage_info,
                       sdcard_is_mounted() ? "SD: mounted" : "SD: not mounted");
 
     /* Format button: full FAT32 reformat via esp_vfs_fat_sdcard_format.
@@ -1133,12 +1123,12 @@ static lv_obj_t *build_subpage_storage(lv_obj_t *menu)
     lv_obj_t *fmt_btn = lv_btn_create(cont);
     lv_obj_set_size(fmt_btn, 200, 32);
     lv_obj_add_style(fmt_btn, &style_format_btn, 0);
-    g_storage_btn_lbl = lv_label_create(fmt_btn);
-    lv_label_set_text(g_storage_btn_lbl, "Format SD card");
-    lv_obj_set_style_text_color(g_storage_btn_lbl, lv_color_white(), 0);
-    lv_obj_set_style_text_font(g_storage_btn_lbl, i18n_font(), 0);
-    lv_obj_center(g_storage_btn_lbl);
-    lv_obj_add_event_cb(fmt_btn, sd_format_cb, LV_EVENT_CLICKED, NULL);
+    ui_Settings_label_storage_btn = lv_label_create(fmt_btn);
+    lv_label_set_text(ui_Settings_label_storage_btn, "Format SD card");
+    lv_obj_set_style_text_color(ui_Settings_label_storage_btn, lv_color_white(), 0);
+    lv_obj_set_style_text_font(ui_Settings_label_storage_btn, i18n_font(), 0);
+    lv_obj_center(ui_Settings_label_storage_btn);
+    lv_obj_add_event_cb(fmt_btn, ui_event_Settings_sd_format, LV_EVENT_CLICKED, NULL);
     return page;
 }
 
@@ -1150,7 +1140,7 @@ static void wifi_subpage_add_autoconnect(lv_obj_t *page)
     if (!menu_cont || lv_obj_get_child_cnt(menu_cont) < 2) return;
     lv_obj_t *side = lv_obj_get_child(menu_cont, 1);
     if (!side) return;
-    add_toggle_row(side, tr(I18N_WIFI_AUTOCONNECT), g_cfg.wifi_autoconnect, wifi_ac_cb);
+    add_toggle_row(side, tr(I18N_WIFI_AUTOCONNECT), g_cfg.wifi_autoconnect, ui_event_Settings_wifi_ac);
 }
 
 void ui_Settings_create(lv_obj_t *parent)
@@ -1202,7 +1192,7 @@ void ui_Settings_create(lv_obj_t *parent)
         lv_obj_set_style_radius(back, 4, 0);
         /* Stamp a debounce window so the same touch that pops the page
            doesn't also trigger the city/wifi/reset action it lands on. */
-        lv_obj_add_event_cb(back, menu_back_clicked_cb, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(back, ui_event_Settings_menu_back, LV_EVENT_CLICKED, NULL);
         /* lv_menu already added an lv_img arrow as the first child; hide it
            so we don't render two stacked arrows. */
         if (lv_obj_get_child_cnt(back) > 0) {
@@ -1216,16 +1206,16 @@ void ui_Settings_create(lv_obj_t *parent)
     }
 
     /* Build sub-pages first; the main page links them. */
-    lv_obj_t *p_wifi = build_subpage_wifi(menu);
+    lv_obj_t *p_wifi = ui_Settings_subpage_wifi_create(menu);
     wifi_subpage_add_autoconnect(p_wifi);
-    lv_obj_t *p_tz    = build_subpage_tz(menu);
-    lv_obj_t *p_bri   = build_subpage_brightness(menu);
-    lv_obj_t *p_dim   = build_subpage_autodim(menu);
-    lv_obj_t *p_disp  = build_subpage_display(menu);
-    lv_obj_t *p_snd   = build_subpage_sound(menu);
-    lv_obj_t *p_lang  = build_subpage_language(menu);
-    lv_obj_t *p_reset = build_subpage_reset(menu);
-    lv_obj_t *p_storage = build_subpage_storage(menu);
+    lv_obj_t *p_tz    = ui_Settings_subpage_tz_create(menu);
+    lv_obj_t *p_bri   = ui_Settings_subpage_brightness_create(menu);
+    lv_obj_t *p_dim   = ui_Settings_subpage_autodim_create(menu);
+    lv_obj_t *p_disp  = ui_Settings_subpage_display_create(menu);
+    lv_obj_t *p_snd   = ui_Settings_subpage_sound_create(menu);
+    lv_obj_t *p_lang  = ui_Settings_subpage_language_create(menu);
+    lv_obj_t *p_reset = ui_Settings_subpage_reset_create(menu);
+    lv_obj_t *p_storage = ui_Settings_subpage_storage_create(menu);
 
     /* Main (root) page: list of menu items. Scrolls vertically if
        there are more entries than fit on the 172 px tall canvas. */
@@ -1253,8 +1243,19 @@ void ui_Settings_create(lv_obj_t *parent)
            when a row is clicked so the touch that loaded the new page
            can't also fire a click on whatever item lands under the
            finger on that new page. */
-        lv_obj_add_event_cb(cont, menu_back_clicked_cb, LV_EVENT_CLICKED, NULL);
+        lv_obj_add_event_cb(cont, ui_event_Settings_menu_back, LV_EVENT_CLICKED, NULL);
     }
 
     lv_menu_set_page(menu, main_page);
+}
+
+/* ===== 5. 清理函数 ===== */
+void ui_Settings_cleanup(void)
+{
+    ui_Settings = NULL;
+    ui_Settings_label_wifi_status = NULL;
+    ui_Settings_obj_wifi_list    = NULL;
+    ui_Settings_kb_overlay       = NULL;
+    ui_Settings_kb_textarea      = NULL;
+    ui_Settings_menu_shield      = NULL;
 }

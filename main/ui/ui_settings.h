@@ -6,14 +6,19 @@ extern "C" {
 #endif
 
 #include "lvgl.h"
-#include "ui_common.h"
+#include "ui_main.h"
 
 /* ===== 1. 外部声明：tile 对象 ===== */
 extern lv_obj_t *ui_Settings;
 
 /* ===== 2. 外部声明：命名控件 ===== */
-/* (ui_settings 内部 widget 数量多且仅在文件内访问，保留为 static，
-   不暴露全局声明；如需跨模块访问，未来再提取。) */
+extern lv_obj_t *ui_Settings_label_wifi_status;
+extern lv_obj_t *ui_Settings_obj_wifi_list;
+extern lv_obj_t *ui_Settings_kb_overlay;
+extern lv_obj_t *ui_Settings_kb_textarea;
+extern lv_obj_t *ui_Settings_menu_shield;
+extern lv_obj_t *ui_Settings_label_storage_info;
+extern lv_obj_t *ui_Settings_label_storage_btn;
 
 /* ===== 3. 事件回调函数声明 ===== */
 /* (subpage 内的事件回调均为 static，不对外暴露) */
