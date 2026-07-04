@@ -289,7 +289,7 @@ void rotate_btn_event_cb(lv_event_t *e)
     g_tileview = NULL;
 
     /* 重置时钟页面 */
-    clock_cleanup();
+    ui_Clock_cleanup();
 
     /* 重置设置页面 */
     settings_cleanup();
@@ -452,7 +452,7 @@ static void build_main_ui(const char *status_text)
     (void)status_text;
 
     /* 构建各页面内容 */
-    build_clock_tile(t_clock);
+    ui_Clock_create(t_clock);
     build_quotes_tile(t_quotes);
     build_settings_tile(t_set);
     build_radio_tile(t_radio);
