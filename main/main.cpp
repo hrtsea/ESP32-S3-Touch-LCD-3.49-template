@@ -122,29 +122,5 @@ extern "C" void app_main(void)
     radio_engine_warm_at_boot();
     bg_fetcher_ensure();
 
-    if (!g_cfg.wifi_autoconnect) {
-        ESP_LOGI(TAG, "auto-connect: disabled in settings");
-    } else {
-        if (!g_cfg.last_ssid[0] && DEFAULT_WIFI_SSID[0]) {
-            strncpy(g_cfg.last_ssid, DEFAULT_WIFI_SSID,
-                    sizeof(g_cfg.last_ssid) - 1);
-        }
-        char pass[65] = {0};
-        bool have_pass = cfg_get_ssid_pass(g_cfg.last_ssid, pass, sizeof(pass));
-        if (!have_pass && DEFAULT_WIFI_SSID[0] && DEFAULT_WIFI_PASS[0] &&
-            strcmp(g_cfg.last_ssid, DEFAULT_WIFI_SSID) == 0) {
-            strncpy(pass, DEFAULT_WIFI_PASS, sizeof(pass) - 1);
-            cfg_save_ssid_pass(g_cfg.last_ssid, pass);
-            have_pass = true;
-        }
-        if (g_cfg.last_ssid[0] && have_pass) {
-            ESP_LOGI(TAG, "auto-connect: %s (pass_len=%u)",
-                     g_cfg.last_ssid, (unsigned)strlen(pass));
-            wifi_connect(g_cfg.last_ssid, pass);
-        } else {
-            ESP_LOGI(TAG, "auto-connect: no credentials yet (use Settings -> Wi-Fi)");
-        }
-    }
-
     system_monitor_start();
 }
