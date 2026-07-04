@@ -43,15 +43,14 @@
 #include "wifi_manager.h"
 #include "sntp_manager.h"
 #include "bg_fetcher.h"
+#include "hw_init.h"
+#include "system_monitor.h"
 #include "ui_common.h"
 #include "ui_main.h"
 #include "ui_radio.h"
 
 static const char *TAG = "skeleton";
 
-#define BL_MAX_BRIGHTNESS 255u
-#define TCA9554_POWER_DELAY_MS 50u
-#define HEARTBEAT_INTERVAL_MS 2000u
 #define TM_YEAR_OFFSET 1900
 #define TM_MONTH_OFFSET 1
 
@@ -62,26 +61,6 @@ extern "C" const lv_font_t font_jbmono_96;
 
 extern "C" void tz_apply_current(void);
 extern "C" const char *tz_current_city_name(void);
-extern "C" void disp_driver_init(void);
-
-static int status_text_pos = 0;
-
-static void status_text_append(const char *fmt, ...)
-{
-    if (status_text_pos >= (int)sizeof(g_status_text) - 1) return;
-    va_list args;
-    va_start(args, fmt);
-    int n = vsnprintf(g_status_text + status_text_pos, 
-                      sizeof(g_status_text) - status_text_pos, fmt, args);
-    va_end(args);
-    if (n > 0) {
-        status_text_pos += n;
-        if (status_text_pos >= (int)sizeof(g_status_text) - 1) {
-            status_text_pos = (int)sizeof(g_status_text) - 1;
-            g_status_text[status_text_pos] = '\0';
-        }
-    }
-}
 
 /**
  * @brief 获取 LCD 帧缓冲区快照（用于 WebUI 预览）
@@ -120,69 +99,6 @@ static void log_init(void)
     esp_log_level_set(TAG, ESP_LOG_DEBUG);
     esp_log_level_set("lcd_panel.axs15231b", ESP_LOG_VERBOSE);
     esp_log_level_set("lcd_panel.io.spi", ESP_LOG_VERBOSE);
-}
-
-static void nvs_init(void)
-{
-    esp_err_t er = nvs_flash_init();
-    if (er == ESP_ERR_NVS_NO_FREE_PAGES || er == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        er = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(er);
-}
-
-static void hardware_init(void)
-{
-    ESP_LOGI(TAG, "[1/9] I2C buses");
-    i2c_master_Init();
-    ESP_LOGI(TAG, "      esp_i2c_bus_handle=%p", esp_i2c_bus_handle);
-    status_text_append("I2C OK\n");
-
-    ESP_LOGI(TAG, "[2/9] TCA9554 power rails P6+P7=HIGH");
-    {
-        esp_io_expander_handle_t io_expander = NULL;
-        esp_err_t er = esp_io_expander_new_i2c_tca9554(
-            esp_i2c_bus_handle, ESP_IO_EXPANDER_I2C_TCA9554_ADDRESS_000, &io_expander);
-        ESP_LOGI(TAG, "      tca9554 new=%s handle=%p", esp_err_to_name(er), io_expander);
-        ESP_ERROR_CHECK(esp_io_expander_set_dir(io_expander,
-            IO_EXPANDER_PIN_NUM_7 | IO_EXPANDER_PIN_NUM_6, IO_EXPANDER_OUTPUT));
-        ESP_ERROR_CHECK(esp_io_expander_set_level(io_expander,
-            IO_EXPANDER_PIN_NUM_7 | IO_EXPANDER_PIN_NUM_6, 1));
-        esp_io_expander_print_state(io_expander);
-        vTaskDelay(pdMS_TO_TICKS(TCA9554_POWER_DELAY_MS));
-    }
-    status_text_append("TCA9554 OK\n");
-
-    ESP_LOGI(TAG, "[3/9] LCD backlight PWM (from cfg)");
-    lcd_bl_pwm_bsp_init((uint16_t)(BL_MAX_BRIGHTNESS - g_cfg.brightness));
-    status_text_append("BL OK\n");
-
-    ESP_LOGI(TAG, "[4/9] LCD panel + LVGL");
-    disp_driver_init();
-    status_text_append("LCD/Touch OK\n");
-
-    ESP_LOGI(TAG, "[5/9] RTC + IMU");
-    i2c_rtc_setup();
-    i2c_imu_setup();
-    status_text_append("RTC/IMU OK\n");
-
-    ESP_LOGI(TAG, "[6/9] ADC battery");
-    adc_bsp_init();
-    status_text_append("ADC OK\n");
-
-    ESP_LOGI(TAG, "[7/9] Audio (audio_min: ES8311 + I2S)");
-    if (audio_min_init() == ESP_OK) {
-        audio_min_set_volume(g_cfg.audio_volume);
-        status_text_append("Audio OK\n");
-    } else {
-        status_text_append("Audio FAIL\n");
-    }
-
-    ESP_LOGI(TAG, "[8/9] SD card + Buttons");
-    _sdcard_init();
-    button_Init();
-    status_text_append("SD/Btn OK");
 }
 
 static void time_init(void)
@@ -259,21 +175,6 @@ static void cli_init(void)
     cli_start();
 }
 
-static void heartbeat_loop(void)
-{
-    uint32_t heartbeat = 0;
-    for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(HEARTBEAT_INTERVAL_MS));
-        size_t free8 = heap_caps_get_free_size(MALLOC_CAP_8BIT);
-        size_t freedma = heap_caps_get_free_size(MALLOC_CAP_DMA);
-        size_t freespi = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
-        ESP_LOGI(TAG, "alive #%lu  frames=%lu  heap8=%u dma=%u spiram=%u",
-                 (unsigned long)heartbeat++,
-                 (unsigned long)g_fps_frame_count,
-                 (unsigned)free8, (unsigned)freedma, (unsigned)freespi);
-    }
-}
-
 /**
  * @brief 应用程序主入口
  * 
@@ -294,7 +195,14 @@ static void heartbeat_loop(void)
 extern "C" void app_main(void)
 {
     log_init();
-    nvs_init();
+    
+    esp_err_t er = nvs_flash_init();
+    if (er == ESP_ERR_NVS_NO_FREE_PAGES || er == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        er = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(er);
+    
     cfg_load();
     
     const char *city_name = tz_current_city_name();
@@ -309,8 +217,7 @@ extern "C" void app_main(void)
              EXAMPLE_LCD_H_RES, EXAMPLE_LCD_V_RES,
              LVGL_DMA_BUFF_LEN, LVGL_SPIRAM_BUFF_LEN);
 
-    status_text_append("Drivers:\n");
-    hardware_init();
+    hw_init();
 
     time_init();
     tz_apply_current();
@@ -345,5 +252,5 @@ extern "C" void app_main(void)
         }
     }
 
-    heartbeat_loop();
+    system_monitor_start();
 }

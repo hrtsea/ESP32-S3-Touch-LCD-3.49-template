@@ -23,6 +23,7 @@ extern int g_canvas_h;
 
 bool lvgl_lock(int timeout_ms);
 void lvgl_unlock(void);
+void disp_driver_init(void);
 void disp_driver_update_resolution(void);
 
 #ifdef __cplusplus
