@@ -28,6 +28,8 @@ static const char *TAG = "disp_driver";
 static SemaphoreHandle_t s_lvgl_mux = NULL;
 static SemaphoreHandle_t s_lvgl_flush_semap = NULL;
 static uint16_t *s_lvgl_dma_bufs[2] = { NULL, NULL };
+static lv_color_t *s_fb1 = NULL;
+static lv_disp_draw_buf_t s_disp_buf;
 
 volatile uint32_t g_fps_frame_count = 0;
 lv_obj_t *g_fps_label = NULL;
@@ -177,6 +179,8 @@ static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t 
     int64_t t_wait_total = 0;
     int64_t t_draw_total = 0;
 
+    const bool direct_flush = (rs == 0) && (CW == PW) && (CH == PH);
+
     int buf_idx = 0;
     for (int i = 0; i < flush_count; i++) {
         int64_t t_w0 = esp_timer_get_time();
@@ -188,11 +192,15 @@ static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t 
         int rows = y2 - y1;
         int64_t t_x0 = esp_timer_get_time();
 
-        switch (rs) {
-            case 0:  flush_rot0(lvgl_dma_buf, src, y1, rows, PW, CW, CH); break;
-            case 1:  flush_rot90(lvgl_dma_buf, src, y1, rows, PW, CW, CH); break;
-            case 2:  flush_rot180(lvgl_dma_buf, src, y1, rows, PW, CW, CH); break;
-            default: flush_rot270(lvgl_dma_buf, src, y1, rows, PW, CW, CH); break;
+        if (direct_flush) {
+            memcpy(lvgl_dma_buf, src + (size_t)y1 * CW, (size_t)rows * PW * 2);
+        } else {
+            switch (rs) {
+                case 0:  flush_rot0(lvgl_dma_buf, src, y1, rows, PW, CW, CH); break;
+                case 1:  flush_rot90(lvgl_dma_buf, src, y1, rows, PW, CW, CH); break;
+                case 2:  flush_rot180(lvgl_dma_buf, src, y1, rows, PW, CW, CH); break;
+                default: flush_rot270(lvgl_dma_buf, src, y1, rows, PW, CW, CH); break;
+            }
         }
 
         t_xform_total += esp_timer_get_time() - t_x0;
@@ -357,7 +365,6 @@ extern void webui_set_framebuffer(void *fb, int w, int h);
 
 static void lvgl_init(esp_lcd_panel_handle_t panel)
 {
-    static lv_disp_draw_buf_t disp_buf;
     static lv_disp_drv_t disp_drv;
     static lv_indev_drv_t indev_drv;
 
@@ -368,22 +375,22 @@ static void lvgl_init(esp_lcd_panel_handle_t panel)
     s_lvgl_dma_bufs[1] = (uint16_t *)heap_caps_malloc(LVGL_DMA_BUFF_LEN, MALLOC_CAP_DMA);
     assert(s_lvgl_dma_bufs[0] && s_lvgl_dma_bufs[1]);
 
-    lv_color_t *fb1 = (lv_color_t *)heap_caps_malloc(LVGL_SPIRAM_BUFF_LEN,
-                                                      MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    if (!fb1) {
+    s_fb1 = (lv_color_t *)heap_caps_malloc(LVGL_SPIRAM_BUFF_LEN,
+                                            MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (!s_fb1) {
         ESP_LOGW(TAG, "fb in internal RAM failed; falling back to SPIRAM");
-        fb1 = (lv_color_t *)heap_caps_malloc(LVGL_SPIRAM_BUFF_LEN, MALLOC_CAP_SPIRAM);
+        s_fb1 = (lv_color_t *)heap_caps_malloc(LVGL_SPIRAM_BUFF_LEN, MALLOC_CAP_SPIRAM);
     }
-    assert(fb1);
+    assert(s_fb1);
 
-    webui_set_framebuffer(fb1, UI_CANVAS_W, UI_CANVAS_H);
-    lv_disp_draw_buf_init(&disp_buf, fb1, NULL, UI_CANVAS_W * UI_CANVAS_H);
+    webui_set_framebuffer(s_fb1, UI_CANVAS_W, UI_CANVAS_H);
+    lv_disp_draw_buf_init(&s_disp_buf, s_fb1, NULL, UI_CANVAS_W * UI_CANVAS_H);
 
     lv_disp_drv_init(&disp_drv);
     disp_drv.hor_res = g_canvas_w;
     disp_drv.ver_res = g_canvas_h;
     disp_drv.flush_cb = lvgl_flush_cb;
-    disp_drv.draw_buf = &disp_buf;
+    disp_drv.draw_buf = &s_disp_buf;
     disp_drv.full_refresh = 0;
     disp_drv.direct_mode = 1;
     disp_drv.user_data = panel;
@@ -420,6 +427,9 @@ static void lvgl_init(esp_lcd_panel_handle_t panel)
 void disp_driver_update_resolution(void)
 {
     if (s_disp_drv) {
+        lv_disp_draw_buf_init(&s_disp_buf, s_fb1, NULL,
+                              (size_t)g_canvas_w * g_canvas_h);
+        webui_set_framebuffer(s_fb1, g_canvas_w, g_canvas_h);
         s_disp_drv->hor_res = g_canvas_w;
         s_disp_drv->ver_res = g_canvas_h;
         lv_disp_drv_update(lv_disp_get_default(), s_disp_drv);

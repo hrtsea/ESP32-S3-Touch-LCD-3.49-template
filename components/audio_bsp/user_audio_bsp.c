@@ -37,6 +37,14 @@ void user_audio_bsp_init(void)
   record = get_record_handle();
 }
 
+uint8_t *i2s_get_handle(uint32_t *len)
+{
+  size_t bytes_sizt = music_pcm_end - music_pcm_start;
+  uint8_t *data_ptr = (uint8_t *)music_pcm_start;
+  *len = bytes_sizt;
+  return data_ptr;
+}
+
 
 void i2s_music(void *args)
 {
@@ -134,24 +142,26 @@ void example_i2s_audio_Test(void *arg)
 
 void audio_play_init(void)
 {
-	esp_codec_dev_set_out_vol(playback, 100.0); //设置100声音大小
-  esp_codec_dev_set_in_gain(record, 35.0);   //设置录音时的增益
+  esp_codec_dev_set_out_vol(playback, 100.0);
+  esp_codec_dev_set_in_gain(record, 35.0);
   esp_codec_dev_sample_info_t fs = {};
-    fs.sample_rate = 16000;
-    fs.channel = 2;
-    fs.bits_per_sample = 16;
-  esp_codec_dev_open(playback, &fs); //打开播放
-  esp_codec_dev_open(record, &fs);   //打开录音
+  fs.sample_rate = 24000;
+  fs.channel = 2;
+  fs.bits_per_sample = 16;
+  esp_codec_dev_open(playback, &fs);
+  esp_codec_dev_open(record, &fs);
 }
 
-void audio_playback_read(void *data_ptr,uint32_t len)
+int audio_playback_read(void *data_ptr, uint32_t len)
 {
-	esp_codec_dev_read(record, data_ptr, len);
+  int err = esp_codec_dev_read(record, data_ptr, len);
+  return err;
 }
 
-void audio_playback_write(void *data_ptr,uint32_t len)
+int audio_playback_write(void *data_ptr, uint32_t len)
 {
-	esp_codec_dev_write(playback, data_ptr, len);
+  int err = esp_codec_dev_write(playback, data_ptr, len);
+  return err;
 }
 
 

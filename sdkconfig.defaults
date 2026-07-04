@@ -39,7 +39,6 @@ CONFIG_LV_FONT_FMT_TXT_LARGE=y
 # convert PNGs offline with the snippet in clock-bg docs.
 # FATFS long filename support, heap-allocated.
 CONFIG_FATFS_LFN_HEAP=y
-CONFIG_FATFS_LFN_HEAP_SIZE=255
 # Primary console = USB-Serial-JTAG (same port as idf.py monitor on this board)
 # so the host can both watch logs and send shell commands over /dev/cu.usbmodem*.
 CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
