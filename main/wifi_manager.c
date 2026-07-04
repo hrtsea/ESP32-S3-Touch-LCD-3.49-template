@@ -11,8 +11,8 @@
 #include "lvgl.h"
 #include "user_config.h"
 #include "app_cfg.h"
-#include "disp_driver.h"
 #include "sntp_manager.h"
+#include "wifi_manager.h"
 
 static const char *TAG = "wifi_manager";
 
@@ -34,37 +34,11 @@ uint8_t        g_wifi_last_reason = 0;
 int8_t         g_wifi_last_rssi = 0;
 uint32_t       g_wifi_connect_started_ms = 0;
 
-static lv_obj_t *g_ip_label = NULL;
+static wifi_status_cb_t g_wifi_status_cb = NULL;
 
-static void ip_label_ensure(void)
+void wifi_manager_register_status_cb(wifi_status_cb_t cb)
 {
-    if (g_ip_label) return;
-    g_ip_label = lv_label_create(lv_layer_top());
-    lv_label_set_text(g_ip_label, "");
-    lv_obj_set_style_text_color(g_ip_label, lv_color_make(0xa0, 0xa0, 0xa0), 0);
-    lv_obj_set_style_text_font(g_ip_label, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_bg_color(g_ip_label, lv_color_make(0x00, 0x00, 0x00), 0);
-    lv_obj_set_style_bg_opa(g_ip_label, LV_OPA_50, 0);
-    lv_obj_set_style_pad_left(g_ip_label, 4, 0);
-    lv_obj_set_style_pad_right(g_ip_label, 4, 0);
-    lv_obj_set_style_pad_top(g_ip_label, 1, 0);
-    lv_obj_set_style_pad_bottom(g_ip_label, 1, 0);
-    lv_obj_set_style_radius(g_ip_label, 3, 0);
-    lv_obj_align(g_ip_label, LV_ALIGN_BOTTOM_LEFT, 2, -2);
-    lv_obj_add_flag(g_ip_label, LV_OBJ_FLAG_HIDDEN);
-}
-
-void wifi_ip_label_set(const char *text)
-{
-    if (!lvgl_lock(50)) return;
-    ip_label_ensure();
-    if (text && *text) {
-        lv_label_set_text(g_ip_label, text);
-        lv_obj_clear_flag(g_ip_label, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(g_ip_label, LV_OBJ_FLAG_HIDDEN);
-    }
-    lvgl_unlock();
+    g_wifi_status_cb = cb;
 }
 
 static uint8_t g_wifi_fail_count = 0;
@@ -120,7 +94,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
                 ESP_LOGW(TAG, "wifi: disconnected reason=%u",
                          (unsigned)g_wifi_last_reason);
                 g_wifi_connected = false;
-                wifi_ip_label_set(NULL);
+                if (g_wifi_status_cb) g_wifi_status_cb(false, NULL);
                 g_wifi_fail_count++;
                 if (g_wifi_curr_ssid[0] && !g_wifi_scanning &&
                     g_wifi_fail_count < WIFI_FAILS_BEFORE_ROAM) {
@@ -192,9 +166,11 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
         ip_event_got_ip_t *ev = (ip_event_got_ip_t *)data;
         ESP_LOGI(TAG, "wifi: got IP " IPSTR, IP2STR(&ev->ip_info.ip));
         sntp_manager_start();
-        char buf[40];
-        snprintf(buf, sizeof(buf), IPSTR, IP2STR(&ev->ip_info.ip));
-        wifi_ip_label_set(buf);
+        if (g_wifi_status_cb) {
+            char buf[40];
+            snprintf(buf, sizeof(buf), IPSTR, IP2STR(&ev->ip_info.ip));
+            g_wifi_status_cb(true, buf);
+        }
     }
 }
 

@@ -14,6 +14,7 @@
 #include "ui_settings.h"
 #include "ui_recorder.h"
 #include "audio_min.h"
+#include "wifi_manager.h"
 
 static const char *TAG = "ui_main";
 
@@ -29,9 +30,45 @@ static lv_timer_t *g_dim_timer = NULL;
 /* Play button label on the hello tile. */
 static lv_obj_t   *play_btn_label  = NULL;
 
+/* IP label (displays Wi-Fi connection status). */
+static lv_obj_t   *g_ip_label = NULL;
+
 /* FPS pill (parented to screen, floats above every tile).
  * fps_label / fps_frame_count are declared in ui_common.h and defined
  * in main.cpp (future disp_driver). */
+
+/* ---------------------- IP Label UI ---------------------- */
+
+static void ip_label_ensure(void)
+{
+    if (g_ip_label) return;
+    g_ip_label = lv_label_create(lv_layer_top());
+    lv_label_set_text(g_ip_label, "");
+    lv_obj_set_style_text_color(g_ip_label, lv_color_make(0xa0, 0xa0, 0xa0), 0);
+    lv_obj_set_style_text_font(g_ip_label, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_bg_color(g_ip_label, lv_color_make(0x00, 0x00, 0x00), 0);
+    lv_obj_set_style_bg_opa(g_ip_label, LV_OPA_50, 0);
+    lv_obj_set_style_pad_left(g_ip_label, 4, 0);
+    lv_obj_set_style_pad_right(g_ip_label, 4, 0);
+    lv_obj_set_style_pad_top(g_ip_label, 1, 0);
+    lv_obj_set_style_pad_bottom(g_ip_label, 1, 0);
+    lv_obj_set_style_radius(g_ip_label, 3, 0);
+    lv_obj_align(g_ip_label, LV_ALIGN_BOTTOM_LEFT, 2, -2);
+    lv_obj_add_flag(g_ip_label, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void wifi_status_cb(bool connected, const char *ip_addr)
+{
+    if (!lvgl_lock(50)) return;
+    ip_label_ensure();
+    if (connected && ip_addr && *ip_addr) {
+        lv_label_set_text(g_ip_label, ip_addr);
+        lv_obj_clear_flag(g_ip_label, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(g_ip_label, LV_OBJ_FLAG_HIDDEN);
+    }
+    lvgl_unlock();
+}
 
 /* ---------------------- Wi-Fi reason strings ---------------------- */
 
@@ -458,6 +495,7 @@ void show_main_ui(const char *status_text)
         strncpy(g_status_text, status_text, sizeof(g_status_text) - 1);
         g_status_text[sizeof(g_status_text) - 1] = '\0';
     }
+    wifi_manager_register_status_cb(wifi_status_cb);
     if (!lvgl_lock(-1)) return;
     build_main_ui(g_status_text);
     lvgl_unlock();

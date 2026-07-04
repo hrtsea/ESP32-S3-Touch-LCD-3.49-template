@@ -19,7 +19,9 @@ extern uint16_t g_wifi_scan_n;
 void wifi_manager_init(void);
 void wifi_start_scan(void);
 void wifi_connect(const char *ssid, const char *pass);
-void wifi_ip_label_set(const char *text);
+
+typedef void (*wifi_status_cb_t)(bool connected, const char *ip_addr);
+void wifi_manager_register_status_cb(wifi_status_cb_t cb);
 
 #ifdef __cplusplus
 }
