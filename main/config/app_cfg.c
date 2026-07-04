@@ -15,6 +15,7 @@
 
 #include "app_cfg.h"
 
+/* 如果存在 wifi_secret.h，则包含它以获取默认 WiFi 凭证 */
 #if __has_include("wifi_secret.h")
 #  include "wifi_secret.h"
 #endif
@@ -28,47 +29,58 @@
 
 static const char *TAG = "app_cfg";
 
-extern lv_obj_t *g_tileview;
-extern const char *tz_current_city_name(void);
-extern bool lvgl_lock(int ms);
-extern void lvgl_unlock(void);
-extern int g_canvas_w;
-extern int g_canvas_h;
+/* 外部引用 */
+extern lv_obj_t *g_tileview;              /* TileView 实例 */
+extern const char *tz_current_city_name(void); /* 获取当前时区城市名称 */
+extern bool lvgl_lock(int ms);            /* LVGL 互斥锁 */
+extern void lvgl_unlock(void);            /* LVGL 互斥锁释放 */
+extern int g_canvas_w;                    /* 画布宽度 */
+extern int g_canvas_h;                    /* 画布高度 */
 
+/**
+ * @brief 全局配置实例，使用默认值初始化
+ * 
+ * 当 NVS 中没有配置时，使用这些默认值
+ */
 app_cfg_t g_cfg = {
-    .version           = CFG_VERSION,
-    .tz_idx            = TZ_DEFAULT_CITY_INDEX,
-    .brightness        = 255,
-    .dim_s             = 8 * 3600,
-    .off_s             = 8 * 3600,
-    .last_ssid         = {0},
-    .hour24            = 1,
-    .date_fmt          = 0,
-    .show_seconds      = 1,
-    .show_ms           = 1,
-    .audio_enable      = 1,
-    .audio_volume      = 70,
-    .theme             = 0,
-    .show_fps          = 1,
-    .wifi_autoconnect  = 1,
-    .lang              = 0,
-    .clock_x           = -52,
-    .clock_y           = 0,
-    .clock_size        = 3,
-    .clock_rgba        = 0xFFFFFFFF,
-    .show_clock        = 1,
-    .clock_text        = {0},
-    .bg_mode           = 0,
-    .bg_refresh_s      = 0,
-    .bg_url            = {0},
-    .bg_color          = 0x202020FFu,
-    .quotes_sym_l      = "xauusd",
-    .quotes_sym_r      = "xagusd",
-    .quotes_refresh_s  = 60,
-    .quotes_up_rgba    = 0x33DD66FFu,
-    .quotes_down_rgba  = 0xFF4040FFu,
+    .version           = CFG_VERSION,     /* 配置版本号 */
+    .tz_idx            = TZ_DEFAULT_CITY_INDEX, /* 默认时区索引 */
+    .brightness        = 255,             /* 默认最大亮度 */
+    .dim_s             = 8 * 3600,        /* 默认8小时后变暗 */
+    .off_s             = 8 * 3600,        /* 默认8小时后关闭 */
+    .last_ssid         = {0},             /* 无默认 SSID */
+    .hour24            = 1,               /* 默认24小时制 */
+    .date_fmt          = 0,               /* 默认日期格式 YYYY-MM-DD */
+    .show_seconds      = 1,               /* 默认显示秒数 */
+    .show_ms           = 1,               /* 默认显示毫秒 */
+    .audio_enable      = 1,               /* 默认开启音频 */
+    .audio_volume      = 70,              /* 默认音量70% */
+    .theme             = 0,               /* 默认主题 */
+    .show_fps          = 1,               /* 默认显示 FPS */
+    .wifi_autoconnect  = 1,               /* 默认自动连接 WiFi */
+    .lang              = 0,               /* 默认语言 */
+    .clock_x           = -52,             /* 时钟水平偏移 */
+    .clock_y           = 0,               /* 时钟垂直偏移 */
+    .clock_size        = 3,               /* 默认最大字号 */
+    .clock_rgba        = 0xFFFFFFFF,      /* 默认白色 */
+    .show_clock        = 1,               /* 默认显示时钟 */
+    .clock_text        = {0},             /* 无自定义文本 */
+    .bg_mode           = 0,               /* 默认深色背景 */
+    .bg_refresh_s      = 0,               /* 默认不自动刷新背景 */
+    .bg_url            = {0},             /* 无默认背景 URL */
+    .bg_color          = 0x202020FFu,     /* 默认深灰色背景 */
+    .quotes_sym_l      = "xauusd",        /* 默认左侧黄金行情 */
+    .quotes_sym_r      = "xagusd",        /* 默认右侧白银行情 */
+    .quotes_refresh_s  = 60,              /* 默认60秒刷新一次行情 */
+    .quotes_up_rgba    = 0x33DD66FFu,     /* 默认绿色上涨 */
+    .quotes_down_rgba  = 0xFF4040FFu,     /* 默认红色下跌 */
 };
 
+/**
+ * @brief 静态回调函数存储
+ * 
+ * 用于保存外部注册的配置变更回调函数
+ */
 static struct {
     void (*on_clock_layout_changed)(void);
     void (*on_clock_bg_changed)(void);
@@ -78,6 +90,11 @@ static struct {
     void (*on_wifi_connect)(const char *ssid, const char *pass);
 } s_callbacks = {0};
 
+/**
+ * @brief 注册配置变更回调函数
+ * 
+ * @param cb 回调函数结构体指针
+ */
 void app_cfg_register_callbacks(const app_cfg_callbacks_t *cb)
 {
     if (!cb) return;
@@ -89,15 +106,22 @@ void app_cfg_register_callbacks(const app_cfg_callbacks_t *cb)
     s_callbacks.on_wifi_connect = cb->on_wifi_connect;
 }
 
+/**
+ * @brief 验证配置参数的有效性
+ * 
+ * 确保配置值在合理范围内，防止无效值导致异常
+ */
 static void cfg_validate(void)
 {
-    if (g_cfg.tz_idx >= TZ_CITY_COUNT) g_cfg.tz_idx = TZ_DEFAULT_CITY_INDEX;
-    if (g_cfg.date_fmt > 2) g_cfg.date_fmt = 0;
-    if (g_cfg.theme > 2) g_cfg.theme = 0;
-    if (g_cfg.audio_volume > 100) g_cfg.audio_volume = 100;
-    if (g_cfg.clock_size > 3) g_cfg.clock_size = 3;
-    if (g_cfg.bg_mode > 3) g_cfg.bg_mode = 0;
-    if ((g_cfg.clock_rgba & 0xFF) == 0) g_cfg.clock_rgba = 0xFFFFFFFFu;
+    if (g_cfg.tz_idx >= TZ_CITY_COUNT) g_cfg.tz_idx = TZ_DEFAULT_CITY_INDEX; /* 时区索引校验 */
+    if (g_cfg.date_fmt > 2) g_cfg.date_fmt = 0; /* 日期格式校验 */
+    if (g_cfg.theme > 2) g_cfg.theme = 0; /* 主题索引校验 */
+    if (g_cfg.audio_volume > 100) g_cfg.audio_volume = 100; /* 音量范围校验 */
+    if (g_cfg.clock_size > 3) g_cfg.clock_size = 3; /* 时钟字号校验 */
+    if (g_cfg.bg_mode > 3) g_cfg.bg_mode = 0; /* 背景模式校验 */
+    if ((g_cfg.clock_rgba & 0xFF) == 0) g_cfg.clock_rgba = 0xFFFFFFFFu; /* 透明度校验 */
+    
+    /* 布尔值规范化 */
     g_cfg.show_clock = g_cfg.show_clock ? 1 : 0;
     g_cfg.hour24 = g_cfg.hour24 ? 1 : 0;
     g_cfg.show_seconds = g_cfg.show_seconds ? 1 : 0;
@@ -107,16 +131,30 @@ static void cfg_validate(void)
     g_cfg.wifi_autoconnect = g_cfg.wifi_autoconnect ? 1 : 0;
 }
 
+/**
+ * @brief 配置版本迁移
+ * 
+ * 当加载的配置版本低于当前版本时，执行迁移逻辑
+ * 
+ * @param from_ver 加载的配置版本号
+ */
 static void cfg_migrate(uint8_t from_ver)
 {
     if (from_ver < 7) {
         ESP_LOGI(TAG, "cfg: migrate v%u -> v%u", (unsigned)from_ver, (unsigned)CFG_VERSION);
+        /* 版本 7 的迁移逻辑可在此添加 */
     }
     g_cfg.version = CFG_VERSION;
 }
 
+/**
+ * @brief 从 NVS 读取配置
+ * 
+ * @param h NVS 句柄
+ */
 static void cfg_read_nvs(nvs_handle_t h)
 {
+    /* 基础配置 */
     nvs_get_u8 (h, "ver",       &g_cfg.version);
     nvs_get_u16(h, "tz_idx",    &g_cfg.tz_idx);
     nvs_get_u8 (h, "bri",       &g_cfg.brightness);
@@ -132,15 +170,20 @@ static void cfg_read_nvs(nvs_handle_t h)
     nvs_get_u8 (h, "show_fps",  &g_cfg.show_fps);
     nvs_get_u8 (h, "wifi_ac",   &g_cfg.wifi_autoconnect);
     nvs_get_u8 (h, "lang",      &g_cfg.lang);
+    
+    /* 时钟配置 */
     nvs_get_i16(h, "clk_x",     &g_cfg.clock_x);
     nvs_get_i16(h, "clk_y",     &g_cfg.clock_y);
     nvs_get_u8 (h, "clk_sz",    &g_cfg.clock_size);
     nvs_get_u32(h, "clk_rgba",  &g_cfg.clock_rgba);
     nvs_get_u8 (h, "clk_show",  &g_cfg.show_clock);
+    
+    /* 背景配置 */
     nvs_get_u8 (h, "bg_mode",   &g_cfg.bg_mode);
     nvs_get_u16(h, "bg_refr",   &g_cfg.bg_refresh_s);
     nvs_get_u32(h, "bg_color",  &g_cfg.bg_color);
-
+    
+    /* 字符串配置 */
     size_t sl = sizeof(g_cfg.last_ssid);
     nvs_get_str(h, "last_ssid", g_cfg.last_ssid, &sl);
 
@@ -150,6 +193,7 @@ static void cfg_read_nvs(nvs_handle_t h)
     size_t bgul = sizeof(g_cfg.bg_url);
     nvs_get_str(h, "bg_url",    g_cfg.bg_url, &bgul);
 
+    /* 行情配置 */
     size_t qsll = sizeof(g_cfg.quotes_sym_l);
     size_t qsrl = sizeof(g_cfg.quotes_sym_r);
     nvs_get_str(h, "q_sl",      g_cfg.quotes_sym_l, &qsll);
@@ -167,32 +211,49 @@ static void cfg_read_nvs(nvs_handle_t h)
     g_cfg.quotes_down_rgba = qd;
 }
 
+/**
+ * @brief 初始化配置模块
+ * 
+ * 初始化 NVS Flash，从 NVS 加载配置，执行版本迁移和参数验证
+ */
 void app_cfg_init(void)
 {
+    /* 初始化 NVS Flash */
     esp_err_t er = nvs_flash_init();
     if (er == ESP_ERR_NVS_NO_FREE_PAGES || er == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        /* NVS 页面已满或版本不匹配，擦除后重新初始化 */
         ESP_ERROR_CHECK(nvs_flash_erase());
         er = nvs_flash_init();
     }
     ESP_ERROR_CHECK(er);
 
+    /* 打开配置命名空间并读取配置 */
     nvs_handle_t h;
     if (nvs_open(NVS_NS_CFG, NVS_READONLY, &h) != ESP_OK) return;
     cfg_read_nvs(h);
     nvs_close(h);
 
+    /* 保存加载的版本号，用于后续迁移判断 */
     uint8_t loaded_ver = g_cfg.version;
+    
+    /* 验证配置参数有效性 */
     cfg_validate();
 
+    /* 如果配置版本低于当前版本，执行迁移 */
     if (loaded_ver < CFG_VERSION) {
         cfg_migrate(loaded_ver);
+        
+        /* 如果定义了默认 WiFi 凭证，保存到 NVS */
         if (DEFAULT_WIFI_SSID[0] && DEFAULT_WIFI_PASS[0]) {
             strncpy(g_cfg.last_ssid, DEFAULT_WIFI_SSID, sizeof(g_cfg.last_ssid) - 1);
             app_cfg_save_ssid_pass(DEFAULT_WIFI_SSID, DEFAULT_WIFI_PASS);
         }
+        
+        /* 保存迁移后的配置 */
         app_cfg_save();
     }
 
+    /* 输出配置信息日志 */
     const char *city_name = tz_current_city_name();
     const char *tz_posix = k_tz_cities[g_cfg.tz_idx].posix_tz;
     ESP_LOGI(TAG, "cfg: tz=%s (%s) bri=%u dim=%us off=%us last_ssid=%s",
@@ -202,15 +263,25 @@ void app_cfg_init(void)
              g_cfg.last_ssid[0] ? g_cfg.last_ssid : "(none)");
 }
 
+/**
+ * @brief 加载配置（调用 app_cfg_init）
+ */
 void app_cfg_load(void)
 {
     app_cfg_init();
 }
 
+/**
+ * @brief 保存配置到 NVS
+ * 
+ * 将所有配置参数写入 NVS 并提交
+ */
 void app_cfg_save(void)
 {
     nvs_handle_t h;
     if (nvs_open(NVS_NS_CFG, NVS_READWRITE, &h) != ESP_OK) return;
+    
+    /* 基础配置 */
     nvs_set_u8 (h, "ver",       g_cfg.version);
     nvs_set_u16(h, "tz_idx",    g_cfg.tz_idx);
     nvs_set_u8 (h, "bri",       g_cfg.brightness);
@@ -226,31 +297,50 @@ void app_cfg_save(void)
     nvs_set_u8 (h, "lang",      g_cfg.lang);
     nvs_set_u16(h, "dim_s",     g_cfg.dim_s);
     nvs_set_u16(h, "off_s",     g_cfg.off_s);
+    
+    /* 时钟配置 */
     nvs_set_i16(h, "clk_x",     g_cfg.clock_x);
     nvs_set_i16(h, "clk_y",     g_cfg.clock_y);
     nvs_set_u8 (h, "clk_sz",    g_cfg.clock_size);
     nvs_set_u32(h, "clk_rgba",  g_cfg.clock_rgba);
     nvs_set_u8 (h, "clk_show",  g_cfg.show_clock);
     nvs_set_str(h, "clk_text",  g_cfg.clock_text);
+    
+    /* 背景配置 */
     nvs_set_u8 (h, "bg_mode",   g_cfg.bg_mode);
     nvs_set_u16(h, "bg_refr",   g_cfg.bg_refresh_s);
     nvs_set_str(h, "bg_url",    g_cfg.bg_url);
     nvs_set_u32(h, "bg_color",  g_cfg.bg_color);
+    
+    /* 行情配置 */
     nvs_set_str(h, "q_sl",      g_cfg.quotes_sym_l);
     nvs_set_str(h, "q_sr",      g_cfg.quotes_sym_r);
     nvs_set_u16(h, "q_refr",    g_cfg.quotes_refresh_s);
     nvs_set_u32(h, "q_up",      g_cfg.quotes_up_rgba);
     nvs_set_u32(h, "q_dn",      g_cfg.quotes_down_rgba);
+    
+    /* WiFi 配置 */
     nvs_set_str(h, "last_ssid", g_cfg.last_ssid);
+    
+    /* 提交更改并关闭 NVS */
     nvs_commit(h);
     nvs_close(h);
 }
 
+/**
+ * @brief 保存 WiFi SSID 和密码到 NVS
+ * 
+ * 使用 SSID 作为 key，密码作为 value 存储
+ * 
+ * @param ssid WiFi SSID
+ * @param pass WiFi 密码
+ */
 void app_cfg_save_ssid_pass(const char *ssid, const char *pass)
 {
     if (!ssid || !*ssid) return;
     char key[16] = {0};
-    strncpy(key, ssid, 15);
+    strncpy(key, ssid, 15); /* SSID 最多取前15个字符作为 key */
+    
     nvs_handle_t h;
     if (nvs_open(NVS_NS_WIFI, NVS_READWRITE, &h) != ESP_OK) return;
     nvs_set_str(h, key, pass ? pass : "");
@@ -258,11 +348,20 @@ void app_cfg_save_ssid_pass(const char *ssid, const char *pass)
     nvs_close(h);
 }
 
+/**
+ * @brief 获取指定 SSID 的密码
+ * 
+ * @param ssid WiFi SSID
+ * @param pass 输出密码缓冲区
+ * @param pass_len 密码缓冲区大小
+ * @return true 成功获取密码，false 获取失败
+ */
 bool app_cfg_get_ssid_pass(const char *ssid, char *pass, size_t pass_len)
 {
     if (!ssid || !*ssid || !pass) return false;
     char key[16] = {0};
-    strncpy(key, ssid, 15);
+    strncpy(key, ssid, 15); /* SSID 最多取前15个字符作为 key */
+    
     nvs_handle_t h;
     if (nvs_open(NVS_NS_WIFI, NVS_READONLY, &h) != ESP_OK) return false;
     size_t l = pass_len;
@@ -270,6 +369,8 @@ bool app_cfg_get_ssid_pass(const char *ssid, char *pass, size_t pass_len)
     nvs_close(h);
     return er == ESP_OK;
 }
+
+/* ==================== 获取器 API ==================== */
 
 int app_cfg_get_lang(void) { return g_cfg.lang; }
 int app_cfg_get_brightness(void) { return g_cfg.brightness; }
@@ -283,6 +384,11 @@ uint32_t app_cfg_get_clock_rgba(void) { return g_cfg.clock_rgba; }
 int app_cfg_get_show_ms(void) { return g_cfg.show_ms; }
 int app_cfg_get_show_seconds(void) { return g_cfg.show_seconds; }
 
+/**
+ * @brief 设置是否显示秒数
+ * 
+ * @param show 1=显示, 0=不显示
+ */
 void app_cfg_set_show_seconds(int show)
 {
     g_cfg.show_seconds = show ? 1 : 0;
@@ -291,11 +397,16 @@ void app_cfg_set_show_seconds(int show)
 
 int app_cfg_get_show_clock(void) { return g_cfg.show_clock; }
 
+/**
+ * @brief 设置是否显示时钟
+ * 
+ * @param show 1=显示, 0=不显示
+ */
 void app_cfg_set_show_clock(int show)
 {
     g_cfg.show_clock = show ? 1 : 0;
     if (s_callbacks.on_clock_layout_changed) {
-        s_callbacks.on_clock_layout_changed();
+        s_callbacks.on_clock_layout_changed(); /* 通知时钟布局变更 */
     }
     app_cfg_save();
 }
@@ -308,50 +419,75 @@ const char *app_cfg_get_bg_url(void) { return g_cfg.bg_url; }
 int app_cfg_get_canvas_w(void) { return g_canvas_w; }
 int app_cfg_get_canvas_h(void) { return g_canvas_h; }
 
+/**
+ * @brief 设置背景模式
+ * 
+ * @param m 背景模式 (0=深色, 1=浅色, 2=图片, 3=纯色)
+ */
 void app_cfg_set_bg_mode(int m)
 {
     if (m < 0) m = 0;
     if (m > 3) m = 3;
     g_cfg.bg_mode = (uint8_t)m;
     if (s_callbacks.on_clock_bg_changed) {
-        s_callbacks.on_clock_bg_changed();
+        s_callbacks.on_clock_bg_changed(); /* 通知背景变更 */
     }
     app_cfg_save();
     if (m == 2 && s_callbacks.on_bg_fetch_ensure) {
-        s_callbacks.on_bg_fetch_ensure();
+        s_callbacks.on_bg_fetch_ensure(); /* 如果是图片模式，确保获取背景 */
     }
 }
 
+/**
+ * @brief 设置背景图片 URL
+ * 
+ * @param url 背景图片 URL
+ */
 void app_cfg_set_bg_url(const char *url)
 {
     if (!url) url = "";
     strncpy(g_cfg.bg_url, url, sizeof(g_cfg.bg_url) - 1);
-    g_cfg.bg_url[sizeof(g_cfg.bg_url) - 1] = 0;
+    g_cfg.bg_url[sizeof(g_cfg.bg_url) - 1] = 0; /* 确保字符串终止符 */
     app_cfg_save();
     if (g_cfg.bg_mode == 2 && s_callbacks.on_bg_fetch_ensure) {
-        s_callbacks.on_bg_fetch_ensure();
+        s_callbacks.on_bg_fetch_ensure(); /* 如果是图片模式，确保获取背景 */
     }
 }
 
 uint32_t app_cfg_get_bg_color(void) { return g_cfg.bg_color; }
 
+/**
+ * @brief 设置背景纯色
+ * 
+ * @param rgba 背景颜色 (RGBA)
+ */
 void app_cfg_set_bg_color(uint32_t rgba)
 {
-    g_cfg.bg_color = rgba ? rgba : 0x202020FFu;
+    g_cfg.bg_color = rgba ? rgba : 0x202020FFu; /* 默认深灰色 */
     if (g_cfg.bg_mode == 3 && s_callbacks.on_clock_bg_changed) {
-        s_callbacks.on_clock_bg_changed();
+        s_callbacks.on_clock_bg_changed(); /* 如果是纯色模式，通知背景变更 */
     }
     app_cfg_save();
 }
 
+/**
+ * @brief 设置背景刷新间隔
+ * 
+ * @param s 刷新间隔（秒），最大24小时
+ */
 void app_cfg_set_bg_refresh_s(int s)
 {
     if (s < 0) s = 0;
-    if (s > 24 * 3600) s = 24 * 3600;
+    if (s > 24 * 3600) s = 24 * 3600; /* 最大24小时 */
     g_cfg.bg_refresh_s = (uint16_t)s;
     app_cfg_save();
 }
 
+/**
+ * @brief 重新加载背景
+ * 
+ * 触发背景变更回调，让 UI 模块重新绘制背景
+ */
 void app_cfg_clock_bg_reload(void)
 {
     if (s_callbacks.on_clock_bg_changed) {
@@ -359,6 +495,11 @@ void app_cfg_clock_bg_reload(void)
     }
 }
 
+/**
+ * @brief 立即获取背景图片
+ * 
+ * 如果当前是图片背景模式且有 URL，则触发获取回调
+ */
 void app_cfg_bg_fetch_now(void)
 {
     if (g_cfg.bg_mode != 2 || !g_cfg.bg_url[0]) return;
@@ -367,12 +508,19 @@ void app_cfg_bg_fetch_now(void)
     }
 }
 
+/* ==================== 行情配置 API ==================== */
+
 const char *app_cfg_get_quotes_sym_l(void) { return g_cfg.quotes_sym_l; }
 const char *app_cfg_get_quotes_sym_r(void) { return g_cfg.quotes_sym_r; }
 int app_cfg_get_quotes_refresh_s(void) { return g_cfg.quotes_refresh_s; }
 uint32_t app_cfg_get_quotes_up_rgba(void) { return g_cfg.quotes_up_rgba; }
 uint32_t app_cfg_get_quotes_down_rgba(void) { return g_cfg.quotes_down_rgba; }
 
+/**
+ * @brief 设置左侧行情符号
+ * 
+ * @param s 行情符号（如 xauusd）
+ */
 void app_cfg_set_quotes_sym_l(const char *s)
 {
     if (!s) s = "";
@@ -380,10 +528,15 @@ void app_cfg_set_quotes_sym_l(const char *s)
     g_cfg.quotes_sym_l[sizeof(g_cfg.quotes_sym_l) - 1] = 0;
     app_cfg_save();
     if (s_callbacks.on_quotes_changed) {
-        s_callbacks.on_quotes_changed();
+        s_callbacks.on_quotes_changed(); /* 通知行情配置变更 */
     }
 }
 
+/**
+ * @brief 设置右侧行情符号
+ * 
+ * @param s 行情符号（如 xagusd）
+ */
 void app_cfg_set_quotes_sym_r(const char *s)
 {
     if (!s) s = "";
@@ -391,14 +544,19 @@ void app_cfg_set_quotes_sym_r(const char *s)
     g_cfg.quotes_sym_r[sizeof(g_cfg.quotes_sym_r) - 1] = 0;
     app_cfg_save();
     if (s_callbacks.on_quotes_changed) {
-        s_callbacks.on_quotes_changed();
+        s_callbacks.on_quotes_changed(); /* 通知行情配置变更 */
     }
 }
 
+/**
+ * @brief 设置行情刷新间隔
+ * 
+ * @param s 刷新间隔（秒），范围5-3600秒
+ */
 void app_cfg_set_quotes_refresh_s(int s)
 {
-    if (s < 5) s = 5;
-    if (s > 3600) s = 3600;
+    if (s < 5) s = 5;      /* 最小5秒 */
+    if (s > 3600) s = 3600; /* 最大1小时 */
     g_cfg.quotes_refresh_s = (uint16_t)s;
     app_cfg_save();
 }
@@ -415,18 +573,31 @@ void app_cfg_set_quotes_down_rgba(uint32_t v)
     app_cfg_save();
 }
 
+/* ==================== 时钟配置 API ==================== */
+
+/**
+ * @brief 设置自定义时钟文本
+ * 
+ * @param s 自定义文本
+ */
 void app_cfg_set_clock_text(const char *s)
 {
     if (!s) s = "";
     strncpy(g_cfg.clock_text, s, sizeof(g_cfg.clock_text) - 1);
     g_cfg.clock_text[sizeof(g_cfg.clock_text) - 1] = 0;
-    if (g_cfg.clock_text[0]) g_cfg.show_clock = 1;
+    if (g_cfg.clock_text[0]) g_cfg.show_clock = 1; /* 有文本时自动显示时钟 */
     if (s_callbacks.on_clock_layout_changed) {
-        s_callbacks.on_clock_layout_changed();
+        s_callbacks.on_clock_layout_changed(); /* 通知时钟布局变更 */
     }
     app_cfg_save();
 }
 
+/**
+ * @brief 设置时钟位置偏移
+ * 
+ * @param x 水平偏移
+ * @param y 垂直偏移
+ */
 void app_cfg_set_clock_pos(int x, int y)
 {
     if (x < -512) x = -512;
@@ -436,59 +607,90 @@ void app_cfg_set_clock_pos(int x, int y)
     g_cfg.clock_x = (int16_t)x;
     g_cfg.clock_y = (int16_t)y;
     if (s_callbacks.on_clock_layout_changed) {
-        s_callbacks.on_clock_layout_changed();
+        s_callbacks.on_clock_layout_changed(); /* 通知时钟布局变更 */
     }
     app_cfg_save();
 }
 
+/**
+ * @brief 设置时钟字号大小
+ * 
+ * @param sz 字号大小 (0-3)
+ */
 void app_cfg_set_clock_size(int sz)
 {
     if (sz < 0) sz = 0;
     if (sz > 3) sz = 3;
     g_cfg.clock_size = (uint8_t)sz;
     if (s_callbacks.on_clock_layout_changed) {
-        s_callbacks.on_clock_layout_changed();
+        s_callbacks.on_clock_layout_changed(); /* 通知时钟布局变更 */
     }
     app_cfg_save();
 }
 
+/**
+ * @brief 设置时钟文字颜色
+ * 
+ * @param rgba 文字颜色 (RGBA)
+ */
 void app_cfg_set_clock_rgba(uint32_t rgba)
 {
-    g_cfg.clock_rgba = rgba ? rgba : 0xFFFFFFFFu;
+    g_cfg.clock_rgba = rgba ? rgba : 0xFFFFFFFFu; /* 默认白色 */
     if (s_callbacks.on_clock_layout_changed) {
-        s_callbacks.on_clock_layout_changed();
+        s_callbacks.on_clock_layout_changed(); /* 通知时钟布局变更 */
     }
     app_cfg_save();
 }
 
+/**
+ * @brief 设置是否显示毫秒
+ * 
+ * @param show 1=显示, 0=不显示
+ */
 void app_cfg_set_show_ms(int show)
 {
     g_cfg.show_ms = show ? 1 : 0;
     if (s_callbacks.on_clock_layout_changed) {
-        s_callbacks.on_clock_layout_changed();
+        s_callbacks.on_clock_layout_changed(); /* 通知时钟布局变更 */
     }
     app_cfg_save();
 }
 
+/**
+ * @brief 设置语言索引
+ * 
+ * @param lang 语言索引
+ */
 void app_cfg_set_lang(int lang)
 {
     if (lang < 0) lang = 0;
-    if (lang >= I18N_LANG_COUNT) lang = 0;
+    if (lang >= I18N_LANG_COUNT) lang = 0; /* 超出范围时使用默认语言 */
     g_cfg.lang = (uint8_t)lang;
     app_cfg_save();
 }
 
+/**
+ * @brief 设置背光亮度
+ * 
+ * @param v 亮度值 (0-255)
+ */
 void app_cfg_set_brightness(int v)
 {
     if (v < 0) v = 0;
     if (v > 255) v = 255;
     g_cfg.brightness = (uint8_t)v;
     if (s_callbacks.on_backlight_changed) {
-        s_callbacks.on_backlight_changed(g_cfg.brightness);
+        s_callbacks.on_backlight_changed(g_cfg.brightness); /* 通知背光亮度变更 */
     }
     app_cfg_save();
 }
 
+/**
+ * @brief 设置自动变暗和关闭时间
+ * 
+ * @param dim_s 自动变暗延迟时间（秒）
+ * @param off_s 自动关闭延迟时间（秒）
+ */
 void app_cfg_set_dim_off(int dim_s, int off_s)
 {
     if (dim_s < 0) dim_s = 0;
@@ -496,30 +698,43 @@ void app_cfg_set_dim_off(int dim_s, int off_s)
     g_cfg.dim_s = (uint16_t)dim_s;
     g_cfg.off_s = (uint16_t)off_s;
     if (s_callbacks.on_backlight_changed) {
-        s_callbacks.on_backlight_changed(g_cfg.brightness);
+        s_callbacks.on_backlight_changed(g_cfg.brightness); /* 通知背光配置变更 */
     }
     app_cfg_save();
 }
 
+/**
+ * @brief 保存 WiFi 连接信息并触发连接
+ * 
+ * @param ssid WiFi SSID
+ * @param pass WiFi 密码
+ */
 void app_cfg_wifi_connect_save(const char *ssid, const char *pass)
 {
     if (!ssid || !*ssid) return;
-    app_cfg_save_ssid_pass(ssid, pass ? pass : "");
+    app_cfg_save_ssid_pass(ssid, pass ? pass : ""); /* 保存密码 */
     strncpy(g_cfg.last_ssid, ssid, sizeof(g_cfg.last_ssid) - 1);
     g_cfg.last_ssid[sizeof(g_cfg.last_ssid) - 1] = 0;
-    app_cfg_save();
+    app_cfg_save(); /* 保存配置 */
     if (s_callbacks.on_wifi_connect) {
-        s_callbacks.on_wifi_connect(ssid, pass ? pass : "");
+        s_callbacks.on_wifi_connect(ssid, pass ? pass : ""); /* 触发 WiFi 连接 */
     }
 }
 
+/**
+ * @brief 设置当前活动的 Tile 索引
+ * 
+ * 通过 LVGL 的 TileView 切换到指定的页面
+ * 
+ * @param idx Tile 索引 (0-5)
+ */
 void app_cfg_set_active_tile(int idx)
 {
     if (!g_tileview) return;
     if (idx < 0) idx = 0;
     if (idx > 5) idx = 5;
-    if (lvgl_lock(200)) {
-        lv_obj_set_tile_id(g_tileview, idx, 0, LV_ANIM_OFF);
+    if (lvgl_lock(200)) { /* 获取 LVGL 互斥锁，超时200ms */
+        lv_obj_set_tile_id(g_tileview, idx, 0, LV_ANIM_OFF); /* 切换 Tile */
         lvgl_unlock();
     }
 }
