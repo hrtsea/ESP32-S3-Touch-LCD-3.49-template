@@ -10,6 +10,12 @@
 
 static const char* TAG = "mock_client";
 
+typedef struct {
+    NasType type;
+    const char* type_name;
+    const char* conn_icon;
+} MockClientPriv;
+
 static uint32_t s_counter = 0;
 
 static void generate_mock_data(NasData* data)
@@ -204,25 +210,31 @@ static const NasData* mock_get_data(DataSource* self)
 
 static const char* mock_get_type_name(DataSource* self)
 {
-    (void)self;
+    MockClientPriv* priv = (MockClientPriv*)self->priv;
+    if (priv && priv->type_name) return priv->type_name;
     return "Mock Data Source";
 }
 
 static const char* mock_get_conn_icon(DataSource* self)
 {
-    (void)self;
+    MockClientPriv* priv = (MockClientPriv*)self->priv;
+    if (priv && priv->conn_icon) return priv->conn_icon;
     return "wifi";
 }
 
 static NasTypeConfig mock_get_config(DataSource* self)
 {
-    (void)self;
+    MockClientPriv* priv = (MockClientPriv*)self->priv;
+    if (priv) return nas_type_config_get_defaults(priv->type);
     return nas_type_config_get_defaults(NAS_MOCK);
 }
 
 static void mock_destroy(DataSource* self)
 {
     if (self) {
+        if (self->priv) {
+            free(self->priv);
+        }
         free(self);
     }
 }
@@ -242,9 +254,25 @@ static const DataSourceVTable s_mock_vtable = {
 
 DataSource* mock_client_create(void)
 {
+    return mock_client_create_with_type(NAS_MOCK, "Mock Data Source", "wifi");
+}
+
+DataSource* mock_client_create_with_type(NasType type, const char* type_name, const char* conn_icon)
+{
     DataSource* self = (DataSource*)calloc(1, sizeof(DataSource));
     if (!self) return NULL;
+
+    MockClientPriv* priv = (MockClientPriv*)calloc(1, sizeof(MockClientPriv));
+    if (!priv) {
+        free(self);
+        return NULL;
+    }
+    priv->type = type;
+    priv->type_name = type_name;
+    priv->conn_icon = conn_icon;
+
     self->vtable = &s_mock_vtable;
+    self->priv = priv;
     self->last_poll_ms = 0;
     self->consecutive_failures = 0;
     return self;

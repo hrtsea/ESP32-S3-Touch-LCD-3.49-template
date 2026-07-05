@@ -1,5 +1,12 @@
 #include "data_source.h"
 #include "client/mock_client.h"
+#include "client/api_client.h"
+#include "client/synology_client.h"
+#include "client/netdata_client.h"
+#include "client/truenas_client.h"
+#include "client/qnap_client.h"
+#include "client/serial_client.h"
+#include "client/snmp_client.h"
 #include "esp_log.h"
 #include <string.h>
 #include <stdlib.h>
@@ -102,14 +109,38 @@ static DataSource* g_data_source = NULL;
 
 DataSource* data_source_create(const char* nas_type_id)
 {
+    if (strcmp(nas_type_id, "synology") == 0) {
+        return synology_client_create();
+    }
+    if (strcmp(nas_type_id, "qnap") == 0) {
+        return qnap_client_create();
+    }
+    if (strcmp(nas_type_id, "truenas") == 0) {
+        return truenas_client_create();
+    }
+    if (strcmp(nas_type_id, "netdata") == 0) {
+        return netdata_client_create();
+    }
+    if (strcmp(nas_type_id, "linux_http") == 0) {
+        return api_client_create(NET_LINUX_HTTP);
+    }
+    if (strcmp(nas_type_id, "windows") == 0) {
+        return api_client_create(NET_WINDOWS);
+    }
     if (strcmp(nas_type_id, "mock") == 0) {
         return mock_client_create();
     }
     if (strcmp(nas_type_id, "fnos") == 0) {
-        return mock_client_create();
+        return mock_client_create_with_type(NAS_FNOS, "FNOS", "wifi");
     }
     if (strcmp(nas_type_id, "unraid") == 0) {
-        return mock_client_create();
+        return mock_client_create_with_type(NAS_UNRAID, "Unraid", "wifi");
+    }
+    if (strcmp(nas_type_id, "linux_serial") == 0) {
+        return serial_client_create();
+    }
+    if (strcmp(nas_type_id, "snmp") == 0) {
+        return snmp_client_create();
     }
 
     ESP_LOGW(TAG, "Unsupported type: %s, fallback to mock", nas_type_id);
