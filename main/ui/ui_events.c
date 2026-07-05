@@ -10,6 +10,7 @@
 #include "ui_settings.h"
 #include "ui_quotes.h"
 #include "ui_helpers.h"
+#include "../utils/system_monitor.h"
 
 static const char *TAG = "ui_events";
 
@@ -294,4 +295,173 @@ void ui_events_rotate_screen(void)
     ui_events_stop_dim_timer();
     ui_events_stop_status_timer();
     ui_events_unsubscribe_events();
+}
+
+static char _ssid_buf[64];
+
+void ui_Screen_Boot_event_handler(lv_event_t* e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+    
+    if (event_code == LV_EVENT_CLICKED) {
+        ui_Screen_Boot_stop_timeout();
+        if (ui_Screen_Overview == NULL) {
+            ui_Screen_Overview_screen_init();
+        }
+        lv_scr_load(ui_Screen_Overview);
+    }
+}
+
+void ui_event_Screen_Overview_hdd_clicked(lv_event_t* e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+    
+    if (event_code == LV_EVENT_CLICKED) {
+        if (ui_Screen_Storage == NULL) {
+            ui_Screen_Storage_screen_init();
+        }
+        lv_scr_load_anim(ui_Screen_Storage, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0, false);
+    }
+}
+
+void ui_event_Screen_Overview_gesture(lv_event_t* e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+    
+    if (event_code == LV_EVENT_GESTURE) {
+        lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+        
+        if (dir == LV_DIR_RIGHT) {
+            if (ui_Screen_Settings == NULL) {
+                ui_Screen_Settings_screen_init();
+            }
+            lv_scr_load_anim(ui_Screen_Settings, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0, false);
+        } else if (dir == LV_DIR_LEFT) {
+            if (ui_Screen_Storage == NULL) {
+                ui_Screen_Storage_screen_init();
+            }
+            lv_scr_load_anim(ui_Screen_Storage, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300, 0, false);
+        }
+    }
+}
+
+void ui_event_Screen_Settings_gesture(lv_event_t* e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+    
+    if (event_code == LV_EVENT_GESTURE) {
+        lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+        
+        if (dir == LV_DIR_LEFT) {
+            if (ui_Screen_Overview == NULL) {
+                ui_Screen_Overview_screen_init();
+            }
+            lv_scr_load_anim(ui_Screen_Overview, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300, 0, false);
+        }
+    }
+}
+
+void ui_event_Screen_Storage_gesture(lv_event_t* e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+    
+    if (event_code == LV_EVENT_GESTURE) {
+        lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+        
+        if (dir == LV_DIR_RIGHT) {
+            if (ui_Screen_Overview == NULL) {
+                ui_Screen_Overview_screen_init();
+            }
+            lv_scr_load_anim(ui_Screen_Overview, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0, false);
+        }
+    }
+}
+
+void resetScreenOffTimer(lv_event_t * e)
+{
+    ESP_LOGD("Events", "resetScreenOffTimer called");
+}
+
+void saveWiFiCredential(lv_event_t * e)
+{
+    lv_dropdown_get_selected_str(ui_MainMenu_Dropdown_NetworkList, _ssid_buf, sizeof(_ssid_buf));
+    const char *password = lv_textarea_get_text(ui_MainMenu_Textarea_Password);
+    
+    if (_ssid_buf[0] && password) {
+        app_cfg_wifi_pending_set(_ssid_buf, password);
+        app_cfg_save();
+        ESP_LOGI("Events", "WiFi credential saved: %s", _ssid_buf);
+    }
+}
+
+void scanNetwork(lv_event_t * e)
+{
+    ESP_LOGI("Events", "scanNetwork called");
+    wifi_start_scan();
+}
+
+void toggleWiFi(lv_event_t * e)
+{
+    bool enabled = lv_obj_has_state(ui_MainMenu_Switch_Wifi, LV_STATE_CHECKED);
+    ESP_LOGI("Events", "toggleWiFi called: %s", enabled ? "ON" : "OFF");
+}
+
+void setBrightness(lv_event_t * e)
+{
+    uint16_t selected = lv_dropdown_get_selected(ui_MainMenu_Dropdown_Brightness);
+    ESP_LOGI("Events", "setBrightness called: %d", selected);
+}
+
+void setTimer(lv_event_t * e)
+{
+    uint16_t selected = lv_dropdown_get_selected(ui_MainMenu_Dropdown_SleepTimer);
+    const char *options[] = {"0", "15", "30", "60"};
+    int seconds = atoi(options[selected]);
+    ESP_LOGI("Events", "setTimer called: %d seconds", seconds);
+}
+
+void setWallpaper(lv_event_t * e)
+{
+    ESP_LOGD("Events", "setWallpaper called");
+}
+
+void loadStationFromSDCARD(lv_event_t * e)
+{
+    ESP_LOGD("Events", "loadStationFromSDCARD called");
+}
+
+void loadMusicFromSDCARD(lv_event_t * e)
+{
+    ESP_LOGD("Events", "loadMusicFromSDCARD called");
+}
+
+void set_query_para_autoip(lv_event_t * e)
+{
+    ESP_LOGD("Events", "set_query_para_autoip called");
+}
+
+void setOffsetHour(lv_event_t * e)
+{
+    ESP_LOGD("Events", "setOffsetHour called");
+}
+
+void setOffsetMinute(lv_event_t * e)
+{
+    ESP_LOGD("Events", "setOffsetMinute called");
+}
+
+void setTempUnit(lv_event_t * e)
+{
+    ESP_LOGD("Events", "setTempUnit called");
+}
+
+void saveConfig(lv_event_t * e)
+{
+    app_cfg_save();
+    ESP_LOGI("Events", "saveConfig called");
+}
+
+void turnonScreen(lv_event_t * e)
+{
+    ESP_LOGD("Events", "turnonScreen called");
 }

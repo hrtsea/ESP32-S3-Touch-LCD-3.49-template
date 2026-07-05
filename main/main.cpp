@@ -99,7 +99,7 @@ static void network_init(void)
     }
 }
 
-static void ui_init(void)
+static void ui_start(void)
 {
     char buf[256];
     ui_helpers_get_status_text(buf, sizeof(buf));
@@ -127,7 +127,7 @@ extern "C" void app_main(void)
 
     tz_apply_current();
     network_init();
-    ui_init();
+    ui_start();
 
     /* 订阅配置变更事件：背景获取 + WiFi 连接 */
     event_bus_subscribe(EVENT_CFG_CHANGED, on_cfg_changed_evt, NULL);

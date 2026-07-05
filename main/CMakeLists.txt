@@ -10,8 +10,14 @@ idf_component_register(
         "ui/ui_clock.c"
         "ui/ui_quotes.c"
         "ui/ui_settings.c"
-        
-        
+        "ui/screens/ui_Screen_Boot.c"
+        "ui/screens/ui_Screen_Overview.c"
+        "ui/screens/ui_Screen_Settings.c"
+        "ui/screens/ui_Screen_Storage.c"
+        "ui/fonts/ui_font_NotoSanThai16.c"
+        "ui/images/ui_img_images_button_png.c"
+        "ui/images/ui_img_images_globe_png.c"
+        "ui/images/ui_img_images_timezone_png.c"
         "drivers/disp_driver.c"
         "network/wifi_manager.c"
         "network/sntp_manager.c"
@@ -23,6 +29,8 @@ idf_component_register(
         "utils/hw_init.c"
         "utils/system_monitor.c"
         "utils/bg_fetcher.c"
+        "data/config.c"
+        "data/data_source.c"
         "fonts/font_jbmono_24.c"
         "fonts/font_jbmono_48.c"
         "fonts/font_jbmono_64.c"
@@ -36,6 +44,7 @@ idf_component_register(
         "config"
         "utils"
         "fonts"
+        "data"
 
 )
 

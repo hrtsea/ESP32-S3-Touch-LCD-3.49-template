@@ -25,7 +25,9 @@ extern "C" {
 
 #define menu_input_blocked() ui_helpers_menu_input_blocked()
 
+void ui_init(void);
 void show_main_ui(const char *status_text);
+void build_main_ui(const char *status_text);
 void rotate_btn_event_cb(lv_event_t *e);
 
 #ifdef __cplusplus

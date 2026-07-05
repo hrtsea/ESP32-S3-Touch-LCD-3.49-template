@@ -1,14 +1,3 @@
-/**
- * @file ui.c
- * @brief UI主模块 - 负责顶层UI构建和TileView管理
- * 
- * 本模块是整个UI系统的入口，负责：
- * - 创建和管理TileView（4个页面的滑动容器）
- * - 协调各子UI模块（时钟、行情、设置、演示页）
- * 
- * 业务逻辑已拆分到 ui_helpers.c（状态管理）和 ui_events.c（事件处理）
- */
-
 #include "ui.h"
 
 #include "esp_log.h"
@@ -16,15 +5,55 @@
 #include "ui_quotes.h"
 #include "ui_settings.h"
 #include "ui_hello.h"
+#include "screens/ui_Screen_Boot.h"
 
 static const char *TAG = "ui";
 
-static void build_main_ui(const char *status_text);
+static bool s_fps_timer_created = false;
 
-static void build_main_ui(const char *status_text)
+static void create_global_fps_label(void)
 {
-    static bool fps_timer_created = false;
+    static bool created = false;
+    if (created) return;
 
+    lv_obj_t *fps_lbl = lv_label_create(lv_layer_top());
+    disp_driver_set_fps_label(fps_lbl);
+    lv_label_set_text(fps_lbl, "FPS --");
+    lv_obj_set_style_text_color(fps_lbl, lv_color_make(0x00, 0xff, 0x80), 0);
+    lv_obj_set_style_text_font(fps_lbl, i18n_font(), 0);
+    lv_obj_set_style_bg_color(fps_lbl, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(fps_lbl, LV_OPA_60, 0);
+    lv_obj_set_style_pad_hor(fps_lbl, 3, 0);
+    lv_obj_align(fps_lbl, LV_ALIGN_TOP_LEFT, 4, 4);
+    lv_obj_clear_flag(fps_lbl, LV_OBJ_FLAG_CLICKABLE);
+    if (!g_cfg.show_fps) lv_obj_add_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
+
+    created = true;
+}
+
+void ui_init(void)
+{
+    wifi_manager_register_status_cb(ui_events_wifi_status_cb);
+
+    if (!lvgl_lock(-1)) return;
+
+    create_global_fps_label();
+
+    if (!s_fps_timer_created) {
+        lv_timer_create(disp_driver_fps_timer_cb, 3000, NULL);
+        s_fps_timer_created = true;
+    }
+
+    ui_Screen_Boot_screen_init();
+    lv_scr_load(ui_Screen_Boot);
+
+    ui_Screen_Boot_start_progress();
+
+    lvgl_unlock();
+}
+
+void build_main_ui(const char *status_text)
+{
     lv_obj_t *scr = lv_scr_act();
     lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
@@ -50,24 +79,7 @@ static void build_main_ui(const char *status_text)
 
     ui_events_register_tileview_events(tv);
 
-    lv_obj_t *fps_lbl = lv_label_create(scr);
-    disp_driver_set_fps_label(fps_lbl);
-    lv_label_set_text(fps_lbl, "FPS --");
-    lv_obj_set_style_text_color(fps_lbl, lv_color_make(0x00, 0xff, 0x80), 0);
-    lv_obj_set_style_text_font(fps_lbl, i18n_font(), 0);
-    lv_obj_set_style_bg_color(fps_lbl, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(fps_lbl, LV_OPA_60, 0);
-    lv_obj_set_style_pad_hor(fps_lbl, 3, 0);
-    lv_obj_align(fps_lbl, LV_ALIGN_TOP_LEFT, 4, 4);
-    lv_obj_clear_flag(fps_lbl, LV_OBJ_FLAG_CLICKABLE);
-    if (!g_cfg.show_fps) lv_obj_add_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
-
     ui_events_subscribe_events();
-
-    if (!fps_timer_created) {
-        lv_timer_create(disp_driver_fps_timer_cb, 3000, NULL);
-        fps_timer_created = true;
-    }
 
     ui_events_start_tile_monitor();
 
@@ -85,12 +97,7 @@ void show_main_ui(const char *status_text)
     if (status_text) {
         ui_helpers_set_status_text(status_text);
     }
-
-    wifi_manager_register_status_cb(ui_events_wifi_status_cb);
-
-    if (!lvgl_lock(-1)) return;
-    build_main_ui(status_text ? status_text : "");
-    lvgl_unlock();
+    ui_init();
 }
 
 void rotate_btn_event_cb(lv_event_t *e)
