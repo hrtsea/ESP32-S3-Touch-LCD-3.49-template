@@ -36,7 +36,7 @@ idf_component_register(
         "config"
         "utils"
         "fonts"
-    EMBED_FILES "ui/canon.pcm"
+
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE BUILD_EPOCH_UTC=${BUILD_EPOCH_UTC})
