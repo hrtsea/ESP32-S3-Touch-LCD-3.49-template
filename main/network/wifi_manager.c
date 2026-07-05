@@ -107,11 +107,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
                 g_wifi_connected = true;
                 g_wifi_last_reason = 0;
                 g_wifi_fail_count = 0;
-                size_t ssid_len = strlen(g_wifi_curr_ssid);
-                if (ssid_len >= sizeof(g_cfg.last_ssid)) ssid_len = sizeof(g_cfg.last_ssid) - 1;
-                memcpy(g_cfg.last_ssid, g_wifi_curr_ssid, ssid_len);
-                g_cfg.last_ssid[ssid_len] = '\0';
-                app_cfg_save();
+                app_cfg_set_last_ssid(g_wifi_curr_ssid);
                 break;
             case WIFI_EVENT_SCAN_DONE: {
                 static wifi_ap_record_t recs[WIFI_MAX_SCAN_AP];

@@ -23,8 +23,6 @@ extern "C" {
 #define N_TILES 7
 
 extern lv_timer_t *g_status_timer;
-extern uint32_t    g_last_activity_ms;
-extern int         g_dim_state;
 
 /* 短名宏:转发到 ui_state 模块 */
 #define menu_input_blocked() ui_state_menu_input_blocked()

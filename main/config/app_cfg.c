@@ -7,15 +7,16 @@
 #include "nvs.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 
-#include "lvgl.h"
 #include "tz_cities.h"
 #include "i18n.h"
 #include "user_config.h"
 
 #include "app_cfg.h"
-#include "ui_state.h"
 #include "event_bus.h"
+#include "disp_driver.h"
 
 /* 如果存在 wifi_secret.h，则包含它以获取默认 WiFi 凭证 */
 #if __has_include("wifi_secret.h")
@@ -31,12 +32,11 @@
 
 static const char *TAG = "app_cfg";
 
+/* g_cfg 互斥锁：保护跨任务读写（尤其是字符串字段） */
+static SemaphoreHandle_t s_cfg_mutex = NULL;
+
 /* 外部引用 */
 extern const char *tz_current_city_name(void); /* 获取当前时区城市名称 */
-extern bool lvgl_lock(int ms);            /* LVGL 互斥锁 */
-extern void lvgl_unlock(void);            /* LVGL 互斥锁释放 */
-extern int g_canvas_w;                    /* 画布宽度 */
-extern int g_canvas_h;                    /* 画布高度 */
 
 /**
  * @brief 全局配置实例，使用默认值初始化
@@ -109,7 +109,7 @@ static void cfg_publish(cfg_field_t field)
 static void cfg_validate(void)
 {
     if (g_cfg.tz_idx >= TZ_CITY_COUNT) g_cfg.tz_idx = TZ_DEFAULT_CITY_INDEX; /* 时区索引校验 */
-    if (g_cfg.date_fmt > 2) g_cfg.date_fmt = 0; /* 日期格式校验 */
+    if (g_cfg.date_fmt > DATE_FMT_MAX) g_cfg.date_fmt = 0; /* 日期格式校验 */
     if (g_cfg.theme > 2) g_cfg.theme = 0; /* 主题索引校验 */
     if (g_cfg.audio_volume > 100) g_cfg.audio_volume = 100; /* 音量范围校验 */
     if (g_cfg.clock_size > 3) g_cfg.clock_size = 3; /* 时钟字号校验 */
@@ -207,12 +207,35 @@ static void cfg_read_nvs(nvs_handle_t h)
 }
 
 /**
+ * @brief 获取配置互斥锁（阻塞式）
+ */
+static void cfg_lock(void)
+{
+    if (s_cfg_mutex) {
+        xSemaphoreTake(s_cfg_mutex, portMAX_DELAY);
+    }
+}
+
+/**
+ * @brief 释放配置互斥锁
+ */
+static void cfg_unlock(void)
+{
+    if (s_cfg_mutex) {
+        xSemaphoreGive(s_cfg_mutex);
+    }
+}
+
+/**
  * @brief 初始化配置模块
  * 
  * 初始化 NVS Flash，从 NVS 加载配置，执行版本迁移和参数验证
  */
 void app_cfg_init(void)
 {
+    /* 初始化互斥锁 */
+    s_cfg_mutex = xSemaphoreCreateMutex();
+
     /* 初始化 NVS Flash */
     esp_err_t er = nvs_flash_init();
     if (er == ESP_ERR_NVS_NO_FREE_PAGES || er == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -418,8 +441,8 @@ const char *app_cfg_get_clock_text(void) { return g_cfg.clock_text; }
 int app_cfg_get_bg_mode(void) { return g_cfg.bg_mode; }
 int app_cfg_get_bg_refresh_s(void) { return g_cfg.bg_refresh_s; }
 const char *app_cfg_get_bg_url(void) { return g_cfg.bg_url; }
-int app_cfg_get_canvas_w(void) { return g_canvas_w; }
-int app_cfg_get_canvas_h(void) { return g_canvas_h; }
+int app_cfg_get_canvas_w(void) { return disp_driver_get_canvas_w(); }
+int app_cfg_get_canvas_h(void) { return disp_driver_get_canvas_h(); }
 
 /**
  * @brief 设置背景模式
@@ -447,12 +470,14 @@ void app_cfg_set_bg_mode(int m)
 void app_cfg_set_bg_url(const char *url)
 {
     if (!url) url = "";
+    cfg_lock();
     strncpy(g_cfg.bg_url, url, sizeof(g_cfg.bg_url) - 1);
-    g_cfg.bg_url[sizeof(g_cfg.bg_url) - 1] = 0; /* 确保字符串终止符 */
+    g_cfg.bg_url[sizeof(g_cfg.bg_url) - 1] = 0;
+    cfg_unlock();
     cfg_publish(CFG_FIELD_BG_URL);
     app_cfg_save();
     if (g_cfg.bg_mode == 2 && s_callbacks.on_bg_fetch_ensure) {
-        s_callbacks.on_bg_fetch_ensure(); /* 如果是图片模式，确保获取背景 */
+        s_callbacks.on_bg_fetch_ensure();
     }
 }
 
@@ -526,8 +551,10 @@ uint32_t app_cfg_get_quotes_down_rgba(void) { return g_cfg.quotes_down_rgba; }
 void app_cfg_set_quotes_sym_l(const char *s)
 {
     if (!s) s = "";
+    cfg_lock();
     strncpy(g_cfg.quotes_sym_l, s, sizeof(g_cfg.quotes_sym_l) - 1);
     g_cfg.quotes_sym_l[sizeof(g_cfg.quotes_sym_l) - 1] = 0;
+    cfg_unlock();
     cfg_publish(CFG_FIELD_QUOTES_SYM_L);
     app_cfg_save();
     event_bus_publish(EVENT_QUOTES_CHANGED, NULL, 0);
@@ -541,8 +568,10 @@ void app_cfg_set_quotes_sym_l(const char *s)
 void app_cfg_set_quotes_sym_r(const char *s)
 {
     if (!s) s = "";
+    cfg_lock();
     strncpy(g_cfg.quotes_sym_r, s, sizeof(g_cfg.quotes_sym_r) - 1);
     g_cfg.quotes_sym_r[sizeof(g_cfg.quotes_sym_r) - 1] = 0;
+    cfg_unlock();
     cfg_publish(CFG_FIELD_QUOTES_SYM_R);
     app_cfg_save();
     event_bus_publish(EVENT_QUOTES_CHANGED, NULL, 0);
@@ -586,9 +615,11 @@ void app_cfg_set_quotes_down_rgba(uint32_t v)
 void app_cfg_set_clock_text(const char *s)
 {
     if (!s) s = "";
+    cfg_lock();
     strncpy(g_cfg.clock_text, s, sizeof(g_cfg.clock_text) - 1);
     g_cfg.clock_text[sizeof(g_cfg.clock_text) - 1] = 0;
-    if (g_cfg.clock_text[0]) g_cfg.show_clock = 1; /* 有文本时自动显示时钟 */
+    if (g_cfg.clock_text[0]) g_cfg.show_clock = 1;
+    cfg_unlock();
     cfg_publish(CFG_FIELD_CLOCK_TEXT);
     event_bus_publish(EVENT_CLOCK_LAYOUT_CHANGED, NULL, 0);
     app_cfg_save();
@@ -724,21 +755,17 @@ void app_cfg_wifi_connect_save(const char *ssid, const char *pass)
 
 /**
  * @brief 设置当前活动的 Tile 索引
- * 
- * 通过 LVGL 的 TileView 切换到指定的页面
- * 
+ *
+ * 通过发布 EVENT_TILE_CHANGED 事件通知 UI 层切换，
+ * 解耦 config 层与 LVGL/UI 层。
+ *
  * @param idx Tile 索引 (0-5)
  */
 void app_cfg_set_active_tile(int idx)
 {
-    lv_obj_t *tv = ui_state_get_tileview();
-    if (!tv) return;
     if (idx < 0) idx = 0;
     if (idx > 5) idx = 5;
-    if (lvgl_lock(200)) { /* 获取 LVGL 互斥锁，超时200ms */
-        lv_obj_set_tile_id(tv, idx, 0, LV_ANIM_OFF); /* 切换 Tile */
-        lvgl_unlock();
-    }
+    event_bus_publish(EVENT_TILE_CHANGED, &idx, sizeof(idx));
 }
 
 /* ==================== 新增 setter ==================== */
@@ -763,7 +790,7 @@ void app_cfg_set_hour24(int enable)
 void app_cfg_set_date_fmt(int fmt)
 {
     if (fmt < 0) fmt = 0;
-    if (fmt > 3) fmt = 3;
+    if (fmt > DATE_FMT_MAX) fmt = DATE_FMT_MAX;
     g_cfg.date_fmt = (uint8_t)fmt;
     cfg_publish(CFG_FIELD_DATE_FMT);
     event_bus_publish(EVENT_CLOCK_TIME_FORMAT_CHANGED, NULL, 0);
@@ -856,8 +883,10 @@ void app_cfg_wifi_pending_commit(void)
 {
     if (!s_pending_valid) return;
     app_cfg_save_ssid_pass(s_pending_ssid, s_pending_pass);
+    cfg_lock();
     strncpy(g_cfg.last_ssid, s_pending_ssid, sizeof(g_cfg.last_ssid) - 1);
     g_cfg.last_ssid[sizeof(g_cfg.last_ssid) - 1] = '\0';
+    cfg_unlock();
     cfg_publish(CFG_FIELD_LAST_SSID);
     app_cfg_save();
     s_pending_valid = false;
@@ -868,4 +897,33 @@ void app_cfg_wifi_pending_clear(void)
     s_pending_valid = false;
     s_pending_ssid[0] = '\0';
     s_pending_pass[0] = '\0';
+}
+
+void app_cfg_set_last_ssid(const char *ssid)
+{
+    if (!ssid) return;
+    cfg_lock();
+    if (strcmp(g_cfg.last_ssid, ssid) == 0) {
+        cfg_unlock();
+        return;
+    }
+    size_t len = strlen(ssid);
+    if (len >= sizeof(g_cfg.last_ssid)) len = sizeof(g_cfg.last_ssid) - 1;
+    memcpy(g_cfg.last_ssid, ssid, len);
+    g_cfg.last_ssid[len] = '\0';
+    cfg_unlock();
+    cfg_publish(CFG_FIELD_LAST_SSID);
+    app_cfg_save();
+}
+
+size_t app_cfg_get_last_ssid(char *buf, size_t buf_len)
+{
+    if (!buf || buf_len == 0) return 0;
+    cfg_lock();
+    size_t len = strlen(g_cfg.last_ssid);
+    if (len >= buf_len) len = buf_len - 1;
+    memcpy(buf, g_cfg.last_ssid, len);
+    buf[len] = '\0';
+    cfg_unlock();
+    return len;
 }

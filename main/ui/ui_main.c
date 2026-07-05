@@ -38,14 +38,8 @@ static void build_main_ui(const char *status_text);
 
 /* ---------------------- 全局变量定义 ---------------------- */
 
-lv_obj_t      *g_tileview       = NULL;     /* TileView实例，管理6个页面 */
 lv_timer_t    *g_status_timer   = NULL;     /* 状态更新定时器（1Hz） */
-char           g_status_text[256];          /* 状态文本缓存，用于旋转重绘 */
 
-uint32_t       g_last_activity_ms = 0;       /* 最后活动时间戳（用于自动调光） */
-int            g_dim_state = 0;             /* 调光状态（0=正常, 1=变暗, 2=关闭） */
-uint32_t       g_last_scroll_ms = 0;         /* 最后滚动时间戳 */
-uint32_t       g_menu_input_block_until_ms = 0; /* 菜单输入阻塞截止时间 */
 
 static lv_timer_t *g_dim_timer = NULL;      /* 自动调光定时器（1Hz） */
 
@@ -165,6 +159,18 @@ static void on_show_fps_changed_evt(const event_t *evt, void *user_data)
     }
 }
 
+static void on_tile_changed_evt(const event_t *evt, void *user_data)
+{
+    (void)user_data;
+    if (!evt || !evt->data || evt->data_len < sizeof(int)) return;
+    int idx = *(int *)evt->data;
+    lv_obj_t *tv = ui_state_get_tileview();
+    if (!tv) return;
+    if (idx < 0) idx = 0;
+    if (idx > 5) idx = 5;
+    lv_obj_set_tile_id(tv, idx, 0, LV_ANIM_OFF);
+}
+
 /**
  * @brief 用户活动触发函数
  * 
@@ -175,9 +181,9 @@ static void on_show_fps_changed_evt(const event_t *evt, void *user_data)
 static void activity_kick(lv_event_t *e)
 {
     (void)e;
-    g_last_activity_ms = lv_tick_get();
-    if (g_dim_state != 0) {
-        g_dim_state = 0;
+    ui_state_set_last_activity_ms(lv_tick_get());
+    if (ui_state_get_dim_state() != 0) {
+        ui_state_set_dim_state(0);
         backlight_apply(g_cfg.brightness);
     }
 }
@@ -195,7 +201,7 @@ static void activity_kick(lv_event_t *e)
 static void dim_timer_cb(lv_timer_t *t)
 {
     (void)t;
-    uint32_t idle_ms = lv_tick_elaps(g_last_activity_ms);
+    uint32_t idle_ms = lv_tick_elaps(ui_state_get_last_activity_ms());
     int want = 0;
 
     if (g_cfg.off_s > 0 && idle_ms >= (uint32_t)g_cfg.off_s * 1000) {
@@ -204,8 +210,8 @@ static void dim_timer_cb(lv_timer_t *t)
         want = 1;
     }
 
-    if (want != g_dim_state) {
-        g_dim_state = want;
+    if (want != ui_state_get_dim_state()) {
+        ui_state_set_dim_state(want);
         if (want == 0) {
             backlight_apply(g_cfg.brightness);
         } else if (want == 1) {
@@ -285,7 +291,7 @@ void rotate_btn_event_cb(lv_event_t *e)
     disp_driver_set_fps_label(NULL);
     ui_Hello_cleanup();
     ui_AudioTest_cleanup();
-    g_tileview = NULL;
+    ui_state_set_tileview(NULL);
 
     /* 重置时钟页面 */
     ui_Clock_cleanup();
@@ -309,9 +315,12 @@ void rotate_btn_event_cb(lv_event_t *e)
     /* 取消事件总线订阅 */
     event_bus_unsubscribe(EVENT_BACKLIGHT_CHANGED, on_backlight_changed_evt);
     event_bus_unsubscribe(EVENT_SHOW_FPS_CHANGED, on_show_fps_changed_evt);
+    event_bus_unsubscribe(EVENT_TILE_CHANGED, on_tile_changed_evt);
 
     /* 直接调用build_main_ui（已在LVGL任务中，无需再次获取锁） */
-    build_main_ui(g_status_text);
+    char st[256];
+    ui_state_get_status_text(st, sizeof(st));
+    build_main_ui(st);
 
     ESP_LOGI(TAG, "rotate -> %d deg  canvas=%dx%d",
              new_rot * 90, disp_driver_get_canvas_w(), disp_driver_get_canvas_h());
@@ -394,7 +403,7 @@ static void screen_scroll_stamp_cb(lv_event_t *e)
 {
     lv_event_code_t c = lv_event_get_code(e);
     if (c == LV_EVENT_SCROLL) {
-        g_last_scroll_ms = lv_tick_get();
+        ui_state_set_last_scroll_ms(lv_tick_get());
     }
 }
 
@@ -403,9 +412,10 @@ static int s_current_tile_idx = 0;
 static void tile_monitor_cb(lv_timer_t *t)
 {
     (void)t;
-    if (!g_tileview) return;
-    lv_coord_t x = lv_obj_get_scroll_x(g_tileview);
-    lv_coord_t w = lv_obj_get_width(g_tileview);
+    if (!ui_state_get_tileview()) return;
+    lv_obj_t *tv = ui_state_get_tileview();
+    lv_coord_t x = lv_obj_get_scroll_x(tv);
+    lv_coord_t w = lv_obj_get_width(tv);
     int idx = (w > 0) ? (x + w / 2) / w : 0;
     if (idx < 0) idx = 0;
     if (idx >= N_TILES) idx = N_TILES - 1;
@@ -437,20 +447,21 @@ static void build_main_ui(const char *status_text)
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
 
     /* 创建TileView */
-    g_tileview = lv_tileview_create(scr);
-    lv_obj_set_size(g_tileview, disp_driver_get_canvas_w(), disp_driver_get_canvas_h());
-    lv_obj_set_style_bg_color(g_tileview, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(g_tileview, LV_OPA_COVER, 0);
-    lv_obj_set_scrollbar_mode(g_tileview, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_t *tv = lv_tileview_create(scr);
+    ui_state_set_tileview(tv);
+    lv_obj_set_size(tv, disp_driver_get_canvas_w(), disp_driver_get_canvas_h());
+    lv_obj_set_style_bg_color(tv, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(tv, LV_OPA_COVER, 0);
+    lv_obj_set_scrollbar_mode(tv, LV_SCROLLBAR_MODE_OFF);
 
     /* 创建7个页面Tile */
-    lv_obj_t *t_clock  = lv_tileview_add_tile(g_tileview, 0, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
-    lv_obj_t *t_quotes = lv_tileview_add_tile(g_tileview, 1, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
-    lv_obj_t *t_set    = lv_tileview_add_tile(g_tileview, 2, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
-    lv_obj_t *t_radio  = lv_tileview_add_tile(g_tileview, 3, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
-    lv_obj_t *t_record = lv_tileview_add_tile(g_tileview, 4, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
-    lv_obj_t *t_audio_test = lv_tileview_add_tile(g_tileview, 5, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
-    lv_obj_t *t_hello  = lv_tileview_add_tile(g_tileview, 6, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
+    lv_obj_t *t_clock  = lv_tileview_add_tile(tv, 0, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
+    lv_obj_t *t_quotes = lv_tileview_add_tile(tv, 1, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
+    lv_obj_t *t_set    = lv_tileview_add_tile(tv, 2, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
+    lv_obj_t *t_radio  = lv_tileview_add_tile(tv, 3, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
+    lv_obj_t *t_record = lv_tileview_add_tile(tv, 4, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
+    lv_obj_t *t_audio_test = lv_tileview_add_tile(tv, 5, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
+    lv_obj_t *t_hello  = lv_tileview_add_tile(tv, 6, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
 
     (void)status_text;
 
@@ -461,13 +472,13 @@ static void build_main_ui(const char *status_text)
     ui_Radio_create(t_radio);
     ui_Recorder_create(t_record);
     ui_AudioTest_create(t_audio_test);
-    ui_Hello_create(t_hello, g_status_text);
+    ui_Hello_create(t_hello, status_text);
 
     /* 设置TileView循环滑动手势 */
-    lv_obj_add_event_cb(g_tileview, tileview_gesture_cb, LV_EVENT_GESTURE, NULL);
+    lv_obj_add_event_cb(tv, tileview_gesture_cb, LV_EVENT_GESTURE, NULL);
 
     /* 设置iOS风格提交阈值 */
-    lv_obj_add_event_cb(g_tileview, tileview_commit_cb, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(tv, tileview_commit_cb, LV_EVENT_ALL, NULL);
 
     /* 创建FPS显示标签（浮动在所有页面之上） */
     lv_obj_t *fps_lbl = lv_label_create(scr);
@@ -482,9 +493,10 @@ static void build_main_ui(const char *status_text)
     lv_obj_clear_flag(fps_lbl, LV_OBJ_FLAG_CLICKABLE);
     if (!g_cfg.show_fps) lv_obj_add_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
 
-    /* 订阅事件总线：背光/FPS 变更 */
+    /* 订阅事件总线：背光/FPS/Tile变更 */
     event_bus_subscribe(EVENT_BACKLIGHT_CHANGED, on_backlight_changed_evt, NULL);
     event_bus_subscribe(EVENT_SHOW_FPS_CHANGED, on_show_fps_changed_evt, NULL);
+    event_bus_subscribe(EVENT_TILE_CHANGED, on_tile_changed_evt, NULL);
 
     /* 创建FPS定时器（只创建一次） */
     if (!fps_timer_created) {
@@ -512,13 +524,13 @@ static void build_main_ui(const char *status_text)
     lv_obj_add_event_cb(scr, screen_scroll_stamp_cb, LV_EVENT_ALL, NULL);
 
     /* 初始化活动时间戳和调光定时器 */
-    g_last_activity_ms = lv_tick_get();
+    ui_state_set_last_activity_ms(lv_tick_get());
     if (!g_dim_timer) {
         g_dim_timer = lv_timer_create(dim_timer_cb, 1000, NULL);
     }
 
     /* 默认显示时钟页面 */
-    lv_obj_set_tile_id(g_tileview, 0, 0, LV_ANIM_OFF);
+    lv_obj_set_tile_id(ui_state_get_tileview(), 0, 0, LV_ANIM_OFF);
 }
 
 /**
@@ -531,9 +543,8 @@ static void build_main_ui(const char *status_text)
 void show_main_ui(const char *status_text)
 {
     /* 缓存状态文本用于旋转重绘 */
-    if (status_text != g_status_text) {
-        strncpy(g_status_text, status_text, sizeof(g_status_text) - 1);
-        g_status_text[sizeof(g_status_text) - 1] = '\0';
+    if (status_text) {
+        ui_state_set_status_text(status_text);
     }
 
     /* 注册WiFi状态回调 */
@@ -541,7 +552,7 @@ void show_main_ui(const char *status_text)
 
     /* 获取LVGL互斥锁并构建UI */
     if (!lvgl_lock(-1)) return;
-    build_main_ui(g_status_text);
+    build_main_ui(status_text ? status_text : "");
     lvgl_unlock();
 
     /* 初始化音频测试模块的worker任务 */

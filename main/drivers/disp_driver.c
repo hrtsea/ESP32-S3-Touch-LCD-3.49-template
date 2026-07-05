@@ -34,6 +34,15 @@ static uint16_t *s_lvgl_dma_bufs[2] = { NULL, NULL };
 static lv_color_t *s_fb1 = NULL;
 static lv_disp_draw_buf_t s_disp_buf;
 
+/* 触摸数据缓存 */
+static struct {
+    bool pressed;
+    int x;
+    int y;
+} s_touch_cache = { false, 0, 0 };
+static SemaphoreHandle_t s_touch_mutex = NULL;
+static TaskHandle_t s_touch_task = NULL;
+
 volatile uint32_t g_fps_frame_count = 0;
 lv_obj_t *g_fps_label = NULL;
 static esp_lcd_panel_io_handle_t s_panel_io = NULL;
@@ -233,44 +242,65 @@ static void lvgl_flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t 
     lv_disp_flush_ready(drv);
 }
 
+static void touch_read_task(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        uint8_t cmd[11] = {0xb5, 0xab, 0xa5, 0x5a, 0, 0, 0, 0x0e, 0, 0, 0};
+        uint8_t buff[32] = {0};
+        ESP_ERROR_CHECK_WITHOUT_ABORT(
+            i2c_master_write_read_dev(disp_touch_dev_handle, cmd, 11, buff, 32));
+
+        uint16_t rx = (((uint16_t)buff[2] & 0x0f) << 8) | buff[3];
+        uint16_t ry = (((uint16_t)buff[4] & 0x0f) << 8) | buff[5];
+
+        xSemaphoreTake(s_touch_mutex, portMAX_DELAY);
+        if (buff[1] > 0 && buff[1] < 5) {
+            if (rx > EXAMPLE_LCD_V_RES) rx = EXAMPLE_LCD_V_RES;
+            if (ry > EXAMPLE_LCD_H_RES) ry = EXAMPLE_LCD_H_RES;
+            int panel_px = ry;
+            int panel_py = EXAMPLE_LCD_V_RES - rx;
+            const int CW = g_canvas_w;
+            const int CH = g_canvas_h;
+            int cx, cy;
+
+            switch (g_rot_state) {
+                case 0:  cx = panel_px;            cy = panel_py;              break;
+                case 1:  cx = panel_py;            cy = CH - 1 - panel_px;     break;
+                case 2:  cx = CW - 1 - panel_px;   cy = CH - 1 - panel_py;     break;
+                default: cx = CW - 1 - panel_py;   cy = panel_px;              break;
+            }
+
+            if (cx < 0) cx = 0;
+            if (cx >= CW) cx = CW - 1;
+            if (cy < 0) cy = 0;
+            if (cy >= CH) cy = CH - 1;
+
+            s_touch_cache.pressed = true;
+            s_touch_cache.x = cx;
+            s_touch_cache.y = cy;
+        } else {
+            s_touch_cache.pressed = false;
+        }
+        xSemaphoreGive(s_touch_mutex);
+
+        vTaskDelay(pdMS_TO_TICKS(5));
+    }
+}
+
 static void lvgl_touch_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
     static bool s_was_pressed = false;
     static int s_hold_x = 0, s_hold_y = 0;
 
-    uint8_t cmd[11] = {0xb5, 0xab, 0xa5, 0x5a, 0, 0, 0, 0x0e, 0, 0, 0};
-    uint8_t buff[32] = {0};
-    ESP_ERROR_CHECK_WITHOUT_ABORT(
-        i2c_master_write_read_dev(disp_touch_dev_handle, cmd, 11, buff, 32));
+    xSemaphoreTake(s_touch_mutex, portMAX_DELAY);
+    bool pressed = s_touch_cache.pressed;
+    int cx = s_touch_cache.x;
+    int cy = s_touch_cache.y;
+    xSemaphoreGive(s_touch_mutex);
 
-    uint16_t rx = (((uint16_t)buff[2] & 0x0f) << 8) | buff[3];
-    uint16_t ry = (((uint16_t)buff[4] & 0x0f) << 8) | buff[5];
-
-    if (buff[1] > 0 && buff[1] < 5) {
-        if (rx > EXAMPLE_LCD_V_RES) rx = EXAMPLE_LCD_V_RES;
-        if (ry > EXAMPLE_LCD_H_RES) ry = EXAMPLE_LCD_H_RES;
-        int panel_px = ry;
-        int panel_py = EXAMPLE_LCD_V_RES - rx;
-        const int PW = EXAMPLE_LCD_H_RES;
-        const int PH = EXAMPLE_LCD_V_RES;
-        const int CW = g_canvas_w;
-        const int CH = g_canvas_h;
-        int cx, cy;
-
-        switch (g_rot_state) {
-            case 0:  cx = panel_px;            cy = panel_py;              break;
-            case 1:  cx = panel_py;            cy = CH - 1 - panel_px;     break;
-            case 2:  cx = CW - 1 - panel_px;   cy = CH - 1 - panel_py;     break;
-            default: cx = CW - 1 - panel_py;   cy = panel_px;              break;
-        }
-
-        (void)PW; (void)PH;
-        if (cx < 0) cx = 0;
-        if (cx >= CW) cx = CW - 1;
-        if (cy < 0) cy = 0;
-        if (cy >= CH) cy = CH - 1;
-
-        const int DEAD = 2;
+    const int DEAD = 2;
+    if (pressed) {
         if (s_was_pressed && abs(cx - s_hold_x) <= DEAD && abs(cy - s_hold_y) <= DEAD) {
             cx = s_hold_x;
             cy = s_hold_y;
@@ -420,6 +450,10 @@ static void lvgl_init(esp_lcd_panel_handle_t panel)
     s_lvgl_mux = xSemaphoreCreateMutex();
     assert(s_lvgl_mux);
     xTaskCreatePinnedToCore(lvgl_port_task, "LVGL", 8192, NULL, 4, NULL, 0);
+
+    s_touch_mutex = xSemaphoreCreateMutex();
+    assert(s_touch_mutex);
+    xTaskCreatePinnedToCore(touch_read_task, "touch", 2048, NULL, 5, NULL, 0);
 }
 
 void disp_driver_update_resolution(void)

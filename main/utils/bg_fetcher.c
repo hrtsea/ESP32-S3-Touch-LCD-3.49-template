@@ -18,7 +18,7 @@
 #include "app_cfg.h"
 #include "disp_driver.h"
 #include "wifi_manager.h"
-#include "ui_clock.h"
+#include "event_bus.h"
 
 #define CLOCK_BG_PATH "/sdcard/clock_bg.bin"
 
@@ -120,8 +120,8 @@ static esp_err_t bg_fetch_once(const char *url)
         unlink(tmp);
         return ESP_FAIL;
     }
-    /* Repaint on the LVGL task. */
-    if (lvgl_lock(50)) { clock_bg_apply(); lvgl_unlock(); }
+    /* 通过事件总线通知UI层重新加载背景，避免工具模块直接依赖UI模块 */
+    event_bus_publish(EVENT_CLOCK_BG_CHANGED, NULL, 0);
     return ESP_OK;
 }
 

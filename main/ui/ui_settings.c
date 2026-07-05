@@ -431,8 +431,7 @@ static void ui_event_Settings_wifi_forget(lv_event_t *e)
         nvs_close(h);
     }
     if (strncmp(ap->ssid, g_cfg.last_ssid, sizeof(g_cfg.last_ssid)) == 0) {
-        g_cfg.last_ssid[0] = 0;
-        app_cfg_save();
+        app_cfg_set_last_ssid("");
         esp_wifi_disconnect();
         g_wifi_connected = false;
     }

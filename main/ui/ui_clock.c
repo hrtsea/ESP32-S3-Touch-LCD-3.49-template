@@ -8,6 +8,7 @@
 #include "esp_log.h"
 #include "user_config.h"
 #include "event_bus.h"
+#include "app_cfg.h"
 
 #define CLOCK_BG_PATH "/sdcard/clock_bg.bin"
 
@@ -158,9 +159,9 @@ void clock_update_cb(lv_timer_t *t)
     if (dd < 1) dd = 1;
     if (dd > 31) dd = 31;
     switch (g_cfg.date_fmt) {
-    case 1:  snprintf(buf, sizeof(buf), "%02d.%02d.%04d", dd, mm, yyyy); break;
-    case 2:  snprintf(buf, sizeof(buf), "%02d.%02d.%04d", mm, dd, yyyy); break;
-    default: snprintf(buf, sizeof(buf), "%04d.%02d.%02d", yyyy, mm, dd); break;
+    case DATE_FMT_DD_MM: snprintf(buf, sizeof(buf), "%02d.%02d.%04d", dd, mm, yyyy); break;
+    case DATE_FMT_MM_DD: snprintf(buf, sizeof(buf), "%02d.%02d.%04d", mm, dd, yyyy); break;
+    default:              snprintf(buf, sizeof(buf), "%04d.%02d.%02d", yyyy, mm, dd); break; /* DATE_FMT_ISO */
     }
     lv_label_set_text(ui_Clock_label_date, buf);
     int hh = tm.tm_hour, mi = tm.tm_min, ss = tm.tm_sec;
