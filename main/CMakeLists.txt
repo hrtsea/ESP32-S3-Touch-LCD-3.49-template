@@ -31,6 +31,7 @@ idf_component_register(
         "utils/bg_fetcher.c"
         "data/config.c"
         "data/data_source.c"
+        "data/client/mock_client.c"
         "fonts/font_jbmono_24.c"
         "fonts/font_jbmono_48.c"
         "fonts/font_jbmono_64.c"

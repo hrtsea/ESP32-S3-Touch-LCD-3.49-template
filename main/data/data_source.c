@@ -1,151 +1,57 @@
 #include "data_source.h"
-#include "config.h"
-#include <stdio.h>
+#include "client/mock_client.h"
+#include "esp_log.h"
 #include <string.h>
-#include <time.h>
+#include <stdlib.h>
 
-static NasData g_nas_data;
-static bool g_data_source_initialized = false;
+static const char* TAG = "data_source";
 
-static void generate_mock_data(void)
+const NasTypeEntry NAS_TYPES[] = {
+    {"synology",     "Synology DSM",   NAS_SYNOLOGY,    true},
+    {"qnap",         "QNAP QTS",       NAS_QNAP,        true},
+    {"truenas",      "TrueNAS",        NAS_TRUENAS,     true},
+    {"fnos",         "FNOS",           NAS_FNOS,        true},
+    {"unraid",       "Unraid",         NAS_UNRAID,      true},
+    {"netdata",      "Netdata",        NET_NETDATA,     true},
+    {"snmp",         "SNMP",           NET_SNMP,        true},
+    {"linux_http",   "Linux (HTTP)",   NET_LINUX_HTTP,  true},
+    {"linux_serial", "Linux (Serial)", NET_LINUX_SERIAL,true},
+    {"windows",      "Windows",        NET_WINDOWS,     true},
+    {"mock",         "Mock (测试)",    NAS_MOCK,        true},
+};
+
+const int DATA_TYPE_COUNT = sizeof(NAS_TYPES) / sizeof(NAS_TYPES[0]);
+
+static const NasTypeConfig s_nas_type_configs[] = {
+    {NAS_SYNOLOGY,     "192.168.1.100", 5000,   "admin", true,  true,  false, false},
+    {NAS_QNAP,         "192.168.1.100", 8080,   "admin", true,  true,  false, false},
+    {NAS_TRUENAS,      "192.168.1.100", 80,     "root",  true,  true,  false, false},
+    {NAS_FNOS,         "192.168.1.100", 3000,   "",      false, true,  false, false},
+    {NAS_UNRAID,       "192.168.1.100", 80,     "root",  true,  false, false, false},
+    {NET_LINUX_HTTP,   "192.168.1.100", 8099,   "",      false, false, false, false},
+    {NET_LINUX_SERIAL, "/dev/ttyUSB0",  115200, "",      false, false, false, true},
+    {NET_NETDATA,      "192.168.1.100", 19999,  "",      false, true,  false, false},
+    {NET_SNMP,         "192.168.1.100", 161,    "",      false, false, true,  false},
+    {NET_WINDOWS,      "192.168.1.100", 0,      "admin", true,  false, false, false},
+    {NAS_MOCK,         "",              0,      "",      false, false, false, false},
+};
+static const int s_nas_type_configs_count = sizeof(s_nas_type_configs) / sizeof(s_nas_type_configs[0]);
+
+NasTypeConfig nas_type_config_get_defaults(NasType type)
 {
-    memset(&g_nas_data, 0, sizeof(NasData));
-
-    strlcpy(g_nas_data.system.hostname, "Mock NAS", sizeof(g_nas_data.system.hostname));
-    strlcpy(g_nas_data.system.model, "ZotLab Z6", sizeof(g_nas_data.system.model));
-    g_nas_data.system.uptime_s = time(NULL);
-    g_nas_data.system.cpu_pct = 25.0f + (float)(rand() % 30);
-    g_nas_data.system.ram_pct = 45.0f + (float)(rand() % 20);
-    g_nas_data.system.ram_total_mb = 32768;
-    g_nas_data.system.ram_used_mb = (uint32_t)(g_nas_data.system.ram_pct * g_nas_data.system.ram_total_mb / 100.0f);
-    g_nas_data.system.ram_free_mb = g_nas_data.system.ram_total_mb - g_nas_data.system.ram_used_mb;
-    g_nas_data.system.temp_cpu = 35 + (rand() % 15);
-    g_nas_data.system.temp_sys = 33 + (rand() % 12);
-    g_nas_data.system.cpu_core_count = 8;
-    for (int i = 0; i < g_nas_data.system.cpu_core_count && i < MAX_CPU_CORES; i++) {
-        g_nas_data.system.cpu_cores[i] = 20.0f + (float)(rand() % 40);
+    for (int i = 0; i < s_nas_type_configs_count; i++) {
+        if (s_nas_type_configs[i].type == type) {
+            return s_nas_type_configs[i];
+        }
     }
-
-    g_nas_data.disk_count = 4;
-    for (int i = 0; i < g_nas_data.disk_count; i++) {
-        snprintf(g_nas_data.disks[i].name, sizeof(g_nas_data.disks[i].name), "Disk %d", i + 1);
-        snprintf(g_nas_data.disks[i].device, sizeof(g_nas_data.disks[i].device), "/dev/sd%c", 'a' + i);
-        strlcpy(g_nas_data.disks[i].model_name, "SSD 4TB", sizeof(g_nas_data.disks[i].model_name));
-        snprintf(g_nas_data.disks[i].mount, sizeof(g_nas_data.disks[i].mount), "/mnt/disk%d", i + 1);
-        strlcpy(g_nas_data.disks[i].disk_type, "SSD", sizeof(g_nas_data.disks[i].disk_type));
-        g_nas_data.disks[i].temp = 30 + (rand() % 10);
-        g_nas_data.disks[i].health = HEALTH_OK;
-        g_nas_data.disks[i].size_gb = 4096;
-        g_nas_data.disks[i].used_gb = 1024 + (rand() % 2048);
-        g_nas_data.disks[i].used_pct = (uint8_t)(g_nas_data.disks[i].used_gb * 100 / g_nas_data.disks[i].size_gb);
-        g_nas_data.disks[i].read_kbps = rand() % 10000;
-        g_nas_data.disks[i].write_kbps = rand() % 5000;
-    }
-
-    g_nas_data.volume_count = 1;
-    strlcpy(g_nas_data.volumes[0].name, "Volume1", sizeof(g_nas_data.volumes[0].name));
-    g_nas_data.volumes[0].total_gb = 12288;
-    g_nas_data.volumes[0].used_gb = 5120 + (rand() % 3000);
-    g_nas_data.volumes[0].used_pct = (uint8_t)(g_nas_data.volumes[0].used_gb * 100 / g_nas_data.volumes[0].total_gb);
-    strlcpy(g_nas_data.volumes[0].raid, "RAID 5", sizeof(g_nas_data.volumes[0].raid));
-    strlcpy(g_nas_data.volumes[0].status, "Healthy", sizeof(g_nas_data.volumes[0].status));
-
-    strlcpy(g_nas_data.network.interface, "eth0", sizeof(g_nas_data.network.interface));
-    strlcpy(g_nas_data.network.ip, g_config.nas_ip, sizeof(g_nas_data.network.ip));
-    g_nas_data.network.rx_bps = (uint32_t)((rand() % 100) * 1000000);
-    g_nas_data.network.tx_bps = (uint32_t)((rand() % 50) * 1000000);
-
-    g_nas_data.interface_count = 1;
-    strlcpy(g_nas_data.interfaces[0].name, "eth0", sizeof(g_nas_data.interfaces[0].name));
-    strlcpy(g_nas_data.interfaces[0].ip, g_config.nas_ip, sizeof(g_nas_data.interfaces[0].ip));
-    g_nas_data.interfaces[0].rx_bps = g_nas_data.network.rx_bps;
-    g_nas_data.interfaces[0].tx_bps = g_nas_data.network.tx_bps;
-    g_nas_data.interfaces[0].active = true;
-    g_nas_data.active_interface_idx = 0;
-
-    g_nas_data.fan.rpm = 1500 + (rand() % 500);
-    g_nas_data.fan.pwm_pct = 30 + (rand() % 20);
-    g_nas_data.fan.ctrl_temp = g_nas_data.system.temp_cpu;
-    g_nas_data.fan.stall_alarm = false;
-    g_nas_data.fan.enabled = true;
-
-    g_nas_data.last_update_ms = (uint32_t)(time(NULL) * 1000);
-    g_nas_data.is_online = true;
-    g_nas_data.has_update = false;
+    NasTypeConfig empty = {0};
+    return empty;
 }
 
-bool data_source_init(const char* nas_type_id)
+NasTypeConfig nas_type_config_get_defaults_by_id(const char* type_id)
 {
-    (void)nas_type_id;
-    if (!g_data_source_initialized) {
-        generate_mock_data();
-        g_data_source_initialized = true;
-    }
-    return true;
-}
-
-bool data_source_connect(void)
-{
-    return true;
-}
-
-void data_source_disconnect(void)
-{
-}
-
-bool data_source_poll(void)
-{
-    generate_mock_data();
-    return true;
-}
-
-bool data_source_is_connected(void)
-{
-    return g_data_source_initialized;
-}
-
-const NasData* data_source_get_data(void)
-{
-    if (!g_data_source_initialized) {
-        generate_mock_data();
-        g_data_source_initialized = true;
-    }
-    return &g_nas_data;
-}
-
-const char* data_source_get_type_name(void)
-{
-    return g_config.nas_type;
-}
-
-const char* data_source_get_conn_icon(void)
-{
-    return "wifi";
-}
-
-bool data_source_switch(const char* nas_type_id)
-{
-    (void)nas_type_id;
-    g_data_source_initialized = false;
-    return data_source_init(nas_type_id);
-}
-
-float data_source_get_rx_speed_mbps(void)
-{
-    if (!g_data_source_initialized) {
-        generate_mock_data();
-        g_data_source_initialized = true;
-    }
-    return (float)g_nas_data.network.rx_bps / 8000000.0f;
-}
-
-float data_source_get_tx_speed_mbps(void)
-{
-    if (!g_data_source_initialized) {
-        generate_mock_data();
-        g_data_source_initialized = true;
-    }
-    return (float)g_nas_data.network.tx_bps / 8000000.0f;
+    NasType type = nas_type_from_string(type_id);
+    return nas_type_config_get_defaults(type);
 }
 
 const char* get_display_type_name(const char* nas_type_id)
@@ -192,32 +98,135 @@ const char* nas_type_to_string(NasType type)
     }
 }
 
-struct NasTypeConfig nas_type_config_get_defaults(NasType type)
-{
-    static const struct NasTypeConfig defaults[] = {
-        {NAS_SYNOLOGY,     "192.168.1.100", 5000,  "admin", true,  true,  false, false},
-        {NAS_QNAP,         "192.168.1.100", 8080,  "admin", true,  true,  false, false},
-        {NAS_TRUENAS,      "192.168.1.100", 80,    "root",  true,  true,  false, false},
-        {NAS_FNOS,         "192.168.1.100", 3000,  "",      false, true,  false, false},
-        {NAS_UNRAID,       "192.168.1.100", 80,    "root",  true,  false, false, false},
-        {NET_LINUX_HTTP,   "192.168.1.100", 8099,  "",      false, false, false, false},
-        {NET_LINUX_SERIAL, "/dev/ttyUSB0",  115200,"",      false, false, false, true},
-        {NET_NETDATA,      "192.168.1.100", 19999, "",      false, true,  false, false},
-        {NET_SNMP,         "192.168.1.100", 161,   "",      false, false, true,  false},
-        {NET_WINDOWS,      "192.168.1.100", 0,     "admin", true,  false, false, false},
-        {NAS_MOCK,         "",              0,     "",      false, false, false, false},
-    };
+static DataSource* g_data_source = NULL;
 
-    for (int i = 0; i < sizeof(defaults) / sizeof(defaults[0]); i++) {
-        if (defaults[i].type == type) {
-            return defaults[i];
-        }
+DataSource* data_source_create(const char* nas_type_id)
+{
+    if (strcmp(nas_type_id, "mock") == 0) {
+        return mock_client_create();
     }
-    return (struct NasTypeConfig){0};
+    if (strcmp(nas_type_id, "fnos") == 0) {
+        return mock_client_create();
+    }
+    if (strcmp(nas_type_id, "unraid") == 0) {
+        return mock_client_create();
+    }
+
+    ESP_LOGW(TAG, "Unsupported type: %s, fallback to mock", nas_type_id);
+    return mock_client_create();
 }
 
-struct NasTypeConfig nas_type_config_get_defaults_by_id(const char* type_id)
+bool data_source_init(const char* nas_type_id)
 {
-    NasType type = nas_type_from_string(type_id);
-    return nas_type_config_get_defaults(type);
+    if (g_data_source != NULL) {
+        ESP_LOGW(TAG, "Data source already initialized, switch first");
+        return false;
+    }
+
+    g_data_source = data_source_create(nas_type_id);
+    if (g_data_source == NULL) {
+        ESP_LOGE(TAG, "Failed to create data source for type: %s", nas_type_id);
+        return false;
+    }
+
+    if (!ds_init(g_data_source)) {
+        ESP_LOGE(TAG, "Failed to init data source");
+        ds_destroy(g_data_source);
+        g_data_source = NULL;
+        return false;
+    }
+
+    return true;
+}
+
+bool data_source_connect(void)
+{
+    if (g_data_source == NULL) return false;
+    return ds_connect(g_data_source);
+}
+
+void data_source_disconnect(void)
+{
+    if (g_data_source == NULL) return;
+    ds_disconnect(g_data_source);
+}
+
+bool data_source_poll(void)
+{
+    if (g_data_source == NULL) return false;
+    return ds_poll(g_data_source);
+}
+
+bool data_source_is_connected(void)
+{
+    if (g_data_source == NULL) return false;
+    return ds_is_connected(g_data_source);
+}
+
+const NasData* data_source_get_data(void)
+{
+    if (g_data_source == NULL) return NULL;
+    return ds_get_data(g_data_source);
+}
+
+const char* data_source_get_type_name(void)
+{
+    if (g_data_source == NULL) return "None";
+    return ds_get_type_name(g_data_source);
+}
+
+const char* data_source_get_conn_icon(void)
+{
+    if (g_data_source == NULL) return "none";
+    return ds_get_conn_icon(g_data_source);
+}
+
+bool data_source_switch(const char* nas_type_id)
+{
+    if (g_data_source != NULL) {
+        ESP_LOGI(TAG, "Switching from %s, disconnecting...", ds_get_type_name(g_data_source));
+        ds_disconnect(g_data_source);
+        ds_destroy(g_data_source);
+        g_data_source = NULL;
+    }
+
+    if (nas_type_id == NULL || strlen(nas_type_id) == 0 ||
+        strcmp(nas_type_id, "none") == 0) {
+        ESP_LOGI(TAG, "Data source cleared (no type specified)");
+        return true;
+    }
+
+    ESP_LOGI(TAG, "Creating new data source for type: %s", nas_type_id);
+    g_data_source = data_source_create(nas_type_id);
+
+    if (g_data_source == NULL) {
+        ESP_LOGE(TAG, "Failed to create data source for type: %s", nas_type_id);
+        return false;
+    }
+
+    if (!ds_init(g_data_source)) {
+        ESP_LOGE(TAG, "Failed to init data source");
+        ds_destroy(g_data_source);
+        g_data_source = NULL;
+        return false;
+    }
+
+    ESP_LOGI(TAG, "Data source created successfully, connecting...");
+    ds_connect(g_data_source);
+
+    return true;
+}
+
+float data_source_get_rx_speed_mbps(void)
+{
+    if (g_data_source == NULL) return 0.0f;
+    const NasData* data = ds_get_data(g_data_source);
+    return (float)data->network.rx_bps / 8000000.0f;
+}
+
+float data_source_get_tx_speed_mbps(void)
+{
+    if (g_data_source == NULL) return 0.0f;
+    const NasData* data = ds_get_data(g_data_source);
+    return (float)data->network.tx_bps / 8000000.0f;
 }

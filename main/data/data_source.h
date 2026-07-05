@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include "nas_data.h"
 #include "config.h"
 
@@ -20,29 +21,71 @@ typedef struct NasTypeConfig {
     bool need_serial;
 } NasTypeConfig;
 
-struct NasTypeEntry {
+typedef struct NasTypeEntry {
     const char* id;
     const char* display_name;
     NasType nas_type_enum;
     bool implemented;
+} NasTypeEntry;
+
+extern const NasTypeEntry NAS_TYPES[];
+extern const int DATA_TYPE_COUNT;
+
+typedef struct DataSource DataSource;
+
+typedef struct DataSourceVTable {
+    bool (*init)(DataSource* self);
+    bool (*connect)(DataSource* self);
+    void (*disconnect)(DataSource* self);
+    bool (*poll)(DataSource* self);
+    bool (*is_connected)(DataSource* self);
+    const NasData* (*get_data)(DataSource* self);
+    const char* (*get_type_name)(DataSource* self);
+    const char* (*get_conn_icon)(DataSource* self);
+    NasTypeConfig (*get_config)(DataSource* self);
+    void (*destroy)(DataSource* self);
+} DataSourceVTable;
+
+struct DataSource {
+    const DataSourceVTable* vtable;
+    NasData data;
+    uint32_t last_poll_ms;
+    uint8_t consecutive_failures;
+    void* priv;
 };
 
-static const struct NasTypeEntry NAS_TYPES[] = {
-    {"synology",     "Synology DSM",   NAS_SYNOLOGY,    true},
-    {"qnap",         "QNAP QTS",       NAS_QNAP,        true},
-    {"truenas",      "TrueNAS",        NAS_TRUENAS,     true},
-    {"fnos",         "FNOS",           NAS_FNOS,        true},
-    {"unraid",       "Unraid",         NAS_UNRAID,      true},
-    {"netdata",      "Netdata",        NET_NETDATA,     true},
-    {"snmp",         "SNMP",           NET_SNMP,        true},
-    {"linux_http",   "Linux (HTTP)",   NET_LINUX_HTTP,  true},
-    {"linux_serial", "Linux (Serial)", NET_LINUX_SERIAL,true},
-    {"windows",      "Windows",        NET_WINDOWS,     true},
-    {"mock",         "Mock (测试)",    NAS_MOCK,        true},
-};
+static inline bool ds_init(DataSource* self) {
+    return self->vtable->init(self);
+}
+static inline bool ds_connect(DataSource* self) {
+    return self->vtable->connect(self);
+}
+static inline void ds_disconnect(DataSource* self) {
+    self->vtable->disconnect(self);
+}
+static inline bool ds_poll(DataSource* self) {
+    return self->vtable->poll(self);
+}
+static inline bool ds_is_connected(DataSource* self) {
+    return self->vtable->is_connected(self);
+}
+static inline const NasData* ds_get_data(DataSource* self) {
+    return self->vtable->get_data(self);
+}
+static inline const char* ds_get_type_name(DataSource* self) {
+    return self->vtable->get_type_name(self);
+}
+static inline const char* ds_get_conn_icon(DataSource* self) {
+    return self->vtable->get_conn_icon(self);
+}
+static inline NasTypeConfig ds_get_config(DataSource* self) {
+    return self->vtable->get_config(self);
+}
+static inline void ds_destroy(DataSource* self) {
+    self->vtable->destroy(self);
+}
 
-static const int DATA_TYPE_COUNT = sizeof(NAS_TYPES) / sizeof(NAS_TYPES[0]);
-
+DataSource* data_source_create(const char* nas_type_id);
 bool data_source_init(const char* nas_type_id);
 bool data_source_connect(void);
 void data_source_disconnect(void);
@@ -59,8 +102,8 @@ float data_source_get_tx_speed_mbps(void);
 const char* get_display_type_name(const char* nas_type_id);
 NasType nas_type_from_string(const char* nas_type_id);
 const char* nas_type_to_string(NasType type);
-struct NasTypeConfig nas_type_config_get_defaults(NasType type);
-struct NasTypeConfig nas_type_config_get_defaults_by_id(const char* type_id);
+NasTypeConfig nas_type_config_get_defaults(NasType type);
+NasTypeConfig nas_type_config_get_defaults_by_id(const char* type_id);
 
 #ifdef __cplusplus
 }
