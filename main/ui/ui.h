@@ -1,5 +1,5 @@
-#ifndef UI_MAIN_H
-#define UI_MAIN_H
+#ifndef UI_H
+#define UI_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,22 +18,18 @@ extern "C" {
 #include "disp_driver.h"
 #include "wifi_manager.h"
 #include "theme.h"
-#include "ui_state.h"
+#include "ui_helpers.h"
+#include "ui_events.h"
 
-#define N_TILES 7
+#define N_TILES 4
 
-extern lv_timer_t *g_status_timer;
-
-/* 短名宏:转发到 ui_state 模块 */
-#define menu_input_blocked() ui_state_menu_input_blocked()
+#define menu_input_blocked() ui_helpers_menu_input_blocked()
 
 void show_main_ui(const char *status_text);
-void fps_timer_cb(lv_timer_t *t);
-void backlight_apply(uint8_t bri);
 void rotate_btn_event_cb(lv_event_t *e);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* UI_MAIN_H */
+#endif /* UI_H */

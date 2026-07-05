@@ -7,8 +7,8 @@
 #include <sys/time.h>
 #include "esp_log.h"
 
-#include "ui_main.h"
-#include "ui_state.h"
+#include "ui.h"
+#include "ui_helpers.h"
 #include "esp_io_expander_tca9554.h"
 #include "driver/i2c_master.h"
 #include "freertos/FreeRTOS.h"
@@ -22,7 +22,6 @@
 #include "sdcard_bsp.h"
 #include "button_bsp.h"
 #include "audio_min.h"
-#include "radio.h"
 
 #include "app_cfg.h"
 #include "disp_driver.h"
@@ -42,7 +41,7 @@ static void system_time_init(void);
 static void status_text_append(const char *fmt, ...)
 {
     char buf[STATUS_TEXT_BUF_SIZE];
-    ui_state_get_status_text(buf, sizeof(buf));
+    ui_helpers_get_status_text(buf, sizeof(buf));
     int pos = (int)strlen(buf);
     if (pos >= (int)sizeof(buf) - 1) return;
     va_list args;
@@ -51,7 +50,7 @@ static void status_text_append(const char *fmt, ...)
                       sizeof(buf) - pos, fmt, args);
     va_end(args);
     if (n > 0) {
-        ui_state_set_status_text(buf);
+        ui_helpers_set_status_text(buf);
     }
 }
 
@@ -95,15 +94,7 @@ void hw_init(void)
     adc_bsp_init();
     status_text_append("ADC OK\n");
 
-    ESP_LOGI(TAG, "[7/9] Audio (radio engine: ES8311 + ES7210 + I2S TDM)");
-    if (radio_init() == ESP_OK) {
-        radio_set_volume(g_cfg.audio_volume);
-        status_text_append("Radio OK\n");
-    } else {
-        status_text_append("Radio FAIL\n");
-    }
-
-    ESP_LOGI(TAG, "[8/9] Audio MIDI (audio_min: reuses radio play_dev)");
+    ESP_LOGI(TAG, "[7/9] Audio MIDI (ES8311 + ES7210 + I2S TDM)");
     if (audio_min_init() == ESP_OK) {
         audio_min_set_volume(g_cfg.audio_volume);
         status_text_append("MIDI OK\n");

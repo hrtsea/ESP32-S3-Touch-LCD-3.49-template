@@ -3,15 +3,15 @@ string(TIMESTAMP BUILD_EPOCH_UTC "%s" UTC)
 idf_component_register(
     SRCS
         "main.cpp"
-        "ui/ui_main.c"
-        "ui/ui_state.c"
+        "ui/ui.c"
+        "ui/ui_helpers.c"
+        "ui/ui_events.c"
         "ui/ui_hello.c"
         "ui/ui_clock.c"
         "ui/ui_quotes.c"
         "ui/ui_settings.c"
-        "ui/ui_radio.c"
-        "ui/ui_recorder.c"
-        "ui/ui_audio_test.c"
+        
+        
         "drivers/disp_driver.c"
         "network/wifi_manager.c"
         "network/sntp_manager.c"

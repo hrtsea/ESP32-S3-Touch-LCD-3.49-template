@@ -4,7 +4,7 @@
 #include "esp_log.h"
 #include "lvgl.h"
 
-#include "ui_main.h"
+#include "ui.h"
 #include "audio_min.h"
 #include "i18n.h"
 

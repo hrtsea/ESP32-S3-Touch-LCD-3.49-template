@@ -5,11 +5,6 @@
  *   mem                   free internal/PSRAM heap, largest block
  *   wifi                  current SSID, IP, RSSI
  *   audio_off             call audio_min_shutdown()
- *   radio_init            run radio_init() and report each step
- *   radio_play <url>      stream a URL (HTTP or HTTPS)
- *   radio_stop            stop playback
- *   radio_status          state + last music info
- *   radio_test            audio_off -> radio_init -> radio_play <test url>
  *
  * Reads from the UART_NUM_0 driver via esp_console_repl. The host can pipe
  * commands in at 115200 8N1 (idf.py monitor or just `screen /dev/cu.* 115200`).
@@ -27,8 +22,6 @@
 #include "argtable3/argtable3.h"
 
 #include "audio_min.h"
-#include "radio.h"
-#include "recorder.h"
 #include "sdcard_bsp.h"
 #include "cli.h"
 
@@ -43,7 +36,7 @@ static const char *TAG = "cli";
    can pick the MP3 decoder by extension. mbedtls is configured to allocate
    SSL state from PSRAM (CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC) so this works
    even with fragmented internal heap. */
-#define RADIO_TEST_URL "https://dl.espressif.com/dl/audio/gs-16b-2c-44100hz.mp3"
+
 
 static int cmd_mem(int argc, char **argv)
 {
@@ -85,20 +78,6 @@ static int cmd_audio_off(int argc, char **argv)
     printf("ok\n");
     return 0;
 }
-
-static int cmd_radio_init(int argc, char **argv)
-{
-    (void)argc; (void)argv;
-    printf("calling radio_init()\n");
-    esp_err_t r = radio_init();
-    printf("radio_init -> %s (0x%x)\n", esp_err_to_name(r), (unsigned)r);
-    return r == ESP_OK ? 0 : 1;
-}
-
-static struct {
-    struct arg_str *url;
-    struct arg_end *end;
-} s_play_args;
 
 static struct {
     struct arg_str *ssid;
@@ -142,45 +121,6 @@ static int cmd_no_sleep(int argc, char **argv)
     return 0;
 }
 
-static int cmd_rec_start(int argc, char **argv)
-{
-    (void)argc; (void)argv;
-    const char *p = NULL;
-    esp_err_t r = recorder_start(&p);
-    printf("recorder_start -> %s (path=%s)\n", esp_err_to_name(r), p ? p : "?");
-    return r == ESP_OK ? 0 : 1;
-}
-
-static int cmd_rec_stop(int argc, char **argv)
-{
-    (void)argc; (void)argv;
-    esp_err_t r = recorder_stop();
-    printf("recorder_stop -> %s\n", esp_err_to_name(r));
-    return 0;
-}
-
-static int cmd_rec_list(int argc, char **argv)
-{
-    (void)argc; (void)argv;
-    static char names[16][64];
-    int n = recorder_list(names, 16);
-    printf("recordings: %d\n", n);
-    for (int i = 0; i < n; i++) printf("  %s\n", names[i]);
-    return 0;
-}
-
-static int cmd_rec_status(int argc, char **argv)
-{
-    (void)argc; (void)argv;
-    uint16_t out_l = 0, out_r = 0;
-    radio_out_peak(&out_l, &out_r);
-    printf("recording=%d elapsed=%us  playing=%d  out_peak L=%u R=%u\n",
-           (int)recorder_is_recording(), recorder_elapsed_s(),
-           (int)radio_is_playing(),
-           (unsigned)out_l, (unsigned)out_r);
-    return 0;
-}
-
 static int cmd_sd_info(int argc, char **argv)
 {
     (void)argc; (void)argv;
@@ -198,7 +138,6 @@ static int cmd_sd_info(int argc, char **argv)
 static int cmd_sd_format(int argc, char **argv)
 {
     (void)argc; (void)argv;
-    if (recorder_is_recording()) recorder_stop();
     printf("formatting SD (this can take 30-90s)...\n");
     esp_err_t r = sdcard_format();
     mkdir("/sdcard/recordings", 0775);
@@ -221,55 +160,7 @@ static int cmd_wifi_connect(int argc, char **argv)
     return 0;
 }
 
-static int cmd_radio_play(int argc, char **argv)
-{
-    int n = arg_parse(argc, argv, (void **)&s_play_args);
-    if (n != 0) {
-        arg_print_errors(stderr, s_play_args.end, "radio_play");
-        return 1;
-    }
-    const char *url = s_play_args.url->sval[0];
-    printf("calling radio_play(%s)\n", url);
-    esp_err_t r = radio_play(url);
-    printf("radio_play -> %s (0x%x)\n", esp_err_to_name(r), (unsigned)r);
-    return r == ESP_OK ? 0 : 1;
-}
 
-static int cmd_radio_stop(int argc, char **argv)
-{
-    (void)argc; (void)argv;
-    esp_err_t r = radio_stop();
-    printf("radio_stop -> %s\n", esp_err_to_name(r));
-    return 0;
-}
-
-static int cmd_radio_status(int argc, char **argv)
-{
-    (void)argc; (void)argv;
-    printf("radio: playing=%d\n", (int)radio_is_playing());
-    return 0;
-}
-
-static int cmd_radio_test(int argc, char **argv)
-{
-    (void)argc; (void)argv;
-    printf("[test] step 1: audio_min_shutdown\n");
-    audio_min_shutdown();
-    printf("[test] step 2: radio_init\n");
-    esp_err_t r = radio_init();
-    if (r != ESP_OK) {
-        printf("[test] FAIL at radio_init: %s\n", esp_err_to_name(r));
-        return 1;
-    }
-    printf("[test] step 3: radio_play(%s)\n", RADIO_TEST_URL);
-    r = radio_play(RADIO_TEST_URL);
-    if (r != ESP_OK) {
-        printf("[test] FAIL at radio_play: %s\n", esp_err_to_name(r));
-        return 1;
-    }
-    printf("[test] play started, audio should be flowing now\n");
-    return 0;
-}
 
 void cli_start(void)
 {
@@ -294,14 +185,6 @@ void cli_start(void)
         { .command = "mem",          .help = "show heap free / largest block",  .func = &cmd_mem },
         { .command = "wifi",         .help = "show Wi-Fi SSID/IP/RSSI",          .func = &cmd_wifi },
         { .command = "audio_off",    .help = "shut down audio_min (free I2S/codec)", .func = &cmd_audio_off },
-        { .command = "radio_init",   .help = "initialise the radio engine",     .func = &cmd_radio_init },
-        { .command = "radio_stop",   .help = "stop radio playback",             .func = &cmd_radio_stop },
-        { .command = "radio_status", .help = "show radio playing state",        .func = &cmd_radio_status },
-        { .command = "radio_test",   .help = "audio_off -> radio_init -> play test URL", .func = &cmd_radio_test },
-        { .command = "rec_start",    .help = "start a recording", .func = &cmd_rec_start },
-        { .command = "rec_stop",     .help = "stop the recording", .func = &cmd_rec_stop },
-        { .command = "rec_list",     .help = "list recordings on SD", .func = &cmd_rec_list },
-        { .command = "rec_status",   .help = "is the recorder running?", .func = &cmd_rec_status },
         { .command = "sd_info",      .help = "SD card free/total bytes", .func = &cmd_sd_info },
         { .command = "sd_format",    .help = "delete all files in /sdcard/recordings", .func = &cmd_sd_format },
         { .command = "bl",           .help = "set backlight 0..255 (e.g. bl 255)", .func = &cmd_bl },
@@ -310,18 +193,6 @@ void cli_start(void)
     for (size_t i = 0; i < sizeof(cmds)/sizeof(cmds[0]); i++) {
         esp_console_cmd_register(&cmds[i]);
     }
-
-    /* radio_play takes a URL argument. */
-    s_play_args.url = arg_str1(NULL, NULL, "<url>", "stream URL");
-    s_play_args.end = arg_end(2);
-    const esp_console_cmd_t play_cmd = {
-        .command  = "radio_play",
-        .help     = "play a URL through the radio engine",
-        .hint     = NULL,
-        .func     = &cmd_radio_play,
-        .argtable = &s_play_args,
-    };
-    esp_console_cmd_register(&play_cmd);
 
     /* wifi_connect <ssid> [pass]: persist creds + start association. */
     s_wifi_connect_args.ssid = arg_str1(NULL, NULL, "<ssid>", "Wi-Fi SSID");

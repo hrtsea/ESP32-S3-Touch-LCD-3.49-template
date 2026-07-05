@@ -30,7 +30,7 @@
 #include "sdcard_bsp.h"
 #include "button_bsp.h"
 #include "audio_min.h"
-#include "radio.h"
+
 #include "recorder.h"
 #include "webui.h"
 #include "cli.h"
@@ -45,10 +45,10 @@
 #include "bg_fetcher.h"
 #include "hw_init.h"
 #include "system_monitor.h"
-#include "ui_state.h"
+#include "ui_helpers.h"
 #include "event_bus.h"
-#include "ui_main.h"
-#include "ui_radio.h"
+#include "ui.h"
+
 #include "ui_clock.h"
 #include "ui_quotes.h"
 
@@ -102,7 +102,7 @@ static void network_init(void)
 static void ui_init(void)
 {
     char buf[256];
-    ui_state_get_status_text(buf, sizeof(buf));
+    ui_helpers_get_status_text(buf, sizeof(buf));
     show_main_ui(buf);
     ESP_LOGI(TAG, "===== All drivers initialized =====");
 }
@@ -134,7 +134,6 @@ extern "C" void app_main(void)
 
     cli_init();
 
-    radio_engine_warm_at_boot();
     bg_fetcher_ensure();
 
     system_monitor_start();

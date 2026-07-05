@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 #include "lvgl.h"
-#include "ui_main.h"
+#include "ui.h"
 
 /* ===== 1. 外部声明：tile 对象 ===== */
 extern lv_obj_t *ui_Quotes;

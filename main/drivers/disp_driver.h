@@ -38,6 +38,7 @@ void        disp_driver_set_fps_label(lv_obj_t *label);
 uint32_t    disp_driver_get_fps_frames(void);
 void        disp_driver_inc_fps_frames(void);
 uint32_t    disp_driver_get_and_reset_fps_frames(void);
+void        disp_driver_fps_timer_cb(lv_timer_t *t);
 
 #ifdef __cplusplus
 }

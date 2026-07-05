@@ -1,5 +1,5 @@
 #include "ui_settings.h"
-#include "ui_state.h"
+#include "ui_helpers.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -17,13 +17,10 @@
 #include "tz_cities.h"
 #include "user_config.h"
 #include "sdcard_bsp.h"
-#include "recorder.h"
-#include "radio.h"
-#include "ui_recorder.h"
 #include "audio_min.h"
 #include "esp_wifi.h"
 #include "ui_clock.h"
-#include "ui_main.h"
+#include "ui.h"
 #include "event_bus.h"
 
 static const char *TAG = "ui_settings";
@@ -374,7 +371,7 @@ static void kb_open_for_ssid(const char *ssid)
    Connect button uses g_wifi_sel to drive the actual association. */
 static void ui_event_Settings_wifi_ap(lv_event_t *e)
 {
-    if (ui_state_menu_input_blocked()) return;
+    if (ui_helpers_menu_input_blocked()) return;
     int idx = (int)(intptr_t)lv_event_get_user_data(e);
     if (idx < 0 || idx >= (int)wifi_get_scan_count()) return;
     g_wifi_sel = idx;
@@ -386,7 +383,7 @@ static void ui_event_Settings_wifi_ap(lv_event_t *e)
 static void ui_event_Settings_wifi_connect(lv_event_t *e)
 {
     (void)e;
-    if (ui_state_menu_input_blocked()) return;
+    if (ui_helpers_menu_input_blocked()) return;
     int idx = g_wifi_sel;
     if (idx < 0 || idx >= (int)wifi_get_scan_count()) return;
     const wifi_scan_ap_t *ap = wifi_get_scan_ap((uint16_t)idx);
@@ -524,7 +521,7 @@ static void ui_Settings_menu_shield_drop_timer_cb(lv_timer_t *t)
 static void ui_event_Settings_menu_back(lv_event_t *e)
 {
     (void)e;
-    ui_state_set_menu_block_until_ms(lv_tick_get() + MENU_BACK_DEBOUNCE_MS);
+    ui_helpers_set_menu_block_until_ms(lv_tick_get() + MENU_BACK_DEBOUNCE_MS);
     if (ui_Settings_menu_shield) return;  /* already shielded */
     /* Parent to the active screen so the shield covers the menu and any
        header/back-button that might still be sitting under the finger. */
@@ -543,7 +540,7 @@ static void ui_event_Settings_menu_back(lv_event_t *e)
 
 static void ui_event_Settings_tz_city_pick(lv_event_t *e)
 {
-    if (ui_state_menu_input_blocked()) return;
+    if (ui_helpers_menu_input_blocked()) return;
     /* user_data carries the city index packed into a void*. */
     uintptr_t idx = (uintptr_t)lv_event_get_user_data(e);
     if (idx >= TZ_CITY_COUNT) return;
@@ -690,7 +687,7 @@ static void ui_event_Settings_wifi_ac(lv_event_t *e)
 static void ui_event_Settings_reset_confirm(lv_event_t *e)
 {
     (void)e;
-    if (ui_state_menu_input_blocked()) return;
+    if (ui_helpers_menu_input_blocked()) return;
     nvs_handle_t h;
     if (nvs_open(NVS_NS_CFG, NVS_READWRITE, &h) == ESP_OK) {
         nvs_erase_all(h);
@@ -941,7 +938,7 @@ static lv_obj_t *add_toggle_row(lv_obj_t *parent, const char *label,
 
 static void ui_event_Settings_lang_pick(lv_event_t *e)
 {
-    if (ui_state_menu_input_blocked()) return;
+    if (ui_helpers_menu_input_blocked()) return;
     int idx = (int)(intptr_t)lv_event_get_user_data(e);
     ESP_LOGI(TAG, "lang_pick: %d", idx);
     i18n_set_lang(idx);
@@ -1093,20 +1090,9 @@ void storage_info_refresh(void)
 void sd_format_worker(void *arg)
 {
     (void)arg;
-    /* Stop any ongoing recording first; the file handle would be invalid
-       across an unmount/reformat. */
-    if (recorder_is_recording()) recorder_stop();
     esp_err_t r = sdcard_format();
     ESP_LOGI(TAG, "sd format result: %s", esp_err_to_name(r));
-    /* mkdir the recordings folder back; format leaves the root empty. */
     mkdir("/sdcard/recordings", 0775);
-    /* LVGL touch: must run on the LVGL task. We borrow the safe
-       cross-task path by setting flags and letting the LVGL timer pick
-       them up. Simpler: just call from the worker since lv_label_set
-       is OK if no-one is reading on the LVGL side simultaneously --
-       but the cleanest is to set a "needs refresh" flag and let the
-       recorder tile's poll handle it. We log here and let the next
-       poll repaint. */
     storage_info_refresh();
     if (ui_Settings_label_storage_btn) {
         lv_label_set_text(ui_Settings_label_storage_btn,
@@ -1120,7 +1106,7 @@ void sd_format_worker(void *arg)
 static void ui_event_Settings_sd_format(lv_event_t *e)
 {
     (void)e;
-    if (ui_state_menu_input_blocked()) return;
+    if (ui_helpers_menu_input_blocked()) return;
     if (ui_Settings_label_storage_btn) lv_label_set_text(ui_Settings_label_storage_btn, "Formatting...");
     /* Format on a worker so the LVGL task keeps drawing. 64GB FAT32
        format takes ~30-60s on this controller. */

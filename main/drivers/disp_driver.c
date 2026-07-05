@@ -560,3 +560,32 @@ uint32_t disp_driver_get_and_reset_fps_frames(void)
     g_fps_frame_count = 0;
     return val;
 }
+
+void disp_driver_fps_timer_cb(lv_timer_t *t)
+{
+    (void)t;
+    static uint32_t last_tick = 0;
+    uint32_t now = lv_tick_get();
+    uint32_t dt = now - last_tick;
+
+    if (dt == 0) return;
+
+    uint32_t frames = disp_driver_get_and_reset_fps_frames();
+    last_tick = now;
+
+    uint32_t fps_x10 = (frames * 10000U) / dt;
+
+    lv_obj_t *fps_lbl = disp_driver_get_fps_label();
+    if (fps_lbl) {
+        lv_label_set_text_fmt(fps_lbl, "FPS %lu.%lu",
+                              (unsigned long)(fps_x10 / 10),
+                              (unsigned long)(fps_x10 % 10));
+    }
+
+    static uint32_t print_div = 0;
+    if ((print_div++ & 3) == 0) {
+        ESP_LOGI(TAG, "fps=%lu.%lu  (frames=%lu in %lu ms)",
+                 (unsigned long)(fps_x10 / 10), (unsigned long)(fps_x10 % 10),
+                 (unsigned long)frames, (unsigned long)dt);
+    }
+}
