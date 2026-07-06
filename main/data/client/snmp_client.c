@@ -1,6 +1,6 @@
 #include "snmp_client.h"
 #include "config.h"
-#include "nas_config.h"
+#include "../../config/config.h"
 #include "esp_log.h"
 #include "esp_wifi.h"
 #include "lwip/sockets.h"

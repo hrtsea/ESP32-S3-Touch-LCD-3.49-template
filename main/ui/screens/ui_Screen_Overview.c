@@ -1,6 +1,6 @@
 #include "ui_Screen_Overview.h"
 #include "../ui_events.h"
-#include "../../data/config.h"
+#include "../../config/config.h"
 #include "../../data/nas_data.h"
 #include "../../data/data_source.h"
 #include "../../network/wifi_manager.h"

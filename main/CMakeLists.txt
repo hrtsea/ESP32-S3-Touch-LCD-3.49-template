@@ -30,7 +30,7 @@ idf_component_register(
         "utils/system_monitor.c"
         "utils/bg_fetcher.c"
         "utils/http_timer.c"
-        "data/config.c"
+        "config/config.c"
         "data/data_source.c"
         "data/nas_event_loop.c"
         "data/nas_data_json.c"

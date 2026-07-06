@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "nas_config.h"
+#include "../config/config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,18 +29,6 @@ typedef enum HealthStatus {
     HEALTH_CRITICAL,
     HEALTH_UNKNOWN
 } HealthStatus;
-
-typedef enum FanMode {
-    FAN_MODE_AUTO = 0,
-    FAN_MODE_MANUAL = 1
-} FanMode;
-
-typedef enum TempSource {
-    TEMP_MAX_CPU_SYS = 0,
-    TEMP_AVG_CPU_SYS = 1,
-    TEMP_CPU_ONLY    = 2,
-    TEMP_SYS_ONLY    = 3
-} TempSource;
 
 typedef struct NasSystemInfo {
     char hostname[32];
@@ -133,33 +121,6 @@ typedef struct NasData {
     bool            is_online;
     bool            has_update;
 } NasData;
-
-typedef struct FanCurvePoint {
-    int16_t temp;
-    uint8_t pwm_pct;
-} FanCurvePoint;
-
-typedef struct FanConfig {
-    FanCurvePoint curve[FAN_CURVE_POINTS];
-    TempSource temp_source;
-    uint8_t hysteresis;
-    uint8_t min_change_pct;
-    uint8_t min_pwm_pct;
-    int16_t emergency_temp;
-    uint8_t stall_detect_sec;
-    uint16_t ramp_time_ms;
-    FanMode mode;
-    uint8_t manual_pwm_pct;
-    bool enabled;
-} FanConfig;
-
-static const FanCurvePoint DEFAULT_FAN_CURVE[FAN_CURVE_POINTS] = {
-    { 25,  25 },
-    { 35,  30 },
-    { 45,  50 },
-    { 55,  80 },
-    { 65, 100 },
-};
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,6 @@
 #include "serial_client.h"
 #include "config.h"
-#include "nas_config.h"
+#include "../../config/config.h"
 #include "esp_log.h"
 #include "driver/uart.h"
 #include "cJSON.h"
