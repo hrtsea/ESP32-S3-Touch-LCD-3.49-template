@@ -470,9 +470,6 @@ void ui_Screen_Overview_screen_init(void)
     create_hdd_indicators(ui_Screen_Overview);
 
     lv_obj_add_event_cb(ui_Screen_Overview, ui_event_Screen_Overview_gesture, LV_EVENT_GESTURE, NULL);
-    
-    lv_obj_add_flag(ui_Screen_Overview, LV_OBJ_FLAG_GESTURE_BUBBLE);
-    ESP_LOGI("Overview", "Added GESTURE_BUBBLE flag for gesture events");
 
     s_update_timer = lv_timer_create(update_timer_cb, 5000, NULL);
     ESP_LOGI("Overview", "Overview screen initialized");

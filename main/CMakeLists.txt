@@ -10,6 +10,7 @@ idf_component_register(
         "ui/ui_clock.c"
         "ui/ui_quotes.c"
         "ui/ui_settings.c"
+        "ui/ui_wifi_config.c"
         "ui/screens/ui_Screen_Boot.c"
         "ui/screens/ui_Screen_Overview.c"
         "ui/screens/ui_Screen_Settings.c"

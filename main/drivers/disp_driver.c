@@ -451,7 +451,7 @@ static void lvgl_init(esp_lcd_panel_handle_t panel)
     indev_drv.read_cb = lvgl_touch_cb;
     indev_drv.scroll_limit = 18;
     indev_drv.scroll_throw = 25;
-    indev_drv.gesture_limit = 80;
+    indev_drv.gesture_limit = 30;
     indev_drv.long_press_time = 500;
     indev_drv.long_press_repeat_time = 100;
     lv_indev_drv_register(&indev_drv);

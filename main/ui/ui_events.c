@@ -413,21 +413,39 @@ void ui_event_Screen_Overview_hdd_clicked(lv_event_t* e)
 void ui_event_Screen_Overview_gesture(lv_event_t* e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
+    lv_obj_t *target = lv_event_get_target(e);
+    lv_obj_t *current_scr = lv_scr_act();
+    
+    ESP_LOGI("Events", "Overview gesture event: code=%d, target=%p, current_scr=%p, Screen_Overview=%p", 
+             (int)event_code, (void*)target, (void*)current_scr, (void*)ui_Screen_Overview);
     
     if (event_code == LV_EVENT_GESTURE) {
-        lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+        lv_indev_t *indev = lv_indev_get_act();
+        if (!indev) {
+            ESP_LOGW("Events", "No active input device!");
+            return;
+        }
         
-        ESP_LOGI("Events", "Overview gesture detected: dir=%d (1=LEFT, 2=RIGHT, 3=TOP, 4=BOTTOM)", (int)dir);
+        lv_dir_t dir = lv_indev_get_gesture_dir(indev);
+        lv_point_t point;
+        lv_indev_get_point(indev, &point);
+        
+        ESP_LOGI("Events", "Overview gesture detected: dir=%d (1=LEFT, 2=RIGHT, 3=TOP, 4=BOTTOM), point=(%d,%d)", 
+                 (int)dir, point.x, point.y);
         
         if (dir == LV_DIR_RIGHT) {
             ESP_LOGI("Events", "Swiping RIGHT -> Loading Settings screen");
             if (ui_Screen_Settings == NULL) {
+                ESP_LOGI("Events", "Settings screen not created, initializing...");
                 ui_Screen_Settings_screen_init();
             }
+            ESP_LOGI("Events", "Settings screen pointer: %p", (void*)ui_Screen_Settings);
             lv_scr_load_anim(ui_Screen_Settings, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0, false);
+            ESP_LOGI("Events", "Screen load animation initiated");
         } else if (dir == LV_DIR_LEFT) {
             ESP_LOGI("Events", "Swiping LEFT -> Loading Storage screen");
             if (ui_Screen_Storage == NULL) {
+                ESP_LOGI("Events", "Storage screen not created, initializing...");
                 ui_Screen_Storage_screen_init();
             }
             lv_scr_load_anim(ui_Screen_Storage, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300, 0, false);
