@@ -27,8 +27,6 @@ extern void ui_event_Settings_Keyboard_Keyboard1(lv_event_t * e);
 extern lv_obj_t * ui_Settings_Keyboard_Keyboard1;
 extern void ui_event_Settings_Keyboard_Number(lv_event_t * e);
 extern lv_obj_t * ui_Settings_Keyboard_Number;
-extern void ui_event_Settings_Panel_blindPanel(lv_event_t * e);
-extern lv_obj_t * ui_Settings_Panel_blindPanel;
 
 #ifdef __cplusplus
 }

@@ -47,7 +47,6 @@ lv_obj_t * ui_Settings_Button_closeConfig = NULL;
 lv_obj_t * ui_Settings_Label_closeBtnText = NULL;
 lv_obj_t * ui_Settings_Keyboard_Keyboard1 = NULL;
 lv_obj_t * ui_Settings_Keyboard_Number = NULL;
-lv_obj_t * ui_Settings_Panel_blindPanel = NULL;
 
 void settings_activity_kick(lv_event_t *e)
 {
@@ -98,15 +97,6 @@ void ui_event_Settings_Keyboard_Number(lv_event_t * e)
     }
     else if(event_code == LV_EVENT_CANCEL) {
         lv_obj_add_flag(keyboard, LV_OBJ_FLAG_HIDDEN);
-    }
-}
-
-void ui_event_Settings_Panel_blindPanel(lv_event_t * e)
-{
-    lv_event_code_t event_code = lv_event_get_code(e);
-
-    if(event_code == LV_EVENT_CLICKED) {
-        turnonScreen(e);
     }
 }
 
@@ -215,29 +205,10 @@ void ui_Screen_Settings_screen_init(void)
     lv_obj_set_style_bg_grad_color(ui_Settings_Keyboard_Number, lv_color_hex(0x05037F), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_grad_dir(ui_Settings_Keyboard_Number, LV_GRAD_DIR_VER, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_Settings_Panel_blindPanel = lv_obj_create(ui_Screen_Settings);
-    lv_obj_set_width(ui_Settings_Panel_blindPanel, lv_pct(100));
-    lv_obj_set_height(ui_Settings_Panel_blindPanel, lv_pct(100));
-    lv_obj_set_x(ui_Settings_Panel_blindPanel, -2);
-    lv_obj_set_y(ui_Settings_Panel_blindPanel, 0);
-    lv_obj_set_align(ui_Settings_Panel_blindPanel, LV_ALIGN_CENTER);
-    lv_obj_add_flag(ui_Settings_Panel_blindPanel, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clear_flag(ui_Settings_Panel_blindPanel,
-                      LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE | LV_OBJ_FLAG_SNAPPABLE |
-                      LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_ELASTIC | LV_OBJ_FLAG_SCROLL_MOMENTUM |
-                      LV_OBJ_FLAG_SCROLL_CHAIN);
-    lv_obj_set_scrollbar_mode(ui_Settings_Panel_blindPanel, LV_SCROLLBAR_MODE_OFF);
-    lv_obj_set_style_radius(ui_Settings_Panel_blindPanel, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(ui_Settings_Panel_blindPanel, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_Settings_Panel_blindPanel, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_color(ui_Settings_Panel_blindPanel, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_opa(ui_Settings_Panel_blindPanel, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-
     lv_keyboard_set_textarea(ui_Settings_Keyboard_Keyboard1, ui_Settings_Textarea_Password);
     lv_obj_add_event_cb(ui_Settings_Keyboard_Keyboard1, ui_event_Settings_Keyboard_Keyboard1, LV_EVENT_ALL, NULL);
     lv_keyboard_set_textarea(ui_Settings_Keyboard_Number, ui_Settings_Textarea_Latitude);
     lv_obj_add_event_cb(ui_Settings_Keyboard_Number, ui_event_Settings_Keyboard_Number, LV_EVENT_ALL, NULL);
-    lv_obj_add_event_cb(ui_Settings_Panel_blindPanel, ui_event_Settings_Panel_blindPanel, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Settings_Button_closeConfig, ui_event_Settings_Button_closeConfig, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Settings_Tabview_ConfigPanel, ui_event_Settings_Tabview_ConfigPanel, LV_EVENT_ALL, NULL);
 
@@ -256,7 +227,6 @@ void ui_Screen_Settings_screen_destroy(void)
     ui_Settings_Label_closeBtnText = NULL;
     ui_Settings_Keyboard_Keyboard1 = NULL;
     ui_Settings_Keyboard_Number = NULL;
-    ui_Settings_Panel_blindPanel = NULL;
 
     ui_Screen_Settings_WifiTab_cleanup();
     ui_Screen_Settings_ScreenTab_cleanup();

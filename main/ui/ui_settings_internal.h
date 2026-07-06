@@ -12,7 +12,6 @@ extern lv_obj_t * ui_Screen_Overview;
 
 extern lv_obj_t * ui_Settings_Keyboard_Keyboard1;
 extern lv_obj_t * ui_Settings_Keyboard_Number;
-extern lv_obj_t * ui_Settings_Panel_blindPanel;
 
 extern lv_style_t style_btn_border;
 extern lv_style_t style_tab_bg;
