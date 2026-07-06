@@ -498,8 +498,8 @@ void resetScreenOffTimer(lv_event_t * e)
 
 void saveWiFiCredential(lv_event_t * e)
 {
-    lv_dropdown_get_selected_str(ui_MainMenu_Dropdown_NetworkList, _ssid_buf, sizeof(_ssid_buf));
-    const char *password = lv_textarea_get_text(ui_MainMenu_Textarea_Password);
+    lv_dropdown_get_selected_str(ui_Settings_Dropdown_NetworkList, _ssid_buf, sizeof(_ssid_buf));
+    const char *password = lv_textarea_get_text(ui_Settings_Textarea_Password);
     
     if (_ssid_buf[0] && password) {
         app_cfg_wifi_pending_set(_ssid_buf, password);
@@ -516,19 +516,19 @@ void scanNetwork(lv_event_t * e)
 
 void toggleWiFi(lv_event_t * e)
 {
-    bool enabled = lv_obj_has_state(ui_MainMenu_Switch_Wifi, LV_STATE_CHECKED);
+    bool enabled = lv_obj_has_state(ui_Settings_Switch_Wifi, LV_STATE_CHECKED);
     ESP_LOGI("Events", "toggleWiFi called: %s", enabled ? "ON" : "OFF");
 }
 
 void setBrightness(lv_event_t * e)
 {
-    uint16_t selected = lv_dropdown_get_selected(ui_MainMenu_Dropdown_Brightness);
+    uint16_t selected = lv_dropdown_get_selected(ui_Settings_Dropdown_Brightness);
     ESP_LOGI("Events", "setBrightness called: %d", selected);
 }
 
 void setTimer(lv_event_t * e)
 {
-    uint16_t selected = lv_dropdown_get_selected(ui_MainMenu_Dropdown_SleepTimer);
+    uint16_t selected = lv_dropdown_get_selected(ui_Settings_Dropdown_SleepTimer);
     const char *options[] = {"0", "15", "30", "60"};
     int seconds = atoi(options[selected]);
     ESP_LOGI("Events", "setTimer called: %d seconds", seconds);

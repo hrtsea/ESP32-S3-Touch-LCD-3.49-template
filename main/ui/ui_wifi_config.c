@@ -4,6 +4,7 @@
 #include "../network/wifi_manager.h"
 #include "../config/app_cfg.h"
 #include "../utils/event_bus.h"
+#include "../drivers/disp_driver.h"
 #include "i18n.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
@@ -191,10 +192,13 @@ static void kb_open_for_ssid(const char *ssid)
     g_kb_ssid[sizeof(g_kb_ssid) - 1] = 0;
     clock_ms_timer_pause();
 
+    int canvas_w = disp_driver_get_canvas_w();
+    int canvas_h = disp_driver_get_canvas_h();
+
     lv_obj_t *scr = lv_scr_act();
     s_kb_overlay = lv_obj_create(scr);
     lv_obj_remove_style_all(s_kb_overlay);
-    lv_obj_set_size(s_kb_overlay, 640, 172);
+    lv_obj_set_size(s_kb_overlay, canvas_w, canvas_h);
     lv_obj_set_style_bg_color(s_kb_overlay, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(s_kb_overlay, LV_OPA_90, 0);
     lv_obj_clear_flag(s_kb_overlay, LV_OBJ_FLAG_SCROLLABLE);
@@ -207,7 +211,7 @@ static void kb_open_for_ssid(const char *ssid)
     char ph[64];
     snprintf(ph, sizeof(ph), tr(I18N_WIFI_PASS_FOR), ssid);
     lv_textarea_set_placeholder_text(s_kb_textarea, ph);
-    lv_obj_set_size(s_kb_textarea, 640 - EYE_W, TA_H);
+    lv_obj_set_size(s_kb_textarea, canvas_w - EYE_W, TA_H);
     lv_obj_align(s_kb_textarea, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_obj_set_style_text_font(s_kb_textarea, i18n_font(), 0);
     lv_obj_set_style_pad_top(s_kb_textarea, 1, 0);
@@ -231,8 +235,8 @@ static void kb_open_for_ssid(const char *ssid)
     lv_obj_add_event_cb(eye, ui_event_wifi_kb_eye_toggle, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *kb = lv_keyboard_create(s_kb_overlay);
-    lv_obj_set_width(kb, 640);
-    lv_obj_set_height(kb, 172 - TA_H);
+    lv_obj_set_width(kb, canvas_w);
+    lv_obj_set_height(kb, canvas_h - TA_H);
     lv_obj_align(kb, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_set_style_pad_all(kb, 2, 0);
     lv_obj_set_style_pad_row(kb, 2, 0);
