@@ -11,6 +11,7 @@
 #include "ui_quotes.h"
 #include "ui_helpers.h"
 #include "../utils/system_monitor.h"
+#include "../data/nas_data.h"
 
 static const char *TAG = "ui_events";
 
@@ -19,6 +20,19 @@ static lv_timer_t *s_status_timer = NULL;
 static lv_obj_t *s_ip_label = NULL;
 
 static int s_current_tile_idx = 0;
+
+extern lv_obj_t *s_meter_cpu;
+extern lv_obj_t *s_meter_temp;
+extern lv_obj_t *s_label_cpu_percent;
+extern lv_obj_t *s_label_temp_val;
+extern lv_meter_indicator_t *s_cpu_arc_val;
+extern lv_meter_indicator_t *s_cpu_needle;
+extern lv_meter_indicator_t *s_temp_arc_val;
+extern lv_meter_indicator_t *s_temp_needle;
+extern lv_obj_t *s_bar_mem;
+extern lv_obj_t *s_label_mem_percent;
+extern lv_obj_t *s_bar_disk;
+extern lv_obj_t *s_label_disk_percent;
 
 static void ip_label_ensure(void)
 {
@@ -155,11 +169,82 @@ static void on_tile_changed_evt(const event_t *evt, void *user_data)
     lv_obj_set_tile_id(tv, idx, 0, LV_ANIM_OFF);
 }
 
+static void on_nas_data_update_evt(const event_t *evt, void *user_data)
+{
+    (void)user_data;
+    if (!evt || evt->id != EVENT_NAS_DATA_UPDATE) {
+        ESP_LOGW(TAG, "Invalid NAS data event");
+        return;
+    }
+
+    const NasData *data = (const NasData *)evt->data;
+    if (!data || !data->is_online) {
+        ESP_LOGW(TAG, "NAS data event with invalid data");
+        return;
+    }
+
+    ESP_LOGD(TAG, "Received NAS data update (cpu=%.1f%%, temp=%d°C, mem=%.1f%%)",
+             data->system.cpu_pct, data->system.temp_cpu, data->system.ram_pct);
+
+    if (!lvgl_lock(50)) {
+        ESP_LOGD(TAG, "LVGL lock failed, skipping UI update");
+        return;
+    }
+
+    int cpu_pct = (int)data->system.cpu_pct;
+    int temp = data->system.temp_cpu;
+    int mem_pct = (int)data->system.ram_pct;
+    int disk_pct = 50;
+
+    if (data->volume_count > 0) {
+        disk_pct = (int)data->volumes[0].used_pct;
+    } else if (data->disk_count > 0) {
+        disk_pct = (int)data->disks[0].used_pct;
+    }
+
+    if (s_meter_cpu && s_cpu_arc_val && s_cpu_needle && s_label_cpu_percent) {
+        cpu_pct = (cpu_pct < 0) ? 0 : (cpu_pct > 100) ? 100 : cpu_pct;
+        lv_meter_set_indicator_end_value(s_meter_cpu, s_cpu_arc_val, cpu_pct);
+        lv_meter_set_indicator_value(s_meter_cpu, s_cpu_needle, cpu_pct);
+        static char cpu_str[8];
+        snprintf(cpu_str, sizeof(cpu_str), "%d%%", cpu_pct);
+        lv_label_set_text(s_label_cpu_percent, cpu_str);
+    }
+
+    if (s_meter_temp && s_temp_arc_val && s_temp_needle && s_label_temp_val) {
+        temp = (temp < 0) ? 0 : (temp > 100) ? 100 : temp;
+        lv_meter_set_indicator_end_value(s_meter_temp, s_temp_arc_val, temp);
+        lv_meter_set_indicator_value(s_meter_temp, s_temp_needle, temp);
+        static char temp_str[10];
+        snprintf(temp_str, sizeof(temp_str), "%d°C", temp);
+        lv_label_set_text(s_label_temp_val, temp_str);
+    }
+
+    if (s_bar_mem && s_label_mem_percent) {
+        mem_pct = (mem_pct < 0) ? 0 : (mem_pct > 100) ? 100 : mem_pct;
+        lv_bar_set_value(s_bar_mem, mem_pct, LV_ANIM_ON);
+        static char mem_str[8];
+        snprintf(mem_str, sizeof(mem_str), "%d%%", mem_pct);
+        lv_label_set_text(s_label_mem_percent, mem_str);
+    }
+
+    if (s_bar_disk && s_label_disk_percent) {
+        disk_pct = (disk_pct < 0) ? 0 : (disk_pct > 100) ? 100 : disk_pct;
+        lv_bar_set_value(s_bar_disk, disk_pct, LV_ANIM_ON);
+        static char disk_str[8];
+        snprintf(disk_str, sizeof(disk_str), "%d%%", disk_pct);
+        lv_label_set_text(s_label_disk_percent, disk_str);
+    }
+
+    lvgl_unlock();
+}
+
 void ui_events_subscribe_events(void)
 {
     event_bus_subscribe(EVENT_BACKLIGHT_CHANGED, on_backlight_changed_evt, NULL);
     event_bus_subscribe(EVENT_SHOW_FPS_CHANGED, on_show_fps_changed_evt, NULL);
     event_bus_subscribe(EVENT_TILE_CHANGED, on_tile_changed_evt, NULL);
+    event_bus_subscribe(EVENT_NAS_DATA_UPDATE, on_nas_data_update_evt, NULL);
 }
 
 void ui_events_unsubscribe_events(void)
@@ -167,6 +252,7 @@ void ui_events_unsubscribe_events(void)
     event_bus_unsubscribe(EVENT_BACKLIGHT_CHANGED, on_backlight_changed_evt);
     event_bus_unsubscribe(EVENT_SHOW_FPS_CHANGED, on_show_fps_changed_evt);
     event_bus_unsubscribe(EVENT_TILE_CHANGED, on_tile_changed_evt);
+    event_bus_unsubscribe(EVENT_NAS_DATA_UPDATE, on_nas_data_update_evt);
 }
 
 static void tileview_gesture_cb(lv_event_t *e)

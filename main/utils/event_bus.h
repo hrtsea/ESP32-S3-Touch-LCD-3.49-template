@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include "freertos/FreeRTOS.h"
+#include "nas_data.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,56 +14,53 @@ extern "C" {
 typedef enum {
     EVENT_NONE = 0,
 
-    /* --- Display / Rotation --- */
-    EVENT_ROTATION_CHANGED,       /* data: int *new_rot_state */
+    EVENT_ROTATION_CHANGED,
+    EVENT_WIFI_CONNECTED,
+    EVENT_WIFI_DISCONNECTED,
+    EVENT_WIFI_SCAN_DONE,
+    EVENT_WIFI_SCAN_STARTED,
+    EVENT_CFG_CHANGED,
+    EVENT_CLOCK_LAYOUT_CHANGED,
+    EVENT_CLOCK_BG_CHANGED,
+    EVENT_CLOCK_TIME_FORMAT_CHANGED,
+    EVENT_QUOTES_CHANGED,
+    EVENT_SHOW_FPS_CHANGED,
+    EVENT_STORAGE_CHANGED,
+    EVENT_AUDIO_PLAY_START,
+    EVENT_AUDIO_PLAY_STOP,
+    EVENT_AUDIO_RECORD_START,
+    EVENT_AUDIO_RECORD_STOP,
+    EVENT_AUDIO_VOLUME_CHANGED,
+    EVENT_USER_ACTIVITY,
+    EVENT_BACKLIGHT_CHANGED,
+    EVENT_TILE_CHANGED,
+    EVENT_TICK_1HZ,
+    EVENT_TICK_10HZ,
 
-    /* --- WiFi --- */
-    EVENT_WIFI_CONNECTED,         /* data: char *ip_addr (may be NULL) */
-    EVENT_WIFI_DISCONNECTED,      /* data: uint8_t *reason */
-    EVENT_WIFI_SCAN_DONE,         /* data: uint16_t *ap_count */
-    EVENT_WIFI_SCAN_STARTED,      /* data: NULL */
-
-    /* --- Config --- */
-    EVENT_CFG_CHANGED,            /* data: cfg_change_info_t * */
-    EVENT_CLOCK_LAYOUT_CHANGED,   /* data: NULL */
-    EVENT_CLOCK_BG_CHANGED,       /* data: NULL */
-    EVENT_CLOCK_TIME_FORMAT_CHANGED, /* data: NULL (tz/hour_fmt/sec/ms/date_fmt) */
-    EVENT_QUOTES_CHANGED,         /* data: NULL */
-    EVENT_SHOW_FPS_CHANGED,       /* data: uint8_t *show (0/1) */
-    EVENT_STORAGE_CHANGED,        /* data: NULL (SD card formatted/mounted changed) */
-
-    /* --- Audio --- */
-    EVENT_AUDIO_PLAY_START,       /* data: NULL */
-    EVENT_AUDIO_PLAY_STOP,        /* data: NULL */
-    EVENT_AUDIO_RECORD_START,     /* data: NULL */
-    EVENT_AUDIO_RECORD_STOP,      /* data: NULL */
-    EVENT_AUDIO_VOLUME_CHANGED,   /* data: uint8_t *volume */
-
-    /* --- UI --- */
-    EVENT_USER_ACTIVITY,          /* data: NULL */
-    EVENT_BACKLIGHT_CHANGED,      /* data: uint8_t *brightness */
-    EVENT_TILE_CHANGED,           /* data: int *tile_index */
-
-    /* --- System --- */
-    EVENT_TICK_1HZ,               /* data: NULL */
-    EVENT_TICK_10HZ,              /* data: NULL */
+    EVENT_NAS_DATA_UPDATE,
+    EVENT_TRIGGER_HTTP_FETCH,
+    EVENT_HTTP_STOP,
 
     EVENT_MAX
 } event_id_t;
 
 typedef struct {
     event_id_t id;
-    void      *data;
-    size_t     data_len;
+    void *data;
+    size_t data_len;
 } event_t;
 
 typedef void (*event_handler_t)(const event_t *evt, void *user_data);
 
+#define EVENT_QUEUE_LEN 16
+
 void event_bus_init(void);
 void event_bus_publish(event_id_t id, void *data, size_t len);
+void event_bus_publish_nas_data(const NasData *data);
 void event_bus_subscribe(event_id_t id, event_handler_t handler, void *user_data);
 void event_bus_unsubscribe(event_id_t id, event_handler_t handler);
 const char *event_bus_name(event_id_t id);
+bool event_bus_receive(event_t *evt, TickType_t timeout);
 
 #ifdef __cplusplus
 }

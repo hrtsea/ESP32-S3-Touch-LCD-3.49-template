@@ -48,6 +48,8 @@
 #include "ui_helpers.h"
 #include "event_bus.h"
 #include "ui.h"
+#include "nas_event_loop.h"
+#include "http_timer.h"
 
 #include "ui_clock.h"
 #include "ui_quotes.h"
@@ -118,7 +120,7 @@ extern "C" void app_main(void)
     
     app_cfg_load();
     
-    ESP_LOGI(TAG, "===== 12_HelloWorld_Skeleton boot =====");
+    ESP_LOGI(TAG, "===== ZotLab NAS Monitor boot =====");
     ESP_LOGI(TAG, "H_RES=%d V_RES=%d  DMA=%d SPIRAM=%d",
              EXAMPLE_LCD_H_RES, EXAMPLE_LCD_V_RES,
              LVGL_DMA_BUFF_LEN, LVGL_SPIRAM_BUFF_LEN);
@@ -127,10 +129,15 @@ extern "C" void app_main(void)
 
     tz_apply_current();
     network_init();
-    ui_start();
 
-    /* 订阅配置变更事件：背景获取 + WiFi 连接 */
     event_bus_subscribe(EVENT_CFG_CHANGED, on_cfg_changed_evt, NULL);
+
+    nas_event_loop_start();
+
+    http_timer_init();
+    http_timer_start();
+
+    ui_start();
 
     cli_init();
 

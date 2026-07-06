@@ -4,6 +4,7 @@
 #include "../../data/nas_data.h"
 #include "../../data/data_source.h"
 #include "../../network/wifi_manager.h"
+#include "../../utils/event_bus.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
@@ -31,6 +32,7 @@ static lv_obj_t *s_label_time = NULL;
 static lv_obj_t *s_label_up = NULL;
 static lv_obj_t *s_label_down = NULL;
 static lv_obj_t *s_label_ip = NULL;
+static lv_obj_t *s_btn_refresh = NULL;
 
 static lv_obj_t *s_meter_cpu = NULL;
 static lv_obj_t *s_meter_temp = NULL;
@@ -49,6 +51,7 @@ static lv_obj_t *s_label_disk_percent = NULL;
 static lv_timer_t *s_update_timer = NULL;
 
 static void update_timer_cb(lv_timer_t *timer);
+static void refresh_btn_cb(lv_event_t *e);
 
 static void create_status_bar(lv_obj_t *parent)
 {
@@ -106,7 +109,21 @@ static void create_status_bar(lv_obj_t *parent)
     lv_label_set_text(s_label_ip, "IP: --");
     lv_obj_set_style_text_color(s_label_ip, COLOR_TEXT, 0);
     lv_obj_set_style_text_font(s_label_ip, &lv_font_montserrat_14, 0);
-    lv_obj_align(s_label_ip, LV_ALIGN_RIGHT_MID, -15, 0);
+    lv_obj_align(s_label_ip, LV_ALIGN_RIGHT_MID, -45, 0);
+
+    s_btn_refresh = lv_btn_create(status_bar);
+    lv_obj_set_size(s_btn_refresh, 35, 28);
+    lv_obj_set_style_bg_color(s_btn_refresh, COLOR_INACTIVE, 0);
+    lv_obj_set_style_border_width(s_btn_refresh, 0, 0);
+    lv_obj_set_style_radius(s_btn_refresh, 3, 0);
+    lv_obj_align(s_btn_refresh, LV_ALIGN_RIGHT_MID, -5, 0);
+    lv_obj_add_event_cb(s_btn_refresh, refresh_btn_cb, LV_EVENT_CLICKED, NULL);
+
+    lv_obj_t *label_refresh = lv_label_create(s_btn_refresh);
+    lv_label_set_text(label_refresh, "↻");
+    lv_obj_set_style_text_color(label_refresh, COLOR_TEXT, 0);
+    lv_obj_set_style_text_font(label_refresh, &lv_font_montserrat_14, 0);
+    lv_obj_center(label_refresh);
 
     lv_obj_t *divider = lv_obj_create(parent);
     lv_obj_set_size(divider, 640, 2);
@@ -399,6 +416,13 @@ static void update_timer_cb(lv_timer_t *timer)
     }
 }
 
+static void refresh_btn_cb(lv_event_t *e)
+{
+    (void)e;
+    ESP_LOGD("Overview", "Refresh button clicked");
+    event_bus_publish(EVENT_TRIGGER_HTTP_FETCH, NULL, 0);
+}
+
 void ui_Screen_Overview_screen_init(void)
 {
     if (ui_Screen_Overview != NULL) {
@@ -437,6 +461,7 @@ void ui_Screen_Overview_screen_destroy(void)
     s_label_up = NULL;
     s_label_down = NULL;
     s_label_ip = NULL;
+    s_btn_refresh = NULL;
 
     s_meter_cpu = NULL;
     s_meter_temp = NULL;

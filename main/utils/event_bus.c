@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
+#include "nas_data.h"
 
 static const char *TAG = "event_bus";
 
@@ -23,6 +24,9 @@ typedef struct {
 static event_slot_t s_slots[EVENT_MAX];
 static SemaphoreHandle_t s_mux = NULL;
 static bool s_inited = false;
+static QueueHandle_t s_event_queue = NULL;
+static NasData s_nas_data_buffer = {0};
+static SemaphoreHandle_t s_nas_data_mux = NULL;
 
 static const char *s_event_names[EVENT_MAX] = {
     [EVENT_NONE]                = "NONE",
@@ -48,6 +52,9 @@ static const char *s_event_names[EVENT_MAX] = {
     [EVENT_TILE_CHANGED]        = "TILE_CHANGED",
     [EVENT_TICK_1HZ]            = "TICK_1HZ",
     [EVENT_TICK_10HZ]           = "TICK_10HZ",
+    [EVENT_NAS_DATA_UPDATE]     = "NAS_DATA_UPDATE",
+    [EVENT_TRIGGER_HTTP_FETCH]  = "TRIGGER_HTTP_FETCH",
+    [EVENT_HTTP_STOP]           = "HTTP_STOP",
 };
 
 void event_bus_init(void)
@@ -55,8 +62,10 @@ void event_bus_init(void)
     if (s_inited) return;
     memset(s_slots, 0, sizeof(s_slots));
     s_mux = xSemaphoreCreateMutex();
+    s_nas_data_mux = xSemaphoreCreateMutex();
+    s_event_queue = xQueueCreate(EVENT_QUEUE_LEN, sizeof(event_t));
     s_inited = true;
-    ESP_LOGI(TAG, "event bus initialized (%d event slots)", EVENT_MAX);
+    ESP_LOGI(TAG, "event bus initialized (%d event slots, queue len=%d)", EVENT_MAX, EVENT_QUEUE_LEN);
 }
 
 void event_bus_subscribe(event_id_t id, event_handler_t handler, void *user_data)
@@ -131,10 +140,52 @@ void event_bus_publish(event_id_t id, void *data, size_t len)
             slot_copy.handlers[i].handler(&evt, slot_copy.handlers[i].user_data);
         }
     }
+
+    if (s_event_queue) {
+        xQueueSend(s_event_queue, &evt, 0);
+    }
+}
+
+void event_bus_publish_nas_data(const NasData *data)
+{
+    if (!s_inited) event_bus_init();
+    if (!data) return;
+
+    xSemaphoreTake(s_nas_data_mux, portMAX_DELAY);
+    memcpy(&s_nas_data_buffer, data, sizeof(NasData));
+    xSemaphoreGive(s_nas_data_mux);
+
+    event_t evt = {
+        .id = EVENT_NAS_DATA_UPDATE,
+        .data = &s_nas_data_buffer,
+        .data_len = sizeof(NasData),
+    };
+
+    ESP_LOGD(TAG, "publish %s", s_event_names[EVENT_NAS_DATA_UPDATE]);
+
+    xSemaphoreTake(s_mux, portMAX_DELAY);
+    event_slot_t slot_copy = s_slots[EVENT_NAS_DATA_UPDATE];
+    xSemaphoreGive(s_mux);
+
+    for (int i = 0; i < slot_copy.count; i++) {
+        if (slot_copy.handlers[i].handler) {
+            slot_copy.handlers[i].handler(&evt, slot_copy.handlers[i].user_data);
+        }
+    }
+
+    if (s_event_queue) {
+        xQueueSend(s_event_queue, &evt, 0);
+    }
 }
 
 const char *event_bus_name(event_id_t id)
 {
     if (id < 0 || id >= EVENT_MAX) return "UNKNOWN";
     return s_event_names[id];
+}
+
+bool event_bus_receive(event_t *evt, TickType_t timeout)
+{
+    if (!s_inited || !evt || !s_event_queue) return false;
+    return xQueueReceive(s_event_queue, evt, timeout) == pdTRUE;
 }
