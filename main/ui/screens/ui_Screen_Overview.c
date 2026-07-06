@@ -36,19 +36,19 @@ static lv_obj_t *s_btn_refresh = NULL;
 static lv_obj_t *s_icon_wifi = NULL;
 static lv_obj_t *s_icon_bt = NULL;
 
-static lv_obj_t *s_meter_cpu = NULL;
-static lv_obj_t *s_meter_temp = NULL;
-static lv_obj_t *s_label_cpu_percent = NULL;
-static lv_obj_t *s_label_temp_val = NULL;
-static lv_meter_indicator_t *s_cpu_arc_val = NULL;
-static lv_meter_indicator_t *s_cpu_needle = NULL;
-static lv_meter_indicator_t *s_temp_arc_val = NULL;
-static lv_meter_indicator_t *s_temp_needle = NULL;
+lv_obj_t *s_meter_cpu = NULL;
+lv_obj_t *s_meter_temp = NULL;
+lv_obj_t *s_label_cpu_percent = NULL;
+lv_obj_t *s_label_temp_val = NULL;
+lv_meter_indicator_t *s_cpu_arc_val = NULL;
+lv_meter_indicator_t *s_cpu_needle = NULL;
+lv_meter_indicator_t *s_temp_arc_val = NULL;
+lv_meter_indicator_t *s_temp_needle = NULL;
 
-static lv_obj_t *s_bar_mem = NULL;
-static lv_obj_t *s_label_mem_percent = NULL;
-static lv_obj_t *s_bar_disk = NULL;
-static lv_obj_t *s_label_disk_percent = NULL;
+lv_obj_t *s_bar_mem = NULL;
+lv_obj_t *s_label_mem_percent = NULL;
+lv_obj_t *s_bar_disk = NULL;
+lv_obj_t *s_label_disk_percent = NULL;
 
 static lv_timer_t *s_update_timer = NULL;
 

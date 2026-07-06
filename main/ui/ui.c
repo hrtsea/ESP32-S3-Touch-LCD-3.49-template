@@ -55,6 +55,7 @@ void ui_init(void)
 void build_main_ui(const char *status_text)
 {
     lv_obj_t *scr = lv_scr_act();
+    
     lv_obj_set_style_bg_color(scr, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
 
@@ -64,13 +65,12 @@ void build_main_ui(const char *status_text)
     lv_obj_set_style_bg_color(tv, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(tv, LV_OPA_COVER, 0);
     lv_obj_set_scrollbar_mode(tv, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_center(tv);
 
-    lv_obj_t *t_clock = lv_tileview_add_tile(tv, 0, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
+    lv_obj_t *t_clock = lv_tileview_add_tile(tv, 0, 0, LV_DIR_RIGHT);
     lv_obj_t *t_quotes = lv_tileview_add_tile(tv, 1, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
     lv_obj_t *t_set = lv_tileview_add_tile(tv, 2, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
-    lv_obj_t *t_hello = lv_tileview_add_tile(tv, 3, 0, LV_DIR_LEFT | LV_DIR_RIGHT);
-
-    (void)status_text;
+    lv_obj_t *t_hello = lv_tileview_add_tile(tv, 3, 0, LV_DIR_LEFT);
 
     ui_Clock_create(t_clock);
     ui_Quotes_create(t_quotes);
@@ -89,7 +89,7 @@ void build_main_ui(const char *status_text)
     ui_events_start_dim_timer();
     ui_events_start_status_timer();
 
-    lv_obj_set_tile_id(ui_helpers_get_tileview(), 0, 0, LV_ANIM_OFF);
+    lv_obj_set_tile_id(tv, 0, 0, LV_ANIM_OFF);
 }
 
 void show_main_ui(const char *status_text)
@@ -98,15 +98,27 @@ void show_main_ui(const char *status_text)
         ui_helpers_set_status_text(status_text);
     }
     ui_init();
+    
+    if (!lvgl_lock(-1)) return;
+    
+    build_main_ui(status_text);
+    
+    lvgl_unlock();
 }
 
 void rotate_btn_event_cb(lv_event_t *e)
 {
     (void)e;
     ui_events_rotate_screen();
+    
+    if (!lvgl_lock(-1)) return;
+    
     char st[256];
     ui_helpers_get_status_text(st, sizeof(st));
     build_main_ui(st);
+    
+    lvgl_unlock();
+    
     ESP_LOGI(TAG, "rotate -> %d deg  canvas=%dx%d",
              disp_driver_get_rot_state() * 90,
              disp_driver_get_canvas_w(), disp_driver_get_canvas_h());
