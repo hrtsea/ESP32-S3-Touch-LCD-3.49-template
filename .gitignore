@@ -11,3 +11,4 @@ sdkconfig.old
 main/wifi_secret.h
 scripts/__pycache__/
 build_font/
+build_log.txt

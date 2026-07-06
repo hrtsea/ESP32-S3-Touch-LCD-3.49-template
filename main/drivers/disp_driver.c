@@ -584,17 +584,26 @@ void disp_driver_fps_timer_cb(lv_timer_t *t)
 
     uint32_t fps_x10 = (frames * 10000U) / dt;
 
+    size_t free_dram = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+    size_t free_spiram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+
     lv_obj_t *fps_lbl = disp_driver_get_fps_label();
     if (fps_lbl) {
-        lv_label_set_text_fmt(fps_lbl, "FPS %lu.%lu",
+        lv_label_set_text_fmt(fps_lbl,
+                              "FPS %lu.%lu\n"
+                              "DRAM %u KB\n"
+                              "PSRAM %u KB",
                               (unsigned long)(fps_x10 / 10),
-                              (unsigned long)(fps_x10 % 10));
+                              (unsigned long)(fps_x10 % 10),
+                              (unsigned)(free_dram / 1024),
+                              (unsigned)(free_spiram / 1024));
     }
 
     static uint32_t print_div = 0;
     if ((print_div++ & 3) == 0) {
-        ESP_LOGI(TAG, "fps=%lu.%lu  (frames=%lu in %lu ms)",
+        ESP_LOGI(TAG, "fps=%lu.%lu  (frames=%lu in %lu ms)  dram=%uKB  spiram=%uKB",
                  (unsigned long)(fps_x10 / 10), (unsigned long)(fps_x10 % 10),
-                 (unsigned long)frames, (unsigned long)dt);
+                 (unsigned long)frames, (unsigned long)dt,
+                 (unsigned)(free_dram / 1024), (unsigned)(free_spiram / 1024));
     }
 }
