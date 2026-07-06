@@ -1,9 +1,9 @@
-#include "ui_settings_wifi.h"
-#include "ui_settings_internal.h"
+#include "ui_Screen_Settings_WifiTab.h"
+#include "ui_Screen_Settings.h"
 #include "ui_events.h"
 #include "ui_helpers.h"
 #include "ui_wifi_config.h"
-#include "../network/wifi_manager.h"
+#include "../../network/wifi_manager.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_32);
 

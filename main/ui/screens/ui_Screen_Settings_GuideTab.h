@@ -1,7 +1,7 @@
-#ifndef UI_SETTINGS_GUIDE_H
-#define UI_SETTINGS_GUIDE_H
+#ifndef UI_SCREEN_SETTINGS_GUIDETAB_H
+#define UI_SCREEN_SETTINGS_GUIDETAB_H
 
-#include "lvgl/lvgl.h"
+#include <lvgl/lvgl.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,4 +18,4 @@ void ui_Screen_Settings_GuideTab_cleanup(void);
 }
 #endif
 
-#endif /* UI_SETTINGS_GUIDE_H */
+#endif /* UI_SCREEN_SETTINGS_GUIDETAB_H */

@@ -1,5 +1,5 @@
-#include "ui_settings_screen.h"
-#include "ui_settings_internal.h"
+#include "ui_Screen_Settings_ScreenTab.h"
+#include "ui_Screen_Settings.h"
 #include "ui_events.h"
 #include "ui_helpers.h"
 

@@ -1,7 +1,7 @@
-#ifndef UI_SETTINGS_MUSIC_H
-#define UI_SETTINGS_MUSIC_H
+#ifndef UI_SCREEN_SETTINGS_MUSICTAB_H
+#define UI_SCREEN_SETTINGS_MUSICTAB_H
 
-#include "lvgl/lvgl.h"
+#include <lvgl/lvgl.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,4 +20,4 @@ void ui_Screen_Settings_MusicTab_cleanup(void);
 }
 #endif
 
-#endif /* UI_SETTINGS_MUSIC_H */
+#endif /* UI_SCREEN_SETTINGS_MUSICTAB_H */

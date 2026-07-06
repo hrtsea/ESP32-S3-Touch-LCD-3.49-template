@@ -13,12 +13,12 @@ extern lv_obj_t * ui_Screen_Settings;
 extern void ui_event_Settings_Tabview_ConfigPanel(lv_event_t * e);
 extern lv_obj_t * ui_Settings_Tabview_ConfigPanel;
 
-#include "../ui_settings_wifi.h"
-#include "../ui_settings_screen.h"
-#include "../ui_settings_station.h"
-#include "../ui_settings_music.h"
-#include "../ui_settings_region.h"
-#include "../ui_settings_guide.h"
+#include "ui_Screen_Settings_WifiTab.h"
+#include "ui_Screen_Settings_ScreenTab.h"
+#include "ui_Screen_Settings_StationTab.h"
+#include "ui_Screen_Settings_MusicTab.h"
+#include "ui_Screen_Settings_RegionTab.h"
+#include "ui_Screen_Settings_GuideTab.h"
 
 extern void ui_event_Settings_Button_closeConfig(lv_event_t * e);
 extern lv_obj_t * ui_Settings_Button_closeConfig;
@@ -27,6 +27,10 @@ extern void ui_event_Settings_Keyboard_Keyboard1(lv_event_t * e);
 extern lv_obj_t * ui_Settings_Keyboard_Keyboard1;
 extern void ui_event_Settings_Keyboard_Number(lv_event_t * e);
 extern lv_obj_t * ui_Settings_Keyboard_Number;
+
+extern lv_style_t style_btn_border;
+extern lv_style_t style_tab_bg;
+extern void settings_activity_kick(lv_event_t *e);
 
 #ifdef __cplusplus
 }
