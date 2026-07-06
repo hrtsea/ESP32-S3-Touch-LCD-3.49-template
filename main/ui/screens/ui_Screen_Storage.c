@@ -143,11 +143,13 @@ void ui_Screen_Storage_screen_init(void)
 
     lv_obj_clear_flag(ui_Screen_Storage, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(ui_Screen_Storage, COLOR_BG, 0);
+    lv_obj_add_flag(ui_Screen_Storage, LV_OBJ_FLAG_GESTURE_BUBBLE);
 
     create_storage_status_bar(ui_Screen_Storage);
     create_hdd_storage_bars(ui_Screen_Storage);
 
     lv_obj_add_event_cb(ui_Screen_Storage, ui_event_Screen_Storage_gesture, LV_EVENT_GESTURE, NULL);
+    ESP_LOGI("Storage", "Added GESTURE_BUBBLE flag for gesture events");
 
     ESP_LOGI("Storage", "Screen initialized successfully");
 }

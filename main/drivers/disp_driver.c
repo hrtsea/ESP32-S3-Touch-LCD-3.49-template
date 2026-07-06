@@ -292,6 +292,7 @@ static void lvgl_touch_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
     static bool s_was_pressed = false;
     static int s_hold_x = 0, s_hold_y = 0;
+    static bool s_first_press = false;
 
     xSemaphoreTake(s_touch_mutex, portMAX_DELAY);
     bool pressed = s_touch_cache.pressed;
@@ -312,7 +313,15 @@ static void lvgl_touch_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
         data->state = LV_INDEV_STATE_PR;
         data->point.x = cx;
         data->point.y = cy;
+        if (!s_first_press) {
+            s_first_press = true;
+            ESP_LOGI(TAG, "Touch pressed: x=%d, y=%d, rot=%d", cx, cy, g_rot_state);
+        }
     } else {
+        if (s_first_press) {
+            ESP_LOGI(TAG, "Touch released: x=%d, y=%d", cx, cy);
+            s_first_press = false;
+        }
         s_was_pressed = false;
         data->state = LV_INDEV_STATE_REL;
     }

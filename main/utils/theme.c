@@ -15,6 +15,11 @@ theme_palette_t theme_get(void)
         p.sunmap_water_d = lv_color_make(0xe0, 0xe4, 0xf0);
         p.sunmap_land_n = lv_color_make(0x60, 0x70, 0x80);
         p.sunmap_land_d = lv_color_make(0x20, 0x30, 0x40);
+        p.ok = lv_color_make(0x00, 0xc8, 0x00);
+        p.warn = lv_color_make(0xff, 0xc8, 0x00);
+        p.danger = lv_color_make(0xff, 0x30, 0x30);
+        p.info = lv_color_make(0x00, 0xc8, 0xff);
+        p.dim = lv_color_make(0x80, 0x80, 0x80);
         break;
     case 2:
         p.bg = lv_color_black();
@@ -26,6 +31,11 @@ theme_palette_t theme_get(void)
         p.sunmap_water_d = lv_color_make(0x40, 0x40, 0x00);
         p.sunmap_land_n = lv_color_make(0x80, 0x80, 0x00);
         p.sunmap_land_d = lv_color_make(0xff, 0xff, 0x00);
+        p.ok = lv_color_make(0x00, 0xff, 0x00);
+        p.warn = lv_color_make(0xff, 0xff, 0x00);
+        p.danger = lv_color_make(0xff, 0x00, 0x00);
+        p.info = lv_color_make(0x00, 0xff, 0xff);
+        p.dim = lv_color_make(0x80, 0x80, 0x80);
         break;
     default:
         p.bg = lv_color_black();
@@ -37,6 +47,11 @@ theme_palette_t theme_get(void)
         p.sunmap_water_d = lv_color_make(0x20, 0x20, 0x20);
         p.sunmap_land_n = lv_color_make(0x40, 0x40, 0x40);
         p.sunmap_land_d = lv_color_make(0x90, 0x90, 0x90);
+        p.ok = lv_color_make(0x00, 0xe0, 0x00);
+        p.warn = lv_color_make(0xff, 0xe0, 0x00);
+        p.danger = lv_color_make(0xf8, 0x00, 0x00);
+        p.info = lv_color_make(0x00, 0xe0, 0xff);
+        p.dim = lv_color_make(0x42, 0x08, 0x00);
         break;
     }
     return p;

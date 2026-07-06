@@ -40,14 +40,6 @@ extern "C" {
 
 #define TOTAL_PAGES            7
 
-#define COLOR_OK        0x07E0
-#define COLOR_WARN      0xFFE0
-#define COLOR_DANGER    0xF800
-#define COLOR_INFO      0x07FF
-#define COLOR_BG        0x0000
-#define COLOR_TEXT      0xFFFF
-#define COLOR_DIM       0x4208
-
 #ifdef __cplusplus
 }
 #endif

@@ -417,12 +417,16 @@ void ui_event_Screen_Overview_gesture(lv_event_t* e)
     if (event_code == LV_EVENT_GESTURE) {
         lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
         
+        ESP_LOGI("Events", "Overview gesture detected: dir=%d (1=LEFT, 2=RIGHT, 3=TOP, 4=BOTTOM)", (int)dir);
+        
         if (dir == LV_DIR_RIGHT) {
+            ESP_LOGI("Events", "Swiping RIGHT -> Loading Settings screen");
             if (ui_Screen_Settings == NULL) {
                 ui_Screen_Settings_screen_init();
             }
             lv_scr_load_anim(ui_Screen_Settings, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0, false);
         } else if (dir == LV_DIR_LEFT) {
+            ESP_LOGI("Events", "Swiping LEFT -> Loading Storage screen");
             if (ui_Screen_Storage == NULL) {
                 ui_Screen_Storage_screen_init();
             }
@@ -438,7 +442,10 @@ void ui_event_Screen_Settings_gesture(lv_event_t* e)
     if (event_code == LV_EVENT_GESTURE) {
         lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
         
+        ESP_LOGI("Events", "Settings gesture detected: dir=%d", (int)dir);
+        
         if (dir == LV_DIR_LEFT) {
+            ESP_LOGI("Events", "Swiping LEFT -> Loading Overview screen");
             if (ui_Screen_Overview == NULL) {
                 ui_Screen_Overview_screen_init();
             }
@@ -454,7 +461,10 @@ void ui_event_Screen_Storage_gesture(lv_event_t* e)
     if (event_code == LV_EVENT_GESTURE) {
         lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
         
+        ESP_LOGI("Events", "Storage gesture detected: dir=%d", (int)dir);
+        
         if (dir == LV_DIR_RIGHT) {
+            ESP_LOGI("Events", "Swiping RIGHT -> Loading Overview screen");
             if (ui_Screen_Overview == NULL) {
                 ui_Screen_Overview_screen_init();
             }

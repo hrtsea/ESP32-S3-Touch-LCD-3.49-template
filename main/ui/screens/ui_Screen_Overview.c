@@ -33,6 +33,8 @@ static lv_obj_t *s_label_up = NULL;
 static lv_obj_t *s_label_down = NULL;
 static lv_obj_t *s_label_ip = NULL;
 static lv_obj_t *s_btn_refresh = NULL;
+static lv_obj_t *s_icon_wifi = NULL;
+static lv_obj_t *s_icon_bt = NULL;
 
 static lv_obj_t *s_meter_cpu = NULL;
 static lv_obj_t *s_meter_temp = NULL;
@@ -104,6 +106,18 @@ static void create_status_bar(lv_obj_t *parent)
     lv_obj_set_style_text_font(label_down, &lv_font_montserrat_14, 0);
     lv_obj_align(label_down, LV_ALIGN_CENTER, 70, 0);
     s_label_down = label_down;
+
+    s_icon_wifi = lv_label_create(status_bar);
+    lv_label_set_text(s_icon_wifi, LV_SYMBOL_WIFI);
+    lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0x40, 0x40, 0x40), 0);
+    lv_obj_set_style_text_font(s_icon_wifi, &lv_font_montserrat_14, 0);
+    lv_obj_align(s_icon_wifi, LV_ALIGN_RIGHT_MID, -85, 0);
+
+    s_icon_bt = lv_label_create(status_bar);
+    lv_label_set_text(s_icon_bt, LV_SYMBOL_BLUETOOTH);
+    lv_obj_set_style_text_color(s_icon_bt, lv_color_make(0x40, 0x40, 0x40), 0);
+    lv_obj_set_style_text_font(s_icon_bt, &lv_font_montserrat_14, 0);
+    lv_obj_align(s_icon_bt, LV_ALIGN_RIGHT_MID, -115, 0);
 
     s_label_ip = lv_label_create(status_bar);
     lv_label_set_text(s_label_ip, "IP: --");
@@ -367,6 +381,22 @@ static void update_timer_cb(lv_timer_t *timer)
         }
     }
 
+    if (s_icon_wifi != NULL) {
+        char ssid_buf[33];
+        wifi_get_curr_ssid(ssid_buf, sizeof(ssid_buf));
+        if (wifi_is_connected()) {
+            lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0x80, 0xff, 0x80), 0);
+        } else if (ssid_buf[0]) {
+            lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0xff, 0xa0, 0x40), 0);
+        } else {
+            lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0x40, 0x40, 0x40), 0);
+        }
+    }
+
+    if (s_icon_bt != NULL) {
+        lv_obj_set_style_text_color(s_icon_bt, lv_color_make(0x40, 0x40, 0x40), 0);
+    }
+
     const NasData *data = data_source_get_data();
     if (data && data->is_online) {
         int cpu_pct = (int)data->system.cpu_pct;
@@ -440,6 +470,9 @@ void ui_Screen_Overview_screen_init(void)
     create_hdd_indicators(ui_Screen_Overview);
 
     lv_obj_add_event_cb(ui_Screen_Overview, ui_event_Screen_Overview_gesture, LV_EVENT_GESTURE, NULL);
+    
+    lv_obj_add_flag(ui_Screen_Overview, LV_OBJ_FLAG_GESTURE_BUBBLE);
+    ESP_LOGI("Overview", "Added GESTURE_BUBBLE flag for gesture events");
 
     s_update_timer = lv_timer_create(update_timer_cb, 5000, NULL);
     ESP_LOGI("Overview", "Overview screen initialized");
@@ -462,6 +495,8 @@ void ui_Screen_Overview_screen_destroy(void)
     s_label_down = NULL;
     s_label_ip = NULL;
     s_btn_refresh = NULL;
+    s_icon_wifi = NULL;
+    s_icon_bt = NULL;
 
     s_meter_cpu = NULL;
     s_meter_temp = NULL;
