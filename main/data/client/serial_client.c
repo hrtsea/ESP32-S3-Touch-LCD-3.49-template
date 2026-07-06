@@ -1,6 +1,7 @@
 #include "serial_client.h"
 #include "config.h"
 #include "../../config/config.h"
+#include "../../config/app_info.h"
 #include "esp_log.h"
 #include "driver/uart.h"
 #include "cJSON.h"

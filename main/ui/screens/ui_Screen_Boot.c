@@ -3,6 +3,7 @@
 #include "../ui_events.h"
 #include "ui_Screen_Overview.h"
 #include "../../config/config.h"
+#include "../../config/app_info.h"
 #include <stdio.h>
 #include <math.h>
 #include "esp_log.h"

@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "../config/config.h"
+#include "../config/app_info.h"
 
 #ifdef __cplusplus
 extern "C" {
