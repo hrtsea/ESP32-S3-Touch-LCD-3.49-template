@@ -383,3 +383,10 @@ const wifi_scan_ap_t *wifi_get_scan_ap(uint16_t idx)
     if (idx >= g_wifi_scan_n) return NULL;
     return &g_wifi_scan[idx];
 }
+
+bool wifi_has_credentials(void)
+{
+    if (!g_cfg.last_ssid[0]) return false;
+    char pass[65] = {0};
+    return app_cfg_get_ssid_pass(g_cfg.last_ssid, pass, sizeof(pass));
+}

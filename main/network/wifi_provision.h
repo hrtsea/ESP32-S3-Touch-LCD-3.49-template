@@ -16,6 +16,7 @@ typedef enum {
 
 #define WIFI_PROV_AP_SSID "NAS-Monitor"
 #define WIFI_PROV_AP_PASS "12345678"
+#define WIFI_PROV_TIMEOUT_MS (5 * 60 * 1000)
 
 void wifi_provision_init(void);
 void wifi_provision_start(const char *ap_ssid, const char *ap_pass);

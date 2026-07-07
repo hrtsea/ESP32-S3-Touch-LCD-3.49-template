@@ -29,6 +29,8 @@
 #include <dirent.h>
 #include <unistd.h>
 #include "esp_vfs_fat.h"
+#include "nvs_flash.h"
+#include "app_cfg.h"
 
 static const char *TAG = "cli";
 
@@ -67,6 +69,34 @@ static int cmd_wifi(int argc, char **argv)
     } else {
         printf("not associated\n");
     }
+    return 0;
+}
+
+static int cmd_wifi_clear(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    printf("clearing wifi credentials...\n");
+    nvs_handle_t h;
+    esp_err_t er = nvs_open("wifi", NVS_READWRITE, &h);
+    if (er != ESP_OK) {
+        printf("nvs_open failed: %s\n", esp_err_to_name(er));
+        return 1;
+    }
+    er = nvs_erase_all(h);
+    if (er != ESP_OK) {
+        printf("nvs_erase_all failed: %s\n", esp_err_to_name(er));
+        nvs_close(h);
+        return 1;
+    }
+    er = nvs_commit(h);
+    nvs_close(h);
+    if (er != ESP_OK) {
+        printf("nvs_commit failed: %s\n", esp_err_to_name(er));
+        return 1;
+    }
+    app_cfg_set_last_ssid("");
+    esp_wifi_disconnect();
+    printf("wifi credentials cleared, restart to enter provisioning mode\n");
     return 0;
 }
 
@@ -184,6 +214,7 @@ void cli_start(void)
     const esp_console_cmd_t cmds[] = {
         { .command = "mem",          .help = "show heap free / largest block",  .func = &cmd_mem },
         { .command = "wifi",         .help = "show Wi-Fi SSID/IP/RSSI",          .func = &cmd_wifi },
+        { .command = "wifi_clear",   .help = "clear all saved Wi-Fi credentials", .func = &cmd_wifi_clear },
         { .command = "audio_off",    .help = "shut down audio_min (free I2S/codec)", .func = &cmd_audio_off },
         { .command = "sd_info",      .help = "SD card free/total bytes", .func = &cmd_sd_info },
         { .command = "sd_format",    .help = "delete all files in /sdcard/recordings", .func = &cmd_sd_format },

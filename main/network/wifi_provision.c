@@ -8,13 +8,16 @@
 #include "esp_wifi.h"
 #include "esp_netif.h"
 #include "lwip/ip4_addr.h"
+#include "freertos/timers.h"
 
 static const char *TAG = "wifi_provision";
 
 static wifi_prov_state_t s_state = WIFI_PROV_IDLE;
 static bool s_inited = false;
+static TimerHandle_t s_timeout_timer = NULL;
 
 static void s_on_wifi_event(const event_t *evt, void *user_data);
+static void s_timeout_timer_cb(TimerHandle_t timer);
 
 void wifi_provision_init(void)
 {
@@ -85,6 +88,15 @@ void wifi_provision_start(const char *ap_ssid, const char *ap_pass)
 
     event_bus_publish(EVENT_WIFI_PROVISION_START, NULL, 0);
 
+    if (s_timeout_timer == NULL) {
+        s_timeout_timer = xTimerCreate("prov_timeout", pdMS_TO_TICKS(WIFI_PROV_TIMEOUT_MS),
+                                        pdFALSE, NULL, s_timeout_timer_cb);
+    }
+    if (s_timeout_timer) {
+        xTimerStart(s_timeout_timer, 0);
+        ESP_LOGI(TAG, "provisioning timeout timer started (5min)");
+    }
+
     ESP_LOGI(TAG, "provisioning started: connect to %s and access http://192.168.4.1", ssid);
 }
 
@@ -93,6 +105,10 @@ void wifi_provision_stop(void)
     if (s_state == WIFI_PROV_IDLE) return;
 
     ESP_LOGI(TAG, "stopping provisioning mode");
+
+    if (s_timeout_timer) {
+        xTimerStop(s_timeout_timer, 0);
+    }
 
     wifi_provision_http_stop();
     wifi_provision_dns_stop();
@@ -104,6 +120,14 @@ void wifi_provision_stop(void)
     event_bus_publish(EVENT_WIFI_PROVISION_STOP, NULL, 0);
 
     ESP_LOGI(TAG, "provisioning stopped");
+}
+
+static void s_timeout_timer_cb(TimerHandle_t timer)
+{
+    (void)timer;
+    ESP_LOGW(TAG, "provisioning timeout, restarting...");
+    wifi_provision_stop();
+    wifi_provision_start(NULL, NULL);
 }
 
 wifi_prov_state_t wifi_provision_get_state(void)

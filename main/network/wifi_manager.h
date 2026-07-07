@@ -49,6 +49,7 @@ uint32_t wifi_get_connect_started_ms(void);
 bool     wifi_is_scanning(void);
 uint16_t wifi_get_scan_count(void);
 const wifi_scan_ap_t *wifi_get_scan_ap(uint16_t idx);
+bool     wifi_has_credentials(void);
 
 #ifdef __cplusplus
 }

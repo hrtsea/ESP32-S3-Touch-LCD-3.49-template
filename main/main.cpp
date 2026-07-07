@@ -68,6 +68,11 @@ static void network_init(void)
     wifi_manager_init();
     wifi_provision_init();
 
+    if (!wifi_has_credentials()) {
+        ESP_LOGI(TAG, "no wifi credentials found, starting provisioning mode");
+        wifi_provision_start(NULL, NULL);
+    }
+
     if (webui_start() != ESP_OK) {
         ESP_LOGW(TAG, "webui_start failed");
     }

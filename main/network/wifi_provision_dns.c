@@ -135,7 +135,7 @@ void wifi_provision_dns_start(void)
     }
 
     s_running = true;
-    xTaskCreate(s_dns_task, "dns_server", 2048, NULL, 5, &s_task_handle);
+    xTaskCreate(s_dns_task, "dns_server", 4096, NULL, 5, &s_task_handle);
 }
 
 void wifi_provision_dns_stop(void)
