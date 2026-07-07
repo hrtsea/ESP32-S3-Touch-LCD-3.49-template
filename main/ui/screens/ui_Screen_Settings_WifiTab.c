@@ -3,6 +3,10 @@
 #include "ui_events.h"
 #include "ui_helpers.h"
 #include "../../network/wifi_manager.h"
+#include "../../config/app_cfg.h"
+#include "../../utils/event_bus.h"
+#include "../../utils/i18n.h"
+#include "../../drivers/disp_driver.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_32);
 
@@ -22,6 +26,14 @@ static void ui_event_Settings_Textarea_Password(lv_event_t * e);
 static void ui_event_Settings_Button_NetworkSave(lv_event_t * e);
 static void ui_event_Settings_Button_NetworkScan(lv_event_t * e);
 static void ui_event_Settings_Switch_Wifi(lv_event_t * e);
+
+static void s_on_wifi_event(const event_t *evt, void *user_data);
+static void s_wifi_status_timer_cb(lv_timer_t *t);
+static void wifi_tab_refresh_list(void);
+static void wifi_tab_refresh_status(void);
+
+static lv_timer_t *s_status_timer = NULL;
+static bool s_event_subscribed = false;
 
 void ui_event_Settings_Tabpage_network(lv_event_t * e)
 {
@@ -66,6 +78,99 @@ void ui_event_Settings_Switch_Wifi(lv_event_t * e)
     if(event_code == LV_EVENT_CLICKED) {
         toggleWiFi(e);
     }
+}
+
+static void wifi_tab_refresh_list(void)
+{
+    if (!ui_Settings_Dropdown_NetworkList) return;
+
+    lv_dropdown_clear_options(ui_Settings_Dropdown_NetworkList);
+
+    uint16_t scan_n = wifi_get_scan_count();
+    if (scan_n == 0) {
+        lv_dropdown_add_option(ui_Settings_Dropdown_NetworkList, "No AP found", 0);
+        return;
+    }
+
+    char curr_ssid[33];
+    wifi_get_curr_ssid(curr_ssid, sizeof(curr_ssid));
+    bool connected = wifi_is_connected();
+
+    for (int i = 0; i < (int)scan_n; i++) {
+        const wifi_scan_ap_t *ap = wifi_get_scan_ap((uint16_t)i);
+        if (!ap) continue;
+        bool is_connected = connected &&
+                            strncmp(ap->ssid, curr_ssid, sizeof(curr_ssid)) == 0;
+        char option[128];
+        const char *prefix = is_connected ? LV_SYMBOL_OK " " : "";
+        const char *ssid_text = ap->ssid[0] ? ap->ssid : "(hidden)";
+        snprintf(option, sizeof(option), "%s%s (%ddBm)",
+                 prefix, ssid_text, ap->rssi);
+        lv_dropdown_add_option(ui_Settings_Dropdown_NetworkList, option, i);
+    }
+}
+
+static void wifi_tab_refresh_status(void)
+{
+    if (!ui_Settings_Label_connectStatus) return;
+
+    char ssid_buf[33];
+    wifi_get_curr_ssid(ssid_buf, sizeof(ssid_buf));
+
+    if (wifi_is_connected()) {
+        char buf[64];
+        snprintf(buf, sizeof(buf), "%s %s", LV_SYMBOL_OK, ssid_buf);
+        lv_label_set_text(ui_Settings_Label_connectStatus, buf);
+        lv_obj_set_style_text_color(ui_Settings_Label_connectStatus,
+                                    lv_color_hex(0x00FF00), LV_PART_MAIN | LV_STATE_DEFAULT);
+    } else if (ssid_buf[0]) {
+        uint32_t elapsed = lv_tick_elaps(wifi_get_connect_started_ms());
+        uint8_t reason = wifi_get_last_reason();
+        char buf[128];
+        if (reason) {
+            snprintf(buf, sizeof(buf), "%s %s: %s",
+                     LV_SYMBOL_WARNING, ssid_buf, wifi_reason_str(reason));
+        } else if (elapsed > 15000) {
+            snprintf(buf, sizeof(buf), "%s %s: timed out",
+                     LV_SYMBOL_WARNING, ssid_buf);
+        } else {
+            snprintf(buf, sizeof(buf), "Connecting %s... (%lus)",
+                     ssid_buf, (unsigned long)(elapsed / 1000));
+        }
+        lv_label_set_text(ui_Settings_Label_connectStatus, buf);
+        lv_obj_set_style_text_color(ui_Settings_Label_connectStatus,
+                                    lv_color_hex(0xFFFF00), LV_PART_MAIN | LV_STATE_DEFAULT);
+    } else {
+        lv_label_set_text(ui_Settings_Label_connectStatus, "Disconnected");
+        lv_obj_set_style_text_color(ui_Settings_Label_connectStatus,
+                                    lv_color_hex(0xFF0000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    }
+}
+
+static void s_wifi_status_timer_cb(lv_timer_t *t)
+{
+    (void)t;
+    wifi_tab_refresh_status();
+}
+
+static void s_on_wifi_event(const event_t *evt, void *user_data)
+{
+    (void)user_data;
+    if (!lvgl_lock(100)) return;
+
+    switch (evt->id) {
+        case EVENT_WIFI_SCAN_DONE:
+            wifi_tab_refresh_list();
+            break;
+        case EVENT_WIFI_CONNECTED:
+        case EVENT_WIFI_DISCONNECTED:
+            wifi_tab_refresh_status();
+            break;
+        default:
+            break;
+    }
+
+    lvgl_unlock();
 }
 
 void ui_Screen_Settings_WifiTab_init(lv_obj_t *parent)
@@ -180,10 +285,36 @@ void ui_Screen_Settings_WifiTab_init(lv_obj_t *parent)
     lv_obj_add_event_cb(ui_Settings_Button_NetworkScan, ui_event_Settings_Button_NetworkScan, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Settings_Switch_Wifi, ui_event_Settings_Switch_Wifi, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Settings_Tabpage_network, ui_event_Settings_Tabpage_network, LV_EVENT_ALL, NULL);
+
+    if (!s_event_subscribed) {
+        event_bus_subscribe(EVENT_WIFI_CONNECTED, s_on_wifi_event, NULL);
+        event_bus_subscribe(EVENT_WIFI_DISCONNECTED, s_on_wifi_event, NULL);
+        event_bus_subscribe(EVENT_WIFI_SCAN_STARTED, s_on_wifi_event, NULL);
+        event_bus_subscribe(EVENT_WIFI_SCAN_DONE, s_on_wifi_event, NULL);
+        s_event_subscribed = true;
+    }
+
+    s_status_timer = lv_timer_create(s_wifi_status_timer_cb, 1000, NULL);
+
+    wifi_tab_refresh_status();
+    wifi_tab_refresh_list();
 }
 
 void ui_Screen_Settings_WifiTab_cleanup(void)
 {
+    if (s_event_subscribed) {
+        event_bus_unsubscribe(EVENT_WIFI_CONNECTED, s_on_wifi_event);
+        event_bus_unsubscribe(EVENT_WIFI_DISCONNECTED, s_on_wifi_event);
+        event_bus_unsubscribe(EVENT_WIFI_SCAN_STARTED, s_on_wifi_event);
+        event_bus_unsubscribe(EVENT_WIFI_SCAN_DONE, s_on_wifi_event);
+        s_event_subscribed = false;
+    }
+
+    if (s_status_timer) {
+        lv_timer_del(s_status_timer);
+        s_status_timer = NULL;
+    }
+
     ui_Settings_Tabpage_network = NULL;
     ui_Settings_Label_connectStatus = NULL;
     ui_Settings_Label_wifi_hints = NULL;

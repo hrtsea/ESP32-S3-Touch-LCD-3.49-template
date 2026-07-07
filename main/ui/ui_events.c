@@ -479,14 +479,31 @@ void resetScreenOffTimer(lv_event_t * e)
 
 void saveWiFiCredential(lv_event_t * e)
 {
-    lv_dropdown_get_selected_str(ui_Settings_Dropdown_NetworkList, _ssid_buf, sizeof(_ssid_buf));
+    char sel_buf[128];
+    lv_dropdown_get_selected_str(ui_Settings_Dropdown_NetworkList, sel_buf, sizeof(sel_buf));
     const char *password = lv_textarea_get_text(ui_Settings_Textarea_Password);
-    
-    if (_ssid_buf[0] && password) {
-        app_cfg_wifi_pending_set(_ssid_buf, password);
-        app_cfg_save();
-        ESP_LOGI("Events", "WiFi credential saved: %s", _ssid_buf);
+
+    if (sel_buf[0] == '\0' || !password) return;
+
+    char ssid[33] = {0};
+    const char *p = sel_buf;
+    if (strncmp(p, LV_SYMBOL_OK " ", strlen(LV_SYMBOL_OK " ")) == 0) {
+        p += strlen(LV_SYMBOL_OK " ");
     }
+    const char *paren = strrchr(p, '(');
+    size_t ssid_len = paren ? (size_t)(paren - p) : strlen(p);
+    if (ssid_len > 0 && p[ssid_len - 1] == ' ') ssid_len--;
+    if (ssid_len > sizeof(ssid) - 1) ssid_len = sizeof(ssid) - 1;
+    memcpy(ssid, p, ssid_len);
+    ssid[ssid_len] = '\0';
+
+    if (ssid[0] == '\0') return;
+
+    ESP_LOGI("Events", "WiFi connect: ssid=%s pass_len=%u",
+             ssid, (unsigned)strlen(password));
+
+    app_cfg_wifi_pending_set(ssid, password);
+    wifi_connect(ssid, password);
 }
 
 void scanNetwork(lv_event_t * e)
@@ -499,6 +516,22 @@ void toggleWiFi(lv_event_t * e)
 {
     bool enabled = lv_obj_has_state(ui_Settings_Switch_Wifi, LV_STATE_CHECKED);
     ESP_LOGI("Events", "toggleWiFi called: %s", enabled ? "ON" : "OFF");
+
+    if (enabled) {
+        if (!wifi_is_connected() && wifi_has_credentials()) {
+            char ssid[33] = {0};
+            char pass[65] = {0};
+            wifi_get_curr_ssid(ssid, sizeof(ssid));
+            if (ssid[0] == '\0') {
+                app_cfg_get_last_ssid(ssid, sizeof(ssid));
+            }
+            if (ssid[0] && app_cfg_get_ssid_pass(ssid, pass, sizeof(pass))) {
+                wifi_connect(ssid, pass);
+            }
+        }
+    } else {
+        wifi_disconnect();
+    }
 }
 
 void setBrightness(lv_event_t * e)

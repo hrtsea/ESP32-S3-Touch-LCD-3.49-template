@@ -4,11 +4,24 @@
 #include "esp_log.h"
 #include "esp_http_server.h"
 #include <string.h>
+#include "freertos/timers.h"
+#include "freertos/task.h"
 #include "webui.h"
 
 static const char *TAG = "wifi_provision_http";
 
 static httpd_handle_t s_server = NULL;
+
+static char s_pending_ssid[33] = {0};
+static char s_pending_pass[65] = {0};
+
+static void s_connect_task(void *arg)
+{
+    (void)arg;
+    ESP_LOGI(TAG, "async connect: ssid=%s", s_pending_ssid);
+    wifi_provision_on_config(s_pending_ssid, s_pending_pass[0] ? s_pending_pass : NULL);
+    vTaskDelete(NULL);
+}
 
 static const char *s_html_page =
     "<!DOCTYPE html>"
@@ -122,9 +135,15 @@ static esp_err_t s_http_handler_config(httpd_req_t *req)
         return ESP_OK;
     }
 
-    wifi_provision_on_config(ssid, password[0] ? password : NULL);
+    strncpy(s_pending_ssid, ssid, sizeof(s_pending_ssid) - 1);
+    s_pending_ssid[sizeof(s_pending_ssid) - 1] = '\0';
+    strncpy(s_pending_pass, password, sizeof(s_pending_pass) - 1);
+    s_pending_pass[sizeof(s_pending_pass) - 1] = '\0';
 
     httpd_resp_send(req, "{\"success\":true,\"message\":\"Connecting...\"}", HTTPD_RESP_USE_STRLEN);
+
+    xTaskCreate(s_connect_task, "prov_connect", 6144, NULL, 5, NULL);
+
     return ESP_OK;
 }
 

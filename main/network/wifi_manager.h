@@ -36,6 +36,7 @@ void wifi_manager_set_mode(wifi_operation_mode_t mode, wifi_config_t *ap_config)
 wifi_operation_mode_t wifi_manager_get_mode(void);
 void wifi_start_scan(void);
 void wifi_connect(const char *ssid, const char *pass);
+void wifi_disconnect(void);
 
 typedef void (*wifi_status_cb_t)(bool connected, const char *ip_addr);
 void wifi_manager_register_status_cb(wifi_status_cb_t cb);

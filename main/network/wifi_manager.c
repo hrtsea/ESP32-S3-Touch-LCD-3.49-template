@@ -56,10 +56,8 @@ static bool wifi_has_remembered(const char *ssid)
     return er == ESP_OK;
 }
 
-static bool wifi_has_remembered(const char *ssid);
 static void wifi_kick_roam_scan(void);
 static void wifi_event_handler(void *arg, esp_event_base_t base, int32_t id, void *data);
-void wifi_connect(const char *ssid, const char *pass);
 
 static void wifi_kick_roam_scan(void)
 {
@@ -106,7 +104,6 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
             }
             case WIFI_EVENT_STA_CONNECTED:
                 ESP_LOGI(TAG, "wifi: connected to %s", g_wifi_curr_ssid);
-                g_wifi_connected = true;
                 g_wifi_last_reason = 0;
                 g_wifi_fail_count = 0;
                 app_cfg_set_last_ssid(g_wifi_curr_ssid);
@@ -165,6 +162,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t base,
     } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t *ev = (ip_event_got_ip_t *)data;
         ESP_LOGI(TAG, "wifi: got IP " IPSTR, IP2STR(&ev->ip_info.ip));
+        g_wifi_connected = true;
         sntp_manager_start();
         char ip_buf[40];
         snprintf(ip_buf, sizeof(ip_buf), IPSTR, IP2STR(&ev->ip_info.ip));
@@ -320,6 +318,10 @@ const char *wifi_reason_str(uint8_t reason)
 void wifi_connect(const char *ssid, const char *pass)
 {
     wifi_manager_init();
+
+    esp_wifi_disconnect();
+    vTaskDelay(pdMS_TO_TICKS(100));
+
     wifi_config_t wc = {};
     strncpy((char *)wc.sta.ssid, ssid, sizeof(wc.sta.ssid) - 1);
     strncpy((char *)wc.sta.password, pass ? pass : "", sizeof(wc.sta.password) - 1);
@@ -328,16 +330,30 @@ void wifi_connect(const char *ssid, const char *pass)
                                     : WIFI_AUTH_OPEN;
     wc.sta.pmf_cfg.capable = true;
     wc.sta.pmf_cfg.required = false;
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wc));
+    esp_err_t er = esp_wifi_set_config(WIFI_IF_STA, &wc);
+    if (er != ESP_OK) {
+        ESP_LOGE(TAG, "wifi: set_config failed: %s", esp_err_to_name(er));
+        return;
+    }
+
     strncpy(g_wifi_curr_ssid, ssid, sizeof(g_wifi_curr_ssid) - 1);
     g_wifi_curr_ssid[sizeof(g_wifi_curr_ssid) - 1] = 0;
     g_wifi_connect_started_ms = lv_tick_get();
     g_wifi_last_reason = 0;
-    esp_wifi_disconnect();
-    esp_err_t er = esp_wifi_connect();
+    g_wifi_connected = false;
+
+    er = esp_wifi_connect();
     ESP_LOGI(TAG, "wifi: connect %s pass_len=%u auth=%d -> %s",
              ssid, (unsigned)(pass ? strlen(pass) : 0),
              (int)wc.sta.threshold.authmode, esp_err_to_name(er));
+}
+
+void wifi_disconnect(void)
+{
+    g_wifi_fail_count = 0;
+    g_wifi_roaming_scan = false;
+    esp_wifi_disconnect();
+    ESP_LOGI(TAG, "wifi: disconnect requested");
 }
 
 bool wifi_is_connected(void)
