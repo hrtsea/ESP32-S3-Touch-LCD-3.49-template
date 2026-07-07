@@ -3,15 +3,15 @@
 #include "esp_log.h"
 #include "event_bus.h"
 #include "disp_driver.h"
-#include "ui_clock.h"
 #include "wifi_manager.h"
 #include "app_cfg.h"
-#include "ui_hello.h"
-#include "ui_settings.h"
-#include "ui_quotes.h"
 #include "ui_helpers.h"
 #include "../utils/system_monitor.h"
 #include "../data/nas_data.h"
+#include "screens/ui_Screen_Overview.h"
+#include "screens/ui_Screen_Settings.h"
+#include "screens/ui_Screen_Storage.h"
+#include "screens/ui_Screen_Boot.h"
 
 static const char *TAG = "ui_events";
 
@@ -92,19 +92,6 @@ static void dim_timer_cb(lv_timer_t *t)
 static void status_timer_cb(lv_timer_t *t)
 {
     (void)t;
-
-    char ssid_buf[33];
-    wifi_get_curr_ssid(ssid_buf, sizeof(ssid_buf));
-
-    if (wifi_is_connected()) {
-        clock_set_wifi_icon_color(lv_color_make(0x80, 0xff, 0x80));
-    } else if (ssid_buf[0]) {
-        clock_set_wifi_icon_color(lv_color_make(0xff, 0xa0, 0x40));
-    } else {
-        clock_set_wifi_icon_color(lv_color_make(0x40, 0x40, 0x40));
-    }
-
-    clock_set_bt_icon_color(lv_color_make(0x40, 0x40, 0x40));
 }
 
 void ui_events_start_dim_timer(void)
@@ -371,12 +358,7 @@ void ui_events_rotate_screen(void)
 
     lv_obj_clean(lv_scr_act());
     disp_driver_set_fps_label(NULL);
-    ui_Hello_cleanup();
     ui_helpers_set_tileview(NULL);
-
-    ui_Clock_cleanup();
-    ui_Settings_cleanup();
-    ui_Quotes_cleanup();
 
     ui_events_stop_dim_timer();
     ui_events_stop_status_timer();

@@ -1,6 +1,5 @@
 #include "ui_Screen_WifiConfig.h"
 #include "../ui_helpers.h"
-#include "../ui_clock.h"
 #include "../../network/wifi_manager.h"
 #include "../../network/wifi_provision.h"
 #include "../../config/app_cfg.h"
@@ -101,14 +100,20 @@ static void s_wifi_status_timer_cb(lv_timer_t *t)
     wifi_config_refresh_status();
 }
 
+static void s_wifi_connected_timer_cb(lv_timer_t *t)
+{
+    lv_timer_del(t);
+    ESP_LOGI(TAG, "WiFi connected, launching main UI");
+    ui_Screen_WifiConfig_screen_cleanup();
+    show_main_ui(NULL);
+}
+
 static void s_on_wifi_event(const event_t *evt, void *user_data)
 {
     (void)user_data;
     if (evt->id == EVENT_WIFI_CONNECTED) {
-        ESP_LOGI(TAG, "WiFi connected, launching main UI");
-        ui_Screen_WifiConfig_screen_cleanup();
-        show_main_ui(NULL);
-        return;
+        lv_timer_t *timer = lv_timer_create(s_wifi_connected_timer_cb, 100, NULL);
+        if (timer) return;
     }
     wifi_config_refresh_status();
 }
@@ -120,7 +125,6 @@ static void kb_close(void)
         s_kb_overlay = NULL;
         s_kb_textarea = NULL;
     }
-    clock_ms_timer_resume();
 }
 
 static void ui_event_wifi_kb_event(lv_event_t *e)
@@ -204,7 +208,6 @@ static void kb_open_for_ssid(const char *ssid)
 {
     strncpy(g_kb_ssid, ssid, sizeof(g_kb_ssid) - 1);
     g_kb_ssid[sizeof(g_kb_ssid) - 1] = 0;
-    clock_ms_timer_pause();
 
     int canvas_w = disp_driver_get_canvas_w();
     int canvas_h = disp_driver_get_canvas_h();

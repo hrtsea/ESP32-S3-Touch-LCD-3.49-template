@@ -52,9 +52,6 @@
 #include "nas_event_loop.h"
 #include "http_timer.h"
 
-#include "ui_clock.h"
-#include "ui_quotes.h"
-
 static const char *TAG = "skeleton";
 
 extern "C" const lv_font_t font_jbmono_24;
@@ -62,8 +59,7 @@ extern "C" const lv_font_t font_jbmono_48;
 extern "C" const lv_font_t font_jbmono_64;
 extern "C" const lv_font_t font_jbmono_96;
 
-extern "C" void tz_apply_current(void);
-extern "C" const char *tz_current_city_name(void);
+#include "utils/tz_utils.h"
 
 extern void wifi_connect(const char *ssid, const char *pass);
 
@@ -105,9 +101,7 @@ static void network_init(void)
 
 static void ui_start(void)
 {
-    char buf[256];
-    ui_helpers_get_status_text(buf, sizeof(buf));
-    show_main_ui(buf);
+    ui_init();
     ESP_LOGI(TAG, "===== All drivers initialized =====");
 }
 

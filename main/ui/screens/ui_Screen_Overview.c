@@ -1,4 +1,5 @@
 #include "ui_Screen_Overview.h"
+#include "../ui.h"
 #include "../ui_events.h"
 #include "../../config/config.h"
 #include "../../data/nas_data.h"
@@ -453,6 +454,12 @@ static void refresh_btn_cb(lv_event_t *e)
     event_bus_publish(EVENT_TRIGGER_HTTP_FETCH, NULL, 0);
 }
 
+static void s_on_wifi_event(const event_t *evt, void *user_data)
+{
+    (void)user_data;
+    (void)evt;
+}
+
 void ui_Screen_Overview_screen_init(void)
 {
     if (ui_Screen_Overview != NULL) {
@@ -472,6 +479,9 @@ void ui_Screen_Overview_screen_init(void)
     lv_obj_add_event_cb(ui_Screen_Overview, ui_event_Screen_Overview_gesture, LV_EVENT_GESTURE, NULL);
 
     s_update_timer = lv_timer_create(update_timer_cb, 5000, NULL);
+
+    event_bus_subscribe(EVENT_WIFI_CONNECTED, s_on_wifi_event, NULL);
+
     ESP_LOGI("Overview", "Overview screen initialized");
 }
 
@@ -481,6 +491,8 @@ void ui_Screen_Overview_screen_destroy(void)
         lv_timer_del(s_update_timer);
         s_update_timer = NULL;
     }
+
+    event_bus_unsubscribe(EVENT_WIFI_CONNECTED, s_on_wifi_event);
 
     if (ui_Screen_Overview) {
         lv_obj_del(ui_Screen_Overview);

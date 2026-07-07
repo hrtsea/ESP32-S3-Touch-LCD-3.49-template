@@ -971,7 +971,7 @@ esp_err_t webui_start(void)
        on the small side so task create succeeds, and our handlers
        allocate transient buffers (BMP row, file streaming) from PSRAM. */
     cfg.stack_size   = 4 * 1024;
-    cfg.task_priority = 4;
+    cfg.task_priority = 2;
     cfg.recv_wait_timeout = 10;
     cfg.send_wait_timeout = 10;
 

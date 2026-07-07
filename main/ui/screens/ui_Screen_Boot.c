@@ -80,10 +80,10 @@ static void ui_Screen_Boot_timeout_callback(lv_timer_t* timer)
     (void)timer;
     ui_TimerActive = false;
 
-    if (ui_Screen_WifiConfig == NULL) {
-        ui_Screen_WifiConfig_screen_init();
+    if (ui_Screen_Overview == NULL) {
+        ui_Screen_Overview_screen_init();
     }
-    lv_scr_load(ui_Screen_WifiConfig);
+    lv_scr_load(ui_Screen_Overview);
 
     ui_Screen_Boot_stop_timeout();
 }

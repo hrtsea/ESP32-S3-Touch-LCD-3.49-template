@@ -1,6 +1,5 @@
 #include "../ui_events.h"
 #include "../ui_helpers.h"
-#include "../ui_wifi_config.h"
 #include "ui_Screen_Settings_WifiTab.h"
 #include "ui_Screen_Settings_NasTab.h"
 #include "ui_Screen_Settings_ScreenTab.h"
@@ -11,7 +10,6 @@
 #include "../../network/wifi_manager.h"
 #include "../../config/app_cfg.h"
 #include "../../utils/event_bus.h"
-#include "../ui_clock.h"
 #include "i18n.h"
 #include "esp_log.h"
 
@@ -158,11 +156,6 @@ void ui_Screen_Settings_screen_init(void)
 
     ui_Screen_Settings_WifiTab_init(ui_Settings_Tabview_ConfigPanel);
 
-    lv_obj_t *ui_Settings_Tabpage_newwifi = lv_tabview_add_tab(ui_Settings_Tabview_ConfigPanel, "WiFi Config");
-    lv_obj_set_scrollbar_mode(ui_Settings_Tabpage_newwifi, LV_SCROLLBAR_MODE_AUTO);
-    lv_obj_set_scroll_dir(ui_Settings_Tabpage_newwifi, LV_DIR_VER);
-    wifi_config_create(ui_Settings_Tabpage_newwifi);
-
     ui_Screen_Settings_NasTab_init(ui_Settings_Tabview_ConfigPanel);
     ui_Screen_Settings_ScreenTab_init(ui_Settings_Tabview_ConfigPanel);
     ui_Screen_Settings_StationTab_init(ui_Settings_Tabview_ConfigPanel);
@@ -237,6 +230,4 @@ void ui_Screen_Settings_screen_destroy(void)
     ui_Screen_Settings_MusicTab_cleanup();
     ui_Screen_Settings_RegionTab_cleanup();
     ui_Screen_Settings_GuideTab_cleanup();
-
-    wifi_config_cleanup();
 }

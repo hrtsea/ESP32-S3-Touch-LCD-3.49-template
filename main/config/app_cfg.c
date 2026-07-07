@@ -35,8 +35,7 @@ static const char *TAG = "app_cfg";
 /* g_cfg 互斥锁：保护跨任务读写（尤其是字符串字段） */
 static SemaphoreHandle_t s_cfg_mutex = NULL;
 
-/* 外部引用 */
-extern const char *tz_current_city_name(void); /* 获取当前时区城市名称 */
+#include "../utils/tz_utils.h"
 
 /**
  * @brief 全局配置实例，使用默认值初始化
