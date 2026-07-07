@@ -1,17 +1,8 @@
-#include "ui_Screen_Overview.h"
 #include "../ui.h"
-#include "../ui_events.h"
-#include "../../config/config.h"
-#include "../../data/nas_data.h"
-#include "../../data/data_source.h"
-#include "../../network/wifi_manager.h"
-#include "../../utils/event_bus.h"
+#include "ui_Screen_Overview.h"
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
-#include <stdio.h>
-#include <time.h>
-#include <string.h>
 
 LV_FONT_DECLARE(lv_font_montserrat_32);
 LV_FONT_DECLARE(lv_font_montserrat_16);

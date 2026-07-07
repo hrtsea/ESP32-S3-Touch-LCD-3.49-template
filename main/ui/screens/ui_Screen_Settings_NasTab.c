@@ -1,14 +1,6 @@
+#include "../ui.h"
 #include "ui_Screen_Settings_NasTab.h"
-#include "ui_Screen_Settings.h"
-#include "ui_events.h"
-#include "ui_helpers.h"
-#include "../../data/data_source.h"
-#include "../../data/nas_data.h"
-#include "../../config/config.h"
-#include "../../utils/theme.h"
 #include "esp_log.h"
-#include <stdio.h>
-#include <string.h>
 
 LV_FONT_DECLARE(lv_font_montserrat_12);
 LV_FONT_DECLARE(lv_font_montserrat_14);

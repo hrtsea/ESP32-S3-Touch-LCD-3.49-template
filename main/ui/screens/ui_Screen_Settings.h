@@ -14,6 +14,7 @@ extern void ui_event_Settings_Tabview_ConfigPanel(lv_event_t * e);
 extern lv_obj_t * ui_Settings_Tabview_ConfigPanel;
 
 #include "ui_Screen_Settings_WifiTab.h"
+#include "ui_Screen_Settings_NasTab.h"
 #include "ui_Screen_Settings_ScreenTab.h"
 #include "ui_Screen_Settings_StationTab.h"
 #include "ui_Screen_Settings_MusicTab.h"

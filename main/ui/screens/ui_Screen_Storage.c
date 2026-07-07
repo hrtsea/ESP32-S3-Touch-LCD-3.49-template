@@ -1,7 +1,6 @@
+#include "../ui.h"
 #include "ui_Screen_Storage.h"
-#include "../ui_events.h"
 #include "esp_log.h"
-#include <stdio.h>
 
 lv_obj_t * ui_Screen_Storage = NULL;
 

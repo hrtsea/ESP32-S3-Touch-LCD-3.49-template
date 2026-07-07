@@ -1,7 +1,5 @@
+#include "../ui.h"
 #include "ui_Screen_Settings_RegionTab.h"
-#include "ui_Screen_Settings.h"
-#include "ui_events.h"
-#include "ui_helpers.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_16);
 LV_IMG_DECLARE(ui_img_images_globe_png);

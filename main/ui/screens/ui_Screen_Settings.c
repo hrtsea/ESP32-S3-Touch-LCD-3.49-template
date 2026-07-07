@@ -1,16 +1,4 @@
-#include "../ui_events.h"
-#include "../ui_helpers.h"
-#include "ui_Screen_Settings_WifiTab.h"
-#include "ui_Screen_Settings_NasTab.h"
-#include "ui_Screen_Settings_ScreenTab.h"
-#include "ui_Screen_Settings_StationTab.h"
-#include "ui_Screen_Settings_MusicTab.h"
-#include "ui_Screen_Settings_RegionTab.h"
-#include "ui_Screen_Settings_GuideTab.h"
-#include "../../network/wifi_manager.h"
-#include "../../config/app_cfg.h"
-#include "../../utils/event_bus.h"
-#include "i18n.h"
+#include "../ui.h"
 #include "esp_log.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_18);

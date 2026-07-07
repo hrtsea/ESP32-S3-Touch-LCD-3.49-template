@@ -1,7 +1,5 @@
+#include "../ui.h"
 #include "ui_Screen_Settings_ScreenTab.h"
-#include "ui_Screen_Settings.h"
-#include "ui_events.h"
-#include "ui_helpers.h"
 
 lv_obj_t * ui_Settings_Tabpage_screen = NULL;
 lv_obj_t * ui_Settings_Dropdown_Brightness = NULL;

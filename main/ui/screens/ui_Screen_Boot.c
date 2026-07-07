@@ -1,11 +1,6 @@
+#include "../ui.h"
 #include "ui_Screen_Boot.h"
-#include "../ui_helpers.h"
-#include "../ui_events.h"
-#include "ui_Screen_Overview.h"
-#include "ui_Screen_WifiConfig.h"
-#include "../../config/config.h"
-#include "../../config/app_info.h"
-#include <stdio.h>
+#include "app_info.h"
 #include <math.h>
 #include "esp_log.h"
 

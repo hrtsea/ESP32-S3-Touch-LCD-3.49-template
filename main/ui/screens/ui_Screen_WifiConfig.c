@@ -1,17 +1,9 @@
+#include "../ui.h"
 #include "ui_Screen_WifiConfig.h"
-#include "../ui_helpers.h"
-#include "../../network/wifi_manager.h"
-#include "../../network/wifi_provision.h"
-#include "../../config/app_cfg.h"
-#include "../../utils/event_bus.h"
-#include "../../drivers/disp_driver.h"
-#include "i18n.h"
-#include "ui_Screen_Overview.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "nvs.h"
 #include "esp_wifi.h"
-#include "lvgl.h"
 
 static const char *TAG = "ui_Screen_WifiConfig";
 

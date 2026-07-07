@@ -1,7 +1,5 @@
+#include "../ui.h"
 #include "ui_Screen_Settings_MusicTab.h"
-#include "ui_Screen_Settings.h"
-#include "ui_events.h"
-#include "ui_helpers.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_24);
 LV_FONT_DECLARE(lv_font_montserrat_32);
