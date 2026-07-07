@@ -20,8 +20,10 @@ static const char *TAG = "wifi_manager";
 wifi_scan_ap_t g_wifi_scan[WIFI_MAX_SCAN_AP];
 uint16_t       g_wifi_scan_n = 0;
 bool           g_wifi_scanning = false;
-static bool    g_wifi_inited = false;
-bool           g_wifi_connected = false;
+static bool               g_wifi_inited = false;
+static wifi_operation_mode_t g_wifi_mode = WIFI_OP_MODE_STA_ONLY;
+static esp_netif_t        *g_ap_netif = NULL;
+bool                       g_wifi_connected = false;
 char           g_wifi_curr_ssid[33] = {0};
 uint8_t        g_wifi_last_reason = 0;
 int8_t         g_wifi_last_rssi = 0;
@@ -203,6 +205,48 @@ static void wifi_autoconnect(void)
     }
 }
 
+void wifi_manager_set_mode(wifi_operation_mode_t mode, wifi_config_t *ap_config)
+{
+    if (!g_wifi_inited) {
+        g_wifi_mode = mode;
+        wifi_manager_init();
+        if (mode == WIFI_OP_MODE_AP_STA && ap_config) {
+            ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, ap_config));
+        }
+        return;
+    }
+
+    if (g_wifi_mode == mode) {
+        if (mode == WIFI_OP_MODE_AP_STA && ap_config) {
+            ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, ap_config));
+        }
+        return;
+    }
+
+    ESP_LOGI(TAG, "wifi: switching mode %d -> %d", g_wifi_mode, mode);
+
+    ESP_ERROR_CHECK(esp_wifi_stop());
+
+    wifi_mode_t wifi_mode = (mode == WIFI_OP_MODE_AP_STA) ? WIFI_MODE_APSTA : WIFI_MODE_STA;
+    ESP_ERROR_CHECK(esp_wifi_set_mode(wifi_mode));
+
+    if (mode == WIFI_OP_MODE_AP_STA && g_ap_netif == NULL) {
+        g_ap_netif = esp_netif_create_default_wifi_ap();
+    }
+
+    if (mode == WIFI_OP_MODE_AP_STA && ap_config) {
+        ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, ap_config));
+    }
+
+    ESP_ERROR_CHECK(esp_wifi_start());
+    g_wifi_mode = mode;
+}
+
+wifi_operation_mode_t wifi_manager_get_mode(void)
+{
+    return g_wifi_mode;
+}
+
 void wifi_manager_init(void)
 {
     if (g_wifi_inited) return;
@@ -213,7 +257,13 @@ void wifi_manager_init(void)
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+
+    wifi_mode_t wifi_mode = (g_wifi_mode == WIFI_OP_MODE_AP_STA) ? WIFI_MODE_APSTA : WIFI_MODE_STA;
+    ESP_ERROR_CHECK(esp_wifi_set_mode(wifi_mode));
+
+    if (g_wifi_mode == WIFI_OP_MODE_AP_STA) {
+        esp_netif_create_default_wifi_ap();
+    }
 
     ESP_ERROR_CHECK(esp_event_handler_instance_register(
         WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, NULL));

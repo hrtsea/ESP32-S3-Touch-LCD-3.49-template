@@ -7,6 +7,8 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
+#include "esp_wifi.h"
 
 #define WIFI_MAX_SCAN_AP 16
 typedef struct {
@@ -24,7 +26,14 @@ extern uint32_t g_wifi_connect_started_ms;
 extern bool     g_wifi_scanning;
 extern uint16_t g_wifi_scan_n;
 
+typedef enum {
+    WIFI_OP_MODE_STA_ONLY,
+    WIFI_OP_MODE_AP_STA,
+} wifi_operation_mode_t;
+
 void wifi_manager_init(void);
+void wifi_manager_set_mode(wifi_operation_mode_t mode, wifi_config_t *ap_config);
+wifi_operation_mode_t wifi_manager_get_mode(void);
 void wifi_start_scan(void);
 void wifi_connect(const char *ssid, const char *pass);
 

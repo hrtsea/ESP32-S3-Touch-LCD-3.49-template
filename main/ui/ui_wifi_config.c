@@ -2,6 +2,7 @@
 #include "ui_helpers.h"
 #include "ui_clock.h"
 #include "../network/wifi_manager.h"
+#include "../network/wifi_provision.h"
 #include "../config/app_cfg.h"
 #include "../utils/event_bus.h"
 #include "../drivers/disp_driver.h"
@@ -24,11 +25,13 @@ static lv_obj_t *s_wifi_list = NULL;
 static lv_obj_t *s_wifi_status_label = NULL;
 static lv_obj_t *s_kb_overlay = NULL;
 static lv_obj_t *s_kb_textarea = NULL;
+static lv_obj_t *s_provision_btn = NULL;
 
 static lv_style_t s_style_wifi_list_bg;
 static lv_style_t s_style_connect_btn;
 static lv_style_t s_style_forget_btn;
 static lv_style_t s_style_scan_btn;
+static lv_style_t s_style_provision_btn;
 static lv_style_t s_style_label_dim;
 static bool s_styles_inited = false;
 
@@ -38,8 +41,6 @@ static void init_wifi_styles(void)
 
     lv_style_init(&s_style_wifi_list_bg);
     lv_style_set_bg_color(&s_style_wifi_list_bg, lv_color_make(0x10, 0x10, 0x14));
-    lv_style_set_pad_row(&s_style_wifi_list_bg, 2);
-    lv_style_set_pad_all(&s_style_wifi_list_bg, 2);
 
     lv_style_init(&s_style_connect_btn);
     lv_style_set_bg_color(&s_style_connect_btn, lv_color_make(0x20, 0x80, 0x40));
@@ -49,6 +50,9 @@ static void init_wifi_styles(void)
 
     lv_style_init(&s_style_scan_btn);
     lv_style_set_bg_color(&s_style_scan_btn, lv_color_make(0x40, 0x60, 0xa0));
+
+    lv_style_init(&s_style_provision_btn);
+    lv_style_set_bg_color(&s_style_provision_btn, lv_color_make(0x80, 0x60, 0xa0));
 
     lv_style_init(&s_style_label_dim);
     lv_style_set_text_color(&s_style_label_dim, lv_color_make(0xa0, 0xa0, 0xa0));
@@ -309,6 +313,16 @@ static void ui_event_wifi_forget(lv_event_t *e)
     if (s_wifi_status_label) lv_label_set_text(s_wifi_status_label, tr(I18N_WIFI_NOT_CONN));
 }
 
+static void ui_event_wifi_provision(lv_event_t *e)
+{
+    (void)e;
+    ESP_LOGI(TAG, "Starting WiFi AP provisioning");
+    wifi_provision_start(NULL, NULL);
+    if (s_wifi_status_label) {
+        lv_label_set_text(s_wifi_status_label, "AP Started: NAS-Monitor");
+    }
+}
+
 void wifi_config_refresh_list(void)
 {
     if (!s_wifi_list) return;
@@ -338,7 +352,6 @@ void wifi_config_refresh_list(void)
         lv_obj_set_style_bg_color(btn,
             is_selected ? lv_color_make(0x40, 0x40, 0x60)
                         : lv_color_make(0x20, 0x20, 0x30), 0);
-        lv_obj_set_style_pad_all(btn, 2, 0);
         lv_obj_add_event_cb(btn, ui_event_wifi_ap, LV_EVENT_CLICKED, (void *)(intptr_t)i);
         lv_obj_t *l = lv_label_create(btn);
         const char *prefix = "";
@@ -381,11 +394,10 @@ void wifi_config_create(lv_obj_t *parent)
     init_wifi_styles();
 
     lv_obj_t *cont = lv_obj_create(parent);
+    lv_obj_remove_style_all(cont);
     lv_obj_set_layout(cont, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_ROW);
-    lv_obj_set_style_pad_column(cont, 4, 0);
-    lv_obj_set_style_pad_all(cont, 2, 0);
-    lv_obj_set_height(cont, lv_pct(100));
+    lv_obj_set_size(cont, lv_pct(100), lv_pct(100));
 
     s_wifi_list = lv_obj_create(cont);
     lv_obj_set_width(s_wifi_list, lv_pct(60));
@@ -399,11 +411,10 @@ void wifi_config_create(lv_obj_t *parent)
 
     lv_obj_t *side = lv_obj_create(cont);
     lv_obj_remove_style_all(side);
-    lv_obj_set_width(side, lv_pct(38));
+    lv_obj_set_width(side, lv_pct(40));
     lv_obj_set_height(side, lv_pct(100));
     lv_obj_set_layout(side, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(side, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_style_pad_row(side, 4, 0);
     lv_obj_clear_flag(side, LV_OBJ_FLAG_SCROLLABLE);
 
     s_wifi_status_label = lv_label_create(side);
@@ -446,6 +457,16 @@ void wifi_config_create(lv_obj_t *parent)
     lv_obj_center(forget_l);
     lv_obj_add_event_cb(forget_btn, ui_event_wifi_forget, LV_EVENT_CLICKED, NULL);
 
+    s_provision_btn = lv_btn_create(side);
+    lv_obj_set_size(s_provision_btn, lv_pct(100), 24);
+    lv_obj_add_style(s_provision_btn, &s_style_provision_btn, 0);
+    lv_obj_t *prov_l = lv_label_create(s_provision_btn);
+    lv_label_set_text(prov_l, "AP Setup");
+    lv_obj_set_style_text_color(prov_l, lv_color_white(), 0);
+    lv_obj_set_style_text_font(prov_l, i18n_font(), 0);
+    lv_obj_center(prov_l);
+    lv_obj_add_event_cb(s_provision_btn, ui_event_wifi_provision, LV_EVENT_CLICKED, NULL);
+
     event_bus_subscribe(EVENT_WIFI_CONNECTED, s_on_wifi_event, NULL);
     event_bus_subscribe(EVENT_WIFI_DISCONNECTED, s_on_wifi_event, NULL);
     event_bus_subscribe(EVENT_WIFI_SCAN_STARTED, s_on_wifi_event, NULL);
@@ -471,6 +492,7 @@ void wifi_config_cleanup(void)
     s_wifi_list = NULL;
     s_kb_overlay = NULL;
     s_kb_textarea = NULL;
+    s_provision_btn = NULL;
     g_wifi_sel = -1;
     g_kb_ssid[0] = '\0';
 }

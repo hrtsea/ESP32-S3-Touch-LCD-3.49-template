@@ -41,6 +41,7 @@
 #include "app_cfg.h"
 #include "disp_driver.h"
 #include "wifi_manager.h"
+#include "wifi_provision.h"
 #include "sntp_manager.h"
 #include "bg_fetcher.h"
 #include "hw_init.h"
@@ -95,6 +96,7 @@ static void log_init(void)
 static void network_init(void)
 {
     wifi_manager_init();
+    wifi_provision_init();
 
     if (webui_start() != ESP_OK) {
         ESP_LOGW(TAG, "webui_start failed");

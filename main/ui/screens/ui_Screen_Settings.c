@@ -2,6 +2,7 @@
 #include "../ui_helpers.h"
 #include "../ui_wifi_config.h"
 #include "ui_Screen_Settings_WifiTab.h"
+#include "ui_Screen_Settings_NasTab.h"
 #include "ui_Screen_Settings_ScreenTab.h"
 #include "ui_Screen_Settings_StationTab.h"
 #include "ui_Screen_Settings_MusicTab.h"
@@ -162,6 +163,7 @@ void ui_Screen_Settings_screen_init(void)
     lv_obj_set_scroll_dir(ui_Settings_Tabpage_newwifi, LV_DIR_VER);
     wifi_config_create(ui_Settings_Tabpage_newwifi);
 
+    ui_Screen_Settings_NasTab_init(ui_Settings_Tabview_ConfigPanel);
     ui_Screen_Settings_ScreenTab_init(ui_Settings_Tabview_ConfigPanel);
     ui_Screen_Settings_StationTab_init(ui_Settings_Tabview_ConfigPanel);
     ui_Screen_Settings_MusicTab_init(ui_Settings_Tabview_ConfigPanel);
@@ -229,6 +231,7 @@ void ui_Screen_Settings_screen_destroy(void)
     ui_Settings_Keyboard_Number = NULL;
 
     ui_Screen_Settings_WifiTab_cleanup();
+    ui_Screen_Settings_NasTab_cleanup();
     ui_Screen_Settings_ScreenTab_cleanup();
     ui_Screen_Settings_StationTab_cleanup();
     ui_Screen_Settings_MusicTab_cleanup();
