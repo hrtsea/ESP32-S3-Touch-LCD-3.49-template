@@ -1,6 +1,7 @@
 #include "ui.h"
 
 #include "esp_log.h"
+#include "utils/bg_fetcher.h"
 #include "screens/ui_Screen_Boot.h"
 #include "screens/ui_Screen_Overview.h"
 
@@ -47,49 +48,10 @@ void ui_init(void)
     ui_Screen_Boot_start_progress();
 
     lvgl_unlock();
+
+    bg_fetcher_ensure();
 }
 
-void build_main_ui(const char *status_text)
-{
-    (void)status_text;
 
-    if (!lvgl_lock(-1)) return;
 
-    if (ui_Screen_Overview == NULL) {
-        ui_Screen_Overview_screen_init();
-    }
-    lv_scr_load(ui_Screen_Overview);
 
-    lvgl_unlock();
-}
-
-void show_main_ui(const char *status_text)
-{
-    if (status_text) {
-        ui_helpers_set_status_text(status_text);
-    }
-
-    if (!lvgl_lock(-1)) return;
-
-    build_main_ui(status_text);
-
-    lvgl_unlock();
-}
-
-void rotate_btn_event_cb(lv_event_t *e)
-{
-    (void)e;
-    ui_events_rotate_screen();
-    
-    if (!lvgl_lock(-1)) return;
-    
-    char st[256];
-    ui_helpers_get_status_text(st, sizeof(st));
-    build_main_ui(st);
-    
-    lvgl_unlock();
-    
-    ESP_LOGI(TAG, "rotate -> %d deg  canvas=%dx%d",
-             disp_driver_get_rot_state() * 90,
-             disp_driver_get_canvas_w(), disp_driver_get_canvas_h());
-}

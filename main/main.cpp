@@ -36,18 +36,14 @@
 #include "cli.h"
 #include "i18n.h"
 #include "landmask.h"
-#include "tz_cities.h"
 
 #include "app_cfg.h"
 #include "disp_driver.h"
 #include "wifi_manager.h"
 #include "wifi_provision.h"
 #include "sntp_manager.h"
-#include "bg_fetcher.h"
 #include "hw_init.h"
 #include "system_monitor.h"
-#include "ui_helpers.h"
-#include "event_bus.h"
 #include "ui.h"
 #include "nas_event_loop.h"
 #include "http_timer.h"
@@ -58,28 +54,6 @@ extern "C" const lv_font_t font_jbmono_24;
 extern "C" const lv_font_t font_jbmono_48;
 extern "C" const lv_font_t font_jbmono_64;
 extern "C" const lv_font_t font_jbmono_96;
-
-#include "utils/tz_utils.h"
-
-extern void wifi_connect(const char *ssid, const char *pass);
-
-/* 事件总线 handler：背景配置变更时确保获取背景图片 */
-static void on_cfg_changed_evt(const event_t *evt, void *user_data)
-{
-    (void)user_data;
-    if (!evt || !evt->data || evt->data_len < sizeof(cfg_change_info_t)) return;
-    const cfg_change_info_t *info = (const cfg_change_info_t *)evt->data;
-    switch (info->field) {
-        case CFG_FIELD_BG_MODE:
-            if (g_cfg.bg_mode == 2) bg_fetcher_ensure();
-            break;
-        case CFG_FIELD_BG_URL:
-            if (g_cfg.bg_mode == 2) bg_fetcher_ensure();
-            break;
-        default:
-            break;
-    }
-}
 
 static void log_init(void)
 {
@@ -99,17 +73,6 @@ static void network_init(void)
     }
 }
 
-static void ui_start(void)
-{
-    ui_init();
-    ESP_LOGI(TAG, "===== All drivers initialized =====");
-}
-
-static void cli_init(void)
-{
-    cli_start();
-}
-
 extern "C" void app_main(void)
 {
     log_init();
@@ -123,21 +86,16 @@ extern "C" void app_main(void)
 
     hw_init();
 
-    tz_apply_current();
     network_init();
-
-    event_bus_subscribe(EVENT_CFG_CHANGED, on_cfg_changed_evt, NULL);
 
     nas_event_loop_start();
 
     http_timer_init();
     http_timer_start();
 
-    ui_start();
+    ui_init();
 
-    cli_init();
-
-    bg_fetcher_ensure();
+    cli_start();
 
     system_monitor_start();
 }

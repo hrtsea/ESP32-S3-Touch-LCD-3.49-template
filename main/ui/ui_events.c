@@ -8,6 +8,7 @@
 #include "ui_helpers.h"
 #include "../utils/system_monitor.h"
 #include "../data/nas_data.h"
+#include "utils/bg_fetcher.h"
 #include "screens/ui_Screen_Overview.h"
 #include "screens/ui_Screen_Settings.h"
 #include "screens/ui_Screen_Storage.h"
@@ -156,6 +157,23 @@ static void on_tile_changed_evt(const event_t *evt, void *user_data)
     lv_obj_set_tile_id(tv, idx, 0, LV_ANIM_OFF);
 }
 
+static void on_cfg_changed_evt(const event_t *evt, void *user_data)
+{
+    (void)user_data;
+    if (!evt || !evt->data || evt->data_len < sizeof(cfg_change_info_t)) return;
+    const cfg_change_info_t *info = (const cfg_change_info_t *)evt->data;
+    switch (info->field) {
+        case CFG_FIELD_BG_MODE:
+            if (g_cfg.bg_mode == 2) bg_fetcher_ensure();
+            break;
+        case CFG_FIELD_BG_URL:
+            if (g_cfg.bg_mode == 2) bg_fetcher_ensure();
+            break;
+        default:
+            break;
+    }
+}
+
 static void on_nas_data_update_evt(const event_t *evt, void *user_data)
 {
     (void)user_data;
@@ -232,6 +250,7 @@ void ui_events_subscribe_events(void)
     event_bus_subscribe(EVENT_SHOW_FPS_CHANGED, on_show_fps_changed_evt, NULL);
     event_bus_subscribe(EVENT_TILE_CHANGED, on_tile_changed_evt, NULL);
     event_bus_subscribe(EVENT_NAS_DATA_UPDATE, on_nas_data_update_evt, NULL);
+    event_bus_subscribe(EVENT_CFG_CHANGED, on_cfg_changed_evt, NULL);
 }
 
 void ui_events_unsubscribe_events(void)
@@ -240,6 +259,7 @@ void ui_events_unsubscribe_events(void)
     event_bus_unsubscribe(EVENT_SHOW_FPS_CHANGED, on_show_fps_changed_evt);
     event_bus_unsubscribe(EVENT_TILE_CHANGED, on_tile_changed_evt);
     event_bus_unsubscribe(EVENT_NAS_DATA_UPDATE, on_nas_data_update_evt);
+    event_bus_unsubscribe(EVENT_CFG_CHANGED, on_cfg_changed_evt);
 }
 
 static void tileview_gesture_cb(lv_event_t *e)
@@ -342,28 +362,7 @@ void ui_events_start_tile_monitor(void)
     }
 }
 
-void ui_events_rotate_screen(void)
-{
-    int new_rot = (disp_driver_get_rot_state() + 1) & 3;
-    disp_driver_set_rot_state(new_rot);
 
-    if (new_rot == 0 || new_rot == 2) {
-        disp_driver_set_canvas_size(172, 640);
-    } else {
-        disp_driver_set_canvas_size(640, 172);
-    }
-
-    extern void disp_driver_update_resolution(void);
-    disp_driver_update_resolution();
-
-    lv_obj_clean(lv_scr_act());
-    disp_driver_set_fps_label(NULL);
-    ui_helpers_set_tileview(NULL);
-
-    ui_events_stop_dim_timer();
-    ui_events_stop_status_timer();
-    ui_events_unsubscribe_events();
-}
 
 static char _ssid_buf[64];
 

@@ -6,7 +6,7 @@
 #include "../../utils/event_bus.h"
 #include "../../drivers/disp_driver.h"
 #include "i18n.h"
-#include "../ui.h"
+#include "ui_Screen_Overview.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "nvs.h"
@@ -105,7 +105,15 @@ static void s_wifi_connected_timer_cb(lv_timer_t *t)
     lv_timer_del(t);
     ESP_LOGI(TAG, "WiFi connected, launching main UI");
     ui_Screen_WifiConfig_screen_cleanup();
-    show_main_ui(NULL);
+
+    if (!lvgl_lock(-1)) return;
+
+    if (ui_Screen_Overview == NULL) {
+        ui_Screen_Overview_screen_init();
+    }
+    lv_scr_load(ui_Screen_Overview);
+
+    lvgl_unlock();
 }
 
 static void s_on_wifi_event(const event_t *evt, void *user_data)

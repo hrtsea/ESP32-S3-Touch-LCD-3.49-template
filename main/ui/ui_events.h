@@ -23,7 +23,7 @@ void       ui_events_activity_kick(lv_event_t *e);
 void       ui_events_register_tileview_events(lv_obj_t *tv);
 void       ui_events_register_screen_events(lv_obj_t *scr);
 void       ui_events_start_tile_monitor(void);
-void       ui_events_rotate_screen(void);
+
 
 void ui_Screen_Boot_event_handler(lv_event_t* e);
 void ui_event_Screen_Overview_hdd_clicked(lv_event_t* e);

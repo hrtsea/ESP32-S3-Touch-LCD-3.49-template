@@ -25,6 +25,7 @@
 
 #include "app_cfg.h"
 #include "disp_driver.h"
+#include "tz_utils.h"
 
 #define TM_YEAR_OFFSET 1900
 #define TM_MONTH_OFFSET 1
@@ -157,6 +158,7 @@ static void system_time_init(void)
     time_t system_epoch = mktime(&system_tm);
     struct timeval tv = { .tv_sec = system_epoch, .tv_usec = 0 };
     settimeofday(&tv, NULL);
+    tz_apply_current();
     ESP_LOGI(TAG, "RTC seed: %04d-%02d-%02d %02d:%02d:%02d UTC -> epoch %lld",
              rtc_time.year, rtc_time.month, rtc_time.day,
              rtc_time.hour, rtc_time.minute, rtc_time.second,
