@@ -28,6 +28,9 @@ void  i18n_set_lang(int lang_idx);
 extern const lv_font_t font_cjk_14;
 const lv_font_t *i18n_font(void);
 
+void tz_apply_current(void);
+const char *tz_current_city_name(void);
+
 #ifdef __cplusplus
 }
 #endif

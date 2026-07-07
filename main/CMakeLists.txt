@@ -34,8 +34,6 @@ idf_component_register(
         "utils/theme.c"
         "utils/cli.c"
         "utils/hw_init.c"
-        "utils/system_monitor.c"
-        "utils/tz_utils.c"
         "utils/bg_fetcher.c"
         "utils/http_timer.c"
         "config/config.c"

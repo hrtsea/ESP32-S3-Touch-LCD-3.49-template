@@ -4,6 +4,11 @@
 
 #include "i18n.h"
 #include "esp_log.h"
+#include <stdlib.h>
+#include <time.h>
+
+#include "tz_cities.h"
+#include "app_cfg.h"
 
 extern int  app_cfg_get_lang(void);
 extern void app_cfg_set_lang(int lang);
@@ -41,4 +46,19 @@ const lv_font_t *i18n_font(void)
         s_i18n_font_ready = true;
     }
     return &s_i18n_font;
+}
+
+void tz_apply_current(void)
+{
+    uint16_t i = g_cfg.tz_idx;
+    if (i >= TZ_CITY_COUNT) i = TZ_DEFAULT_CITY_INDEX;
+    setenv("TZ", k_tz_cities[i].posix_tz, 1);
+    tzset();
+}
+
+const char *tz_current_city_name(void)
+{
+    uint16_t i = g_cfg.tz_idx;
+    if (i >= TZ_CITY_COUNT) i = TZ_DEFAULT_CITY_INDEX;
+    return k_tz_cities[i].name;
 }

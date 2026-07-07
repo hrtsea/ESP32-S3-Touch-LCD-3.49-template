@@ -6,6 +6,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 
 #include "ui.h"
 #include "ui_helpers.h"
@@ -25,7 +26,6 @@
 
 #include "app_cfg.h"
 #include "disp_driver.h"
-#include "tz_utils.h"
 
 #define TM_YEAR_OFFSET 1900
 #define TM_MONTH_OFFSET 1
@@ -163,4 +163,28 @@ static void system_time_init(void)
              rtc_time.year, rtc_time.month, rtc_time.day,
              rtc_time.hour, rtc_time.minute, rtc_time.second,
              (long long)system_epoch);
+}
+
+static const char *TAG_SYSMON = "sysmon";
+
+#define HEARTBEAT_INTERVAL_MS 2000u
+
+static void heartbeat_loop(void)
+{
+    uint32_t heartbeat = 0;
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(HEARTBEAT_INTERVAL_MS));
+        size_t free8 = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+        size_t freedma = heap_caps_get_free_size(MALLOC_CAP_DMA);
+        size_t freespi = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+        ESP_LOGI(TAG_SYSMON, "alive #%lu  frames=%lu  heap8=%u dma=%u spiram=%u",
+                 (unsigned long)heartbeat++,
+                 (unsigned long)g_fps_frame_count,
+                 (unsigned)free8, (unsigned)freedma, (unsigned)freespi);
+    }
+}
+
+void system_monitor_start(void)
+{
+    heartbeat_loop();
 }

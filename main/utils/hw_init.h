@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 void hw_init(void);
+void system_monitor_start(void);
 
 #ifdef __cplusplus
 }

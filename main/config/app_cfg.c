@@ -35,7 +35,7 @@ static const char *TAG = "app_cfg";
 /* g_cfg 互斥锁：保护跨任务读写（尤其是字符串字段） */
 static SemaphoreHandle_t s_cfg_mutex = NULL;
 
-#include "../utils/tz_utils.h"
+#include "../utils/i18n.h"
 
 /**
  * @brief 全局配置实例，使用默认值初始化

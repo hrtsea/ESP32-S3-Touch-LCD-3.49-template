@@ -43,7 +43,6 @@
 #include "wifi_provision.h"
 #include "sntp_manager.h"
 #include "hw_init.h"
-#include "system_monitor.h"
 #include "ui.h"
 #include "nas_event_loop.h"
 #include "http_timer.h"

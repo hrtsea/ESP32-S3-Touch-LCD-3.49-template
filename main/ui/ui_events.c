@@ -6,7 +6,6 @@
 #include "wifi_manager.h"
 #include "app_cfg.h"
 #include "ui_helpers.h"
-#include "../utils/system_monitor.h"
 #include "../data/nas_data.h"
 #include "utils/bg_fetcher.h"
 #include "screens/ui_Screen_Overview.h"
