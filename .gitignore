@@ -13,3 +13,8 @@ main/wifi_secret.h
 scripts/__pycache__/
 build_font/
 build_log.txt
+
+# Temporary build/monitor logs
+monitor_output*.log
+build_output*.txt
+update_app_cfg.py
