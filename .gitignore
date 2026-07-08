@@ -2,8 +2,8 @@ build/
 .cache/
 managed_components/
 dependencies.lock
-sdkconfig
-sdkconfig.old
+# sdkconfig
+# sdkconfig.old
 *.bak
 .DS_Store
 
@@ -16,4 +16,4 @@ build_log.txt
 # Temporary build/monitor logs
 monitor_output*.log
 build_output*.txt
-update_app_cfg.py
+# update_app_cfg.py
