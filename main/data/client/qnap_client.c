@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "esp_http_client.h"
 #include "esp_wifi.h"
+#include "esp_wifi_config.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -41,11 +42,8 @@ static uint32_t get_millis(void)
     return (uint32_t)(esp_log_timestamp() / 1000);
 }
 
-static bool wifi_is_connected(void)
-{
-    wifi_ap_record_t ap_info;
-    esp_err_t err = esp_wifi_sta_get_ap_info(&ap_info);
-    return err == ESP_OK;
+static bool wifi_is_connected(void) {
+    return wifi_cfg_is_connected();
 }
 
 static const char* extract_xml(const char* xml, const char* tag, int index, char* buf, int buf_size)
@@ -607,3 +605,5 @@ DataSource* qnap_client_create(void)
     self->consecutive_failures = 0;
     return self;
 }
+
+

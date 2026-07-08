@@ -959,25 +959,8 @@ static esp_err_t h_screen_bmp(httpd_req_t *r)
 
 /* ---------- start/stop ---------- */
 
-esp_err_t webui_start(void)
+static esp_err_t webui_register_routes(httpd_handle_t srv)
 {
-    if (s_srv) return ESP_OK;
-    httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
-    cfg.server_port  = 80;
-    cfg.lru_purge_enable = true;
-    cfg.uri_match_fn = httpd_uri_match_wildcard;
-    cfg.max_uri_handlers = 24;
-    /* Internal RAM is fragmented after LVGL is up; we keep the stack
-       on the small side so task create succeeds, and our handlers
-       allocate transient buffers (BMP row, file streaming) from PSRAM. */
-    cfg.stack_size   = 4 * 1024;
-    cfg.task_priority = 2;
-    cfg.recv_wait_timeout = 10;
-    cfg.send_wait_timeout = 10;
-
-    esp_err_t e = httpd_start(&s_srv, &cfg);
-    if (e != ESP_OK) { ESP_LOGE(TAG, "httpd_start: %s", esp_err_to_name(e)); return e; }
-
     httpd_uri_t routes[] = {
         { .uri = "/",                .method = HTTP_GET,  .handler = h_index },
         { .uri = "/api/state",       .method = HTTP_GET,  .handler = h_state },
@@ -998,8 +981,43 @@ esp_err_t webui_start(void)
         { .uri = "/rec/*",           .method = HTTP_GET,  .handler = h_rec_get },
     };
     for (size_t i = 0; i < sizeof(routes)/sizeof(routes[0]); i++) {
-        httpd_register_uri_handler(s_srv, &routes[i]);
+        httpd_register_uri_handler(srv, &routes[i]);
     }
+    return ESP_OK;
+}
+
+esp_err_t webui_start_with_httpd(httpd_handle_t srv)
+{
+    if (!srv) return ESP_ERR_INVALID_ARG;
+    if (s_srv) return ESP_OK;
+    s_srv = srv;
+    esp_err_t e = webui_register_routes(s_srv);
+    if (e != ESP_OK) {
+        s_srv = NULL;
+        return e;
+    }
+    ESP_LOGI(TAG, "webui routes registered on shared httpd");
+    return ESP_OK;
+}
+
+esp_err_t webui_start(void)
+{
+    if (s_srv) return ESP_OK;
+    httpd_config_t cfg = HTTPD_DEFAULT_CONFIG();
+    cfg.server_port  = 80;
+    cfg.lru_purge_enable = true;
+    cfg.uri_match_fn = httpd_uri_match_wildcard;
+    cfg.max_uri_handlers = 24;
+    cfg.stack_size   = 4 * 1024;
+    cfg.task_priority = 2;
+    cfg.recv_wait_timeout = 10;
+    cfg.send_wait_timeout = 10;
+
+    esp_err_t e = httpd_start(&s_srv, &cfg);
+    if (e != ESP_OK) { ESP_LOGE(TAG, "httpd_start: %s", esp_err_to_name(e)); return e; }
+
+    e = webui_register_routes(s_srv);
+    if (e != ESP_OK) { httpd_stop(s_srv); s_srv = NULL; return e; }
     ESP_LOGI(TAG, "webui up on port %d", cfg.server_port);
     return ESP_OK;
 }

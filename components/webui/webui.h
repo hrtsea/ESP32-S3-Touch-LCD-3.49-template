@@ -1,5 +1,6 @@
 #pragma once
 #include "esp_err.h"
+#include "esp_http_server.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -7,6 +8,10 @@ extern "C" {
 
 /* Start the HTTP server. Called after Wi-Fi STA gets an IP. Idempotent. */
 esp_err_t webui_start(void);
+
+/* Start using an existing httpd handle (shared with esp_wifi_config).
+   Registers webui routes on the given server without creating a new one. */
+esp_err_t webui_start_with_httpd(httpd_handle_t srv);
 
 /* Stop the server and free its resources. Safe to call when not running. */
 void      webui_stop(void);

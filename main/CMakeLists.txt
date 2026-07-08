@@ -23,11 +23,7 @@ idf_component_register(
         "ui/images/ui_img_images_globe_png.c"
         "ui/images/ui_img_images_timezone_png.c"
         "drivers/disp_driver.c"
-        "network/wifi_manager.c"
         "network/sntp_manager.c"
-        "network/wifi_provision.c"
-        "network/wifi_provision_dns.c"
-        "network/wifi_provision_http.c"
         "config/app_cfg.c"
         "utils/event_bus.c"
         "utils/i18n.c"
@@ -36,6 +32,7 @@ idf_component_register(
         "utils/hw_init.c"
         "utils/bg_fetcher.c"
         "utils/http_timer.c"
+        "utils/wifi_adapter.c"
         "config/config.c"
         "data/data_source.c"
         "data/nas_event_loop.c"
@@ -61,7 +58,46 @@ idf_component_register(
         "config"
         "utils"
         "data"
+    REQUIRES
+        json
+        esp_wifi_config
+        esp_bus
+        lvgl
+        esp_lcd
+        esp_io_expander_tca9554
+        esp_audio_simple_player
+        esp_codec_dev
+        esp_http_server
+        nvs_flash
+        esp_wifi
+        esp_netif
+        esp_event
+        lwip
+        console
+        i2c_bsp
+        i2c_equipment
+        sdcard_bsp
+        button_bsp
+        adc_bsp
+        lcd_bl_pwm_bsp
+        audio_min
+        recorder
+        radio
+        webui
 
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE BUILD_EPOCH_UTC=${BUILD_EPOCH_UTC})
+target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-error=stringop-truncation)
+
+# Force linker to include all symbols from radio and recorder archives
+# (webui references them but link order doesn't resolve the dependency)
+idf_build_set_property(LINK_OPTIONS "-Wl,--whole-archive" APPEND)
+idf_build_set_property(LINK_OPTIONS "esp-idf/radio/libradio.a" APPEND)
+idf_build_set_property(LINK_OPTIONS "esp-idf/recorder/librecorder.a" APPEND)
+idf_build_set_property(LINK_OPTIONS "-Wl,--no-whole-archive" APPEND)
+
+
+
+
+

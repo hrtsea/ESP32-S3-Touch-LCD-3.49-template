@@ -9,7 +9,7 @@
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "esp_http_client.h"
-#include "esp_crt_bundle.h"
+//#include "esp_crt_bundle.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -17,7 +17,7 @@
 #include "sdcard_bsp.h"
 #include "app_cfg.h"
 #include "disp_driver.h"
-#include "wifi_manager.h"
+#include "esp_wifi_config.h"
 #include "event_bus.h"
 
 #define CLOCK_BG_PATH "/sdcard/clock_bg.bin"
@@ -43,7 +43,7 @@ static esp_err_t bg_fetch_once(const char *url)
     esp_http_client_config_t cfg = {0};
     cfg.url = url;
     cfg.timeout_ms = 10000;
-    cfg.crt_bundle_attach = esp_crt_bundle_attach;
+    //cfg.crt_bundle_attach = esp_crt_bundle_attach;
     esp_http_client_handle_t c = esp_http_client_init(&cfg);
     if (!c) return ESP_FAIL;
     esp_err_t e = esp_http_client_open(c, 0);
@@ -133,7 +133,7 @@ static void bg_fetcher_task(void *arg)
        internal RAM to starve radio_init's I2S DMA descriptors on a
        fragmented heap. */
     for (int i = 0; i < 120; i++) {
-        if (wifi_is_connected()) break;
+        if (wifi_cfg_is_connected()) break;
         vTaskDelay(pdMS_TO_TICKS(100));
     }
     vTaskDelay(pdMS_TO_TICKS(2000));
@@ -171,3 +171,4 @@ void bg_fetcher_ensure(void)
         s_bg_fetcher = NULL;
     }
 }
+

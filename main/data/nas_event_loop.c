@@ -8,7 +8,6 @@
 #include "freertos/semphr.h"
 #include "event_bus.h"
 #include "config.h"
-#include "wifi_manager.h"
 #include "data_source.h"
 
 static const char *TAG = "nas_event_loop";

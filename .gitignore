@@ -1,6 +1,7 @@
 build/
 .cache/
 managed_components/
+.trae/
 dependencies.lock
 sdkconfig
 sdkconfig.old

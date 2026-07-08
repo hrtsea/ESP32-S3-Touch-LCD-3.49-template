@@ -16,6 +16,8 @@
 
 #include "app_cfg.h"
 #include "event_bus.h"
+#include "esp_wifi_config.h"
+#include "esp_bus.h"
 #include "disp_driver.h"
 
 /* 如果存在 wifi_secret.h，则包含它以获取默认 WiFi 凭证 */
@@ -279,8 +281,7 @@ void app_cfg_init(void)
              g_cfg.brightness, g_cfg.dim_s, g_cfg.off_s,
              g_cfg.last_ssid[0] ? g_cfg.last_ssid : "(none)");
 
-    /* 订阅 WiFi 连接成功事件：将暂存凭证落地到 NVS */
-    event_bus_subscribe(EVENT_WIFI_CONNECTED, on_wifi_connected_evt, NULL);
+
 }
 
 /**
@@ -745,11 +746,15 @@ void app_cfg_set_dim_off(int dim_s, int off_s)
 void app_cfg_wifi_connect_save(const char *ssid, const char *pass)
 {
     if (!ssid || !*ssid) return;
-    /* 暂存凭证，连接成功后再落地到 NVS（避免错误密码被保存） */
-    app_cfg_wifi_pending_set(ssid, pass ? pass : "");
-    if (s_callbacks.on_wifi_connect) {
-        s_callbacks.on_wifi_connect(ssid, pass ? pass : ""); /* 兼容旧回调 */
+    wifi_network_t network = {0};
+    strncpy(network.ssid, ssid, sizeof(network.ssid) - 1);
+    if (pass && *pass) {
+        strncpy(network.password, pass, sizeof(network.password) - 1);
     }
+    network.priority = 10;
+    wifi_cfg_add_network(&network);
+    wifi_cfg_connect(ssid);
+    app_cfg_set_last_ssid(ssid);
 }
 
 /**
@@ -837,66 +842,6 @@ void app_cfg_set_wifi_autoconnect(int enable)
     app_cfg_save();
 }
 
-/* ==================== WiFi 凭证暂存机制 ====================
- *
- * 设计动机：避免"密码错误也被保存到 NVS"的问题。
- * 所有手动连接入口先调用 app_cfg_wifi_pending_set() 暂存凭证，
- * 再调用 wifi_connect() 发起连接；连接成功事件触发后，
- * 由订阅者调用 app_cfg_wifi_pending_commit() 落地到 NVS。
- */
-
-static char s_pending_ssid[33] = {0};
-static char s_pending_pass[65] = {0};
-static bool s_pending_valid = false;
-
-static void on_wifi_connected_evt(const event_t *evt, void *user_data)
-{
-    (void)evt;
-    (void)user_data;
-    if (s_pending_valid) {
-        app_cfg_wifi_pending_commit();
-        ESP_LOGI(TAG, "wifi: pending credential committed to NVS");
-    }
-}
-
-void app_cfg_wifi_pending_set(const char *ssid, const char *pass)
-{
-    if (!ssid || !*ssid) return;
-    strncpy(s_pending_ssid, ssid, sizeof(s_pending_ssid) - 1);
-    s_pending_ssid[sizeof(s_pending_ssid) - 1] = '\0';
-    if (pass) {
-        strncpy(s_pending_pass, pass, sizeof(s_pending_pass) - 1);
-        s_pending_pass[sizeof(s_pending_pass) - 1] = '\0';
-    } else {
-        s_pending_pass[0] = '\0';
-    }
-    s_pending_valid = true;
-}
-
-bool app_cfg_wifi_pending_is_valid(void)
-{
-    return s_pending_valid;
-}
-
-void app_cfg_wifi_pending_commit(void)
-{
-    if (!s_pending_valid) return;
-    app_cfg_save_ssid_pass(s_pending_ssid, s_pending_pass);
-    cfg_lock();
-    strncpy(g_cfg.last_ssid, s_pending_ssid, sizeof(g_cfg.last_ssid) - 1);
-    g_cfg.last_ssid[sizeof(g_cfg.last_ssid) - 1] = '\0';
-    cfg_unlock();
-    cfg_publish(CFG_FIELD_LAST_SSID);
-    app_cfg_save();
-    s_pending_valid = false;
-}
-
-void app_cfg_wifi_pending_clear(void)
-{
-    s_pending_valid = false;
-    s_pending_ssid[0] = '\0';
-    s_pending_pass[0] = '\0';
-}
 
 void app_cfg_set_last_ssid(const char *ssid)
 {
@@ -926,3 +871,4 @@ size_t app_cfg_get_last_ssid(char *buf, size_t buf_len)
     cfg_unlock();
     return len;
 }
+

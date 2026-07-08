@@ -39,13 +39,15 @@
 
 #include "app_cfg.h"
 #include "disp_driver.h"
-#include "wifi_manager.h"
-#include "wifi_provision.h"
+#include "esp_wifi_config.h"
+#include "esp_bus.h"
+#include "esp_http_server.h"
 #include "sntp_manager.h"
 #include "hw_init.h"
 #include "ui.h"
 #include "nas_event_loop.h"
 #include "http_timer.h"
+#include "event_bus.h"
 
 static const char *TAG = "skeleton";
 
@@ -64,22 +66,40 @@ static void log_init(void)
 
 static void network_init(void)
 {
-    wifi_manager_init();
-    wifi_provision_init();
+    esp_bus_init();
 
-    if (!wifi_has_credentials()) {
-        ESP_LOGI(TAG, "no wifi credentials found, starting provisioning mode");
-        wifi_provision_start(NULL, NULL);
-    }
+    wifi_cfg_config_t cfg = {
+        .provisioning_mode = WIFI_PROV_WHEN_UNPROVISIONED,
+        .stop_provisioning_on_connect = true,
+        .http_post_prov_mode = WIFI_HTTP_API_ONLY,
+        .default_ap = {
+            .ssid = "NAS-Monitor",
+            .password = "12345678",
+        },
+        .enable_ap = true,
+        .http = {
+            .api_base_path = "/api/wifi",
+        },
+    };
+    wifi_cfg_init(&cfg);
 
-    if (webui_start() != ESP_OK) {
-        ESP_LOGW(TAG, "webui_start failed");
+    httpd_handle_t srv = wifi_cfg_get_httpd();
+    if (srv) {
+        if (webui_start_with_httpd(srv) != ESP_OK) {
+            ESP_LOGW(TAG, "webui_start_with_httpd failed");
+        }
+    } else {
+        if (webui_start() != ESP_OK) {
+            ESP_LOGW(TAG, "webui_start failed");
+        }
     }
 }
 
 extern "C" void app_main(void)
 {
     log_init();
+    
+    event_bus_init();
     
     app_cfg_load();
     
@@ -103,3 +123,5 @@ extern "C" void app_main(void)
 
     system_monitor_start();
 }
+
+

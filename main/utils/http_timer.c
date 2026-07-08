@@ -1,28 +1,35 @@
 #include "http_timer.h"
 
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/timers.h"
+#include "esp_timer.h"
 #include "event_bus.h"
 
 static const char *TAG = "http_timer";
 
-static TimerHandle_t s_http_timer = NULL;
+static esp_timer_handle_t s_http_timer = NULL;
 static uint32_t s_interval_ms = 2000;
 static bool s_running = false;
 
-static void http_timer_cb(TimerHandle_t xTimer)
+static void http_timer_cb(void *arg)
 {
-    (void)xTimer;
+    (void)arg;
     event_bus_publish(EVENT_TRIGGER_HTTP_FETCH, NULL, 0);
 }
 
 void http_timer_init(void)
 {
-    s_http_timer = xTimerCreate("http_timer", pdMS_TO_TICKS(s_interval_ms), pdTRUE, NULL, http_timer_cb);
-    if (s_http_timer == NULL) {
-        ESP_LOGE(TAG, "Failed to create HTTP timer");
+    if (s_http_timer) return;
+
+    esp_timer_create_args_t args = {
+        .callback = http_timer_cb,
+        .arg = NULL,
+        .dispatch_method = ESP_TIMER_TASK,
+        .name = "http_timer",
+        .skip_unhandled_events = true,
+    };
+    esp_err_t err = esp_timer_create(&args, &s_http_timer);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to create HTTP timer: %s", esp_err_to_name(err));
         return;
     }
 
@@ -40,11 +47,12 @@ void http_timer_start(void)
         return;
     }
 
-    if (xTimerStart(s_http_timer, 0) == pdPASS) {
+    esp_err_t err = esp_timer_start_periodic(s_http_timer, (uint64_t)s_interval_ms * 1000);
+    if (err == ESP_OK) {
         s_running = true;
         ESP_LOGI(TAG, "HTTP timer started");
     } else {
-        ESP_LOGE(TAG, "Failed to start HTTP timer");
+        ESP_LOGE(TAG, "Failed to start HTTP timer: %s", esp_err_to_name(err));
     }
 }
 
@@ -54,7 +62,8 @@ void http_timer_stop(void)
         return;
     }
 
-    if (xTimerStop(s_http_timer, 0) == pdPASS) {
+    esp_err_t err = esp_timer_stop(s_http_timer);
+    if (err == ESP_OK) {
         s_running = false;
         ESP_LOGI(TAG, "HTTP timer stopped");
     }
@@ -64,8 +73,9 @@ void http_timer_set_interval_ms(uint32_t ms)
 {
     s_interval_ms = ms;
 
-    if (s_http_timer != NULL) {
-        xTimerChangePeriod(s_http_timer, pdMS_TO_TICKS(ms), 0);
+    if (s_http_timer != NULL && s_running) {
+        esp_timer_stop(s_http_timer);
+        esp_timer_start_periodic(s_http_timer, (uint64_t)ms * 1000);
         ESP_LOGI(TAG, "HTTP timer interval changed to %ums", ms);
     }
 }

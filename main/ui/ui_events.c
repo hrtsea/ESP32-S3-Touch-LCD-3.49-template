@@ -3,7 +3,8 @@
 #include "esp_log.h"
 #include "event_bus.h"
 #include "disp_driver.h"
-#include "wifi_manager.h"
+#include "esp_wifi_config.h"
+#include "wifi_adapter.h"
 #include "app_cfg.h"
 #include "ui_helpers.h"
 #include "../data/nas_data.h"
@@ -501,8 +502,7 @@ void saveWiFiCredential(lv_event_t * e)
     ESP_LOGI("Events", "WiFi connect: ssid=%s pass_len=%u",
              ssid, (unsigned)strlen(password));
 
-    app_cfg_wifi_pending_set(ssid, password);
-    wifi_connect(ssid, password);
+    app_cfg_wifi_connect_save(ssid, password);
 }
 
 void scanNetwork(lv_event_t * e)
@@ -592,3 +592,4 @@ void turnonScreen(lv_event_t * e)
 {
     ESP_LOGD("Events", "turnonScreen called");
 }
+

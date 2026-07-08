@@ -31,6 +31,8 @@
 #include "esp_vfs_fat.h"
 #include "nvs_flash.h"
 #include "app_cfg.h"
+#include "esp_wifi_config.h"
+#include "wifi_adapter.h"
 
 static const char *TAG = "cli";
 
@@ -59,13 +61,10 @@ static int cmd_mem(int argc, char **argv)
 static int cmd_wifi(int argc, char **argv)
 {
     (void)argc; (void)argv;
-    wifi_ap_record_t ap;
-    if (esp_wifi_sta_get_ap_info(&ap) == ESP_OK) {
-        esp_netif_t *nif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
-        esp_netif_ip_info_t ip = {0};
-        if (nif) esp_netif_get_ip_info(nif, &ip);
-        printf("ssid=%s rssi=%d ip=" IPSTR "\n",
-               (char *)ap.ssid, (int)ap.rssi, IP2STR(&ip.ip));
+    if (wifi_cfg_is_connected()) {
+        char ssid[33];
+        wifi_cfg_get_current_ssid(ssid, sizeof(ssid));
+        printf("ssid=%s\n", ssid);
     } else {
         printf("not associated\n");
     }
@@ -76,26 +75,9 @@ static int cmd_wifi_clear(int argc, char **argv)
 {
     (void)argc; (void)argv;
     printf("clearing wifi credentials...\n");
-    nvs_handle_t h;
-    esp_err_t er = nvs_open("wifi", NVS_READWRITE, &h);
-    if (er != ESP_OK) {
-        printf("nvs_open failed: %s\n", esp_err_to_name(er));
-        return 1;
-    }
-    er = nvs_erase_all(h);
-    if (er != ESP_OK) {
-        printf("nvs_erase_all failed: %s\n", esp_err_to_name(er));
-        nvs_close(h);
-        return 1;
-    }
-    er = nvs_commit(h);
-    nvs_close(h);
-    if (er != ESP_OK) {
-        printf("nvs_commit failed: %s\n", esp_err_to_name(er));
-        return 1;
-    }
+    wifi_cfg_clear_credentials();
     app_cfg_set_last_ssid("");
-    esp_wifi_disconnect();
+    wifi_cfg_disconnect();
     printf("wifi credentials cleared, restart to enter provisioning mode\n");
     return 0;
 }
@@ -256,3 +238,6 @@ void cli_start(void)
     }
     ESP_LOGI(TAG, "CLI ready -- type 'help'");
 }
+
+
+

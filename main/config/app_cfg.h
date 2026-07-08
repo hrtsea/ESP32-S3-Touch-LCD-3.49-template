@@ -201,11 +201,7 @@ void app_cfg_set_audio_volume(int vol);              /* 设置音频音量 */
 void app_cfg_set_theme(int theme);                   /* 设置主题索引 */
 void app_cfg_set_wifi_autoconnect(int enable);       /* 设置 WiFi 自动连接 */
 
-/* WiFi 凭证暂存机制：先连接，成功后再持久化到 NVS */
-void app_cfg_wifi_pending_set(const char *ssid, const char *pass); /* 暂存待确认凭证 */
-bool app_cfg_wifi_pending_is_valid(void);           /* 是否有待确认凭证 */
-void app_cfg_wifi_pending_commit(void);              /* 连接成功：将暂存凭证落地到 NVS */
-void app_cfg_wifi_pending_clear(void);               /* 清除暂存凭证 */
+
 
 #ifdef __cplusplus
 }

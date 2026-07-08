@@ -1,6 +1,9 @@
 #include "../ui.h"
 #include "ui_Screen_Settings_WifiTab.h"
 
+#include "esp_wifi_config.h"
+#include "wifi_adapter.h"
+
 LV_FONT_DECLARE(lv_font_montserrat_32);
 
 lv_obj_t * ui_Settings_Tabpage_network = NULL;
@@ -79,18 +82,18 @@ static void wifi_tab_refresh_list(void)
 
     lv_dropdown_clear_options(ui_Settings_Dropdown_NetworkList);
 
-    uint16_t scan_n = wifi_get_scan_count();
+    uint16_t scan_n = wifi_cfg_get_scan_count();
     if (scan_n == 0) {
         lv_dropdown_add_option(ui_Settings_Dropdown_NetworkList, "No AP found", 0);
         return;
     }
 
     char curr_ssid[33];
-    wifi_get_curr_ssid(curr_ssid, sizeof(curr_ssid));
-    bool connected = wifi_is_connected();
+    wifi_cfg_get_current_ssid(curr_ssid, sizeof(curr_ssid));
+    bool connected = wifi_cfg_is_connected();
 
     for (int i = 0; i < (int)scan_n; i++) {
-        const wifi_scan_ap_t *ap = wifi_get_scan_ap((uint16_t)i);
+        const wifi_scan_ap_t *ap = wifi_cfg_get_scan_ap((uint16_t)i);
         if (!ap) continue;
         bool is_connected = connected &&
                             strncmp(ap->ssid, curr_ssid, sizeof(curr_ssid)) == 0;
@@ -108,9 +111,9 @@ static void wifi_tab_refresh_status(void)
     if (!ui_Settings_Label_connectStatus) return;
 
     char ssid_buf[33];
-    wifi_get_curr_ssid(ssid_buf, sizeof(ssid_buf));
+    wifi_cfg_get_current_ssid(ssid_buf, sizeof(ssid_buf));
 
-    if (wifi_is_connected()) {
+    if (wifi_cfg_is_connected()) {
         char buf[64];
         snprintf(buf, sizeof(buf), "%s %s", LV_SYMBOL_OK, ssid_buf);
         lv_label_set_text(ui_Settings_Label_connectStatus, buf);
@@ -319,3 +322,6 @@ void ui_Screen_Settings_WifiTab_cleanup(void)
     ui_Settings_Label_scanBtnText = NULL;
     ui_Settings_Switch_Wifi = NULL;
 }
+
+
+

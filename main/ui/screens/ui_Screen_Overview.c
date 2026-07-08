@@ -3,6 +3,8 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "esp_wifi_config.h"
+#include "wifi_adapter.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_32);
 LV_FONT_DECLARE(lv_font_montserrat_16);
@@ -375,8 +377,8 @@ static void update_timer_cb(lv_timer_t *timer)
 
     if (s_icon_wifi != NULL) {
         char ssid_buf[33];
-        wifi_get_curr_ssid(ssid_buf, sizeof(ssid_buf));
-        if (wifi_is_connected()) {
+        wifi_cfg_get_current_ssid(ssid_buf, sizeof(ssid_buf));
+        if (wifi_cfg_is_connected()) {
             lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0x80, 0xff, 0x80), 0);
         } else if (ssid_buf[0]) {
             lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0xff, 0xa0, 0x40), 0);
@@ -514,3 +516,6 @@ void ui_Screen_Overview_screen_destroy(void)
 
     ESP_LOGI("Overview", "Overview screen destroyed");
 }
+
+
+

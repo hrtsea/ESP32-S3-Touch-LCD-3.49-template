@@ -31,7 +31,6 @@ static void create_global_fps_label(void)
 
 void ui_init(void)
 {
-    wifi_manager_register_status_cb(ui_events_wifi_status_cb);
 
     if (!lvgl_lock(-1)) return;
 

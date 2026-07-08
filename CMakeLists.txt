@@ -10,4 +10,6 @@ cmake_minimum_required(VERSION 3.16)
 set(EXCLUDE_COMPONENTS audio_bsp codec_board espressif__esp_codec_dev)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+idf_build_set_property(COMPILE_OPTIONS -Wno-error=stringop-truncation APPEND)
 project(12_HelloWorld_Skeleton)
+

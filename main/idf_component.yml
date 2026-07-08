@@ -18,3 +18,4 @@ dependencies:
   espressif/esp_io_expander_tca9554: ^2.0.1
   espressif/esp_audio_simple_player: ^1.0.0
   espressif/esp_codec_dev: "*"
+  thorrak/esp_wifi_config: ^0.1.0
