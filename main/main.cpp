@@ -79,9 +79,14 @@ static void network_init(void)
         .enable_ap = true,
         .http = {
             .api_base_path = "/api/wifi",
+            .enable_auth = true,
+            .auth_username = "admin",
+            .auth_password = "admin",
         },
     };
     wifi_cfg_init(&cfg);
+
+    webui_set_auth("admin", "admin");
 
     httpd_handle_t srv = wifi_cfg_get_httpd();
     if (srv) {

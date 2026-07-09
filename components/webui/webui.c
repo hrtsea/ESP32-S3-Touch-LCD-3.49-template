@@ -31,11 +31,92 @@
 #include "esp_heap_caps.h"
 #include "esp_http_server.h"
 #include "esp_netif.h"
+#include "mbedtls/base64.h"
 
 #include "webui.h"
 #include "recorder.h"
 #include "radio.h"
 #include "sdcard_bsp.h"
+
+/* ── Basic Auth configuration ──────────────────────────────────── */
+
+static char s_auth_username[64] = {0};
+static char s_auth_password[128] = {0};
+static bool s_auth_enabled = false;
+
+void webui_set_auth(const char *username, const char *password)
+{
+    if (!username || !username[0] || !password) {
+        s_auth_enabled = false;
+        s_auth_username[0] = '\0';
+        s_auth_password[0] = '\0';
+        return;
+    }
+
+    strncpy(s_auth_username, username, sizeof(s_auth_username) - 1);
+    strncpy(s_auth_password, password, sizeof(s_auth_password) - 1);
+    s_auth_enabled = true;
+}
+
+bool webui_check_auth(httpd_req_t *req)
+{
+    if (!s_auth_enabled) {
+        return true;
+    }
+
+    char auth_header[256] = {0};
+    if (httpd_req_get_hdr_value_str(req, "Authorization", auth_header, sizeof(auth_header)) != ESP_OK) {
+        return false;
+    }
+
+    if (strncmp(auth_header, "Basic ", 6) != 0) {
+        return false;
+    }
+
+    unsigned char decoded[192];
+    size_t decoded_len = 0;
+    const char *b64_data = auth_header + 6;
+    size_t b64_len = strlen(b64_data);
+
+    int ret = mbedtls_base64_decode(decoded, sizeof(decoded) - 1, &decoded_len,
+                                     (const unsigned char *)b64_data, b64_len);
+    if (ret != 0 || decoded_len == 0) {
+        return false;
+    }
+    decoded[decoded_len] = '\0';
+
+    char *colon = strchr((char *)decoded, ':');
+    if (!colon) {
+        return false;
+    }
+    *colon = '\0';
+    const char *username = (char *)decoded;
+    const char *password = colon + 1;
+
+    return (strcmp(username, s_auth_username) == 0 &&
+            strcmp(password, s_auth_password) == 0);
+}
+
+esp_err_t webui_auth_pre_request_hook(httpd_req_t *req, void *ctx)
+{
+    (void)ctx;
+    return webui_check_auth(req) ? ESP_OK : ESP_FAIL;
+}
+
+static void send_unauthorized(httpd_req_t *req)
+{
+    httpd_resp_set_status(req, "401 Unauthorized");
+    httpd_resp_set_hdr(req, "WWW-Authenticate", "Basic realm=\"WebUI\"");
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"error\":\"Unauthorized\"}");
+}
+
+#define CHECK_AUTH(req) do { \
+    if (!webui_check_auth(req)) { \
+        send_unauthorized(req); \
+        return ESP_FAIL; \
+    } \
+} while(0)
 
 /* These live in main/ (cli.h). Declare locally so this component
    doesn't need to include from main/. */
@@ -222,6 +303,25 @@ static const char k_index_html[] =
 " <label>off after (s, 0=never): <span id=ol>?</span></label>\n"
 " <input id=os type=range min=0 max=1800 step=10>\n"
 "</section>\n"
+"<section><h2>WiFi</h2>\n"
+" <div id=wifistatus class=meta>Loading...</div>\n"
+" <div style='margin:10px 0'>\n"
+"  <button id=wifiscan>Scan</button>\n"
+"  <button id=wifidisconnect>Disconnect</button>\n"
+" </div>\n"
+" <h3 style='margin:12px 0 6px;font-size:14px;color:#aac'>Saved Networks</h3>\n"
+" <div id=wifisaved style='margin-bottom:12px'></div>\n"
+" <h3 style='margin:12px 0 6px;font-size:14px;color:#aac'>Add Network</h3>\n"
+" <label>SSID</label>\n"
+" <input id=wifissid type=text style='width:100%;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px'>\n"
+" <label>Password</label>\n"
+" <input id=wifipass type=password style='width:100%;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px'>\n"
+" <label>priority (0-255, higher = preferred)</label>\n"
+" <input id=wifiprio type=number min=0 max=255 value=10 style='width:120px'>\n"
+" <button id=wifiadd>Add & Connect</button>\n"
+" <h3 style='margin:12px 0 6px;font-size:14px;color:#aac'>Scan Results</h3>\n"
+" <div id=wifiscanres></div>\n"
+"</section>\n"
 "<section><h2>Recorder</h2>\n"
 " <button id=brec>Start REC</button>\n"
 " <button id=bstop class=warn>Stop</button>\n"
@@ -361,11 +461,73 @@ static const char k_index_html[] =
 " })\n"
 "}).catch(()=>{})}\n"
 "loadList();\n"
+"/* ---------- WiFi ---------- */\n"
+"let wifiAuth='';\n"
+"let isScanning=false;\n"
+"function setWifiAuth(u,p){wifiAuth='Basic '+btoa(u+':'+p)}\n"
+"function wifiFetch(url,opts){opts=opts||{};opts.headers=opts.headers||{};if(wifiAuth)opts.headers['Authorization']=wifiAuth;return fetch(url,opts)}\n"
+"function loadWifiStatus(){if(isScanning)return;wifiFetch('/api/wifi/status').then(r=>{\n"
+"  if(!r.ok){throw new Error('HTTP '+r.status);}\n"
+"  return r.json();\n"
+"}).then(s=>{\n"
+"  let html='<strong>State:</strong> '+s.state;\n"
+"  if(s.ssid)html+=' | <strong>SSID:</strong> '+s.ssid;\n"
+"  if(s.ip)html+=' | <strong>IP:</strong> '+s.ip;\n"
+"  if(s.rssi)html+=' | <strong>RSSI:</strong> '+s.rssi+' dBm ('+s.quality+'%)';\n"
+"  if(s.channel)html+=' | <strong>Channel:</strong> '+s.channel;\n"
+"  if(s.ap_active)html+=' | <strong>AP:</strong> active';\n"
+"  document.getElementById('wifistatus').innerHTML=html;\n"
+"}).catch(e=>{document.getElementById('wifistatus').textContent='status error: '+e.message})}\n"
+"function loadWifiNetworks(){if(isScanning)return;wifiFetch('/api/wifi/networks').then(r=>r.json()).then(j=>{\n"
+"  let d=document.getElementById('wifisaved');\n"
+"  if(!j.networks||j.networks.length===0){d.innerHTML='<span class=meta>No saved networks</span>';return}\n"
+"  let html='';\n"
+"  j.networks.forEach(n=>{html+='<div style=\"padding:6px 0;border-bottom:1px solid #333;display:flex;justify-content:space-between;align-items:center\"><span>'+n.ssid+' <span class=meta>prio:'+n.priority+'</span></span><button onclick=\"wifiConnect(\\''+n.ssid+'\\')\">Connect</button> <button class=warn onclick=\"wifiRemove(\\''+n.ssid+'\\')\">Del</button></div>'});\n"
+"  d.innerHTML=html;\n"
+"}).catch(()=>{})}\n"
+"function wifiScan(){if(isScanning)return;isScanning=true;\n"
+"  document.getElementById('wifiscanres').innerHTML='<span class=meta>Scanning... (may take 10+ seconds)</span>';\n"
+"  wifiFetch('/api/wifi/scan').then(r=>{\n"
+"   if(!r.ok){throw new Error('HTTP '+r.status);}\n"
+"   return r.json();\n"
+"  }).then(j=>{\n"
+"   let d=document.getElementById('wifiscanres');\n"
+"   if(!j.networks||j.networks.length===0){d.innerHTML='<span class=meta>No networks found (empty result)</span>';return}\n"
+"   let html='';\n"
+"   j.networks.forEach(n=>{html+='<div style=\"padding:6px 0;border-bottom:1px solid #333;cursor:pointer\" onclick=\"document.getElementById(\\'wifissid\\').value=\\''+n.ssid+'\\'\">'+n.ssid+' <span class=meta>('+n.rssi+' dBm, '+n.auth+')</span></div>'});\n"
+"   d.innerHTML=html;\n"
+"  }).catch(e=>{document.getElementById('wifiscanres').textContent='scan failed: '+e.message})\n"
+"  .finally(()=>{isScanning=false;loadWifiStatus();loadWifiNetworks()})}\n"
+"function wifiConnect(ssid){wifiFetch('/api/wifi/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ssid:ssid})}).then(()=>{setTimeout(loadWifiStatus,2000);setTimeout(loadWifiStatus,5000)})}\n"
+"function wifiRemove(ssid){if(!confirm('Remove '+ssid+'?'))return;wifiFetch('/api/wifi/networks/'+encodeURIComponent(ssid),{method:'DELETE'}).then(()=>{loadWifiNetworks()})}\n"
+"document.getElementById('wifiscan').onclick=wifiScan;\n"
+"document.getElementById('wifidisconnect').onclick=()=>{wifiFetch('/api/wifi/disconnect',{method:'POST'}).then(()=>loadWifiStatus())};\n"
+"document.getElementById('wifiadd').onclick=()=>{\n"
+"  let ssid=document.getElementById('wifissid').value;\n"
+"  let pass=document.getElementById('wifipass').value;\n"
+"  let prio=+document.getElementById('wifiprio').value;\n"
+"  if(!ssid){alert('SSID required');return}\n"
+"  wifiFetch('/api/wifi/networks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ssid:ssid,password:pass,priority:prio})})\n"
+"   .then(r=>r.json()).then(j=>{\n"
+"    if(j.status==='ok'){wifiConnect(ssid);loadWifiNetworks()}\n"
+"    else{alert('Add failed: '+(j.error||'unknown'))}\n"
+"   }).catch(e=>alert('Add failed: '+e))\n"
+"};\n"
+"setWifiAuth('admin','admin');\n"
+"setInterval(loadWifiStatus,5000);loadWifiStatus();loadWifiNetworks();\n"
 "</script></body></html>\n";
 
 static esp_err_t h_index(httpd_req_t *r)
 {
     return send_str(r, "text/html; charset=utf-8", k_index_html);
+}
+
+static esp_err_t h_root_redirect(httpd_req_t *r)
+{
+    httpd_resp_set_status(r, "302 Found");
+    httpd_resp_set_hdr(r, "Location", "/ui");
+    httpd_resp_send(r, NULL, 0);
+    return ESP_OK;
 }
 
 /* ---------- /api/state ---------- */
@@ -501,6 +663,7 @@ static int form_int(const char *body, const char *key, int dflt)
 
 static esp_err_t h_cfg(httpd_req_t *r)
 {
+    CHECK_AUTH(r);
     char body[256];
     int n = read_body(r, body, sizeof(body));
     if (n <= 0) return send_str(r, "text/plain", "empty");
@@ -531,6 +694,7 @@ static esp_err_t h_cfg(httpd_req_t *r)
    the corresponding cfg field unchanged. */
 static esp_err_t h_clock(httpd_req_t *r)
 {
+    CHECK_AUTH(r);
     char body[256];
     int n = read_body(r, body, sizeof(body));
     if (n <= 0) return send_str(r, "text/plain", "empty");
@@ -588,6 +752,7 @@ static esp_err_t h_clock(httpd_req_t *r)
 /* form keys: mode (0=sun,1=upload,2=url), url, refresh_s. */
 static esp_err_t h_bg(httpd_req_t *r)
 {
+    CHECK_AUTH(r);
     char body[400];
     int n = read_body(r, body, sizeof(body));
     if (n <= 0) return send_str(r, "text/plain", "empty");
@@ -633,6 +798,7 @@ static esp_err_t h_bg(httpd_req_t *r)
 #define CLOCK_BG_PATH_LOCAL "/sdcard/clock_bg.bin"
 static esp_err_t h_bg_upload(httpd_req_t *r)
 {
+    CHECK_AUTH(r);
     if (!sdcard_is_mounted()) {
         httpd_resp_send_err(r, HTTPD_500_INTERNAL_SERVER_ERROR, "sd not mounted");
         return ESP_FAIL;
@@ -678,6 +844,7 @@ static esp_err_t h_bg_upload(httpd_req_t *r)
    fetcher; the actual download happens on a background task. */
 static esp_err_t h_bg_fetch(httpd_req_t *r)
 {
+    CHECK_AUTH(r);
     if (app_cfg_get_bg_mode() != 2) {
         return send_str(r, "application/json",
                         "{\"ok\":false,\"err\":\"not in URL mode\"}");
@@ -729,6 +896,7 @@ static int form_str(const char *body, const char *key, char *dst, size_t dst_sz)
 
 static esp_err_t h_quotes(httpd_req_t *r)
 {
+    CHECK_AUTH(r);
     char body[400];
     int n = read_body(r, body, sizeof(body));
     if (n <= 0) return send_str(r, "text/plain", "empty");
@@ -756,6 +924,7 @@ static esp_err_t h_quotes(httpd_req_t *r)
 /* Manual "fetch now" -- nudges the quotes poll task. */
 static esp_err_t h_quotes_fetch(httpd_req_t *r)
 {
+    CHECK_AUTH(r);
     (void)r;
     /* Reuse the setter side-effect: setting the left symbol to its
        current value triggers quotes_kick() inside main.cpp. Cheap and
@@ -769,6 +938,7 @@ static esp_err_t h_quotes_fetch(httpd_req_t *r)
    scripts grab a screenshot of any specific tile. */
 static esp_err_t h_goto(httpd_req_t *r)
 {
+    CHECK_AUTH(r);
     char body[64];
     int n = read_body(r, body, sizeof(body));
     int t = 0;
@@ -781,6 +951,7 @@ static esp_err_t h_goto(httpd_req_t *r)
 
 static esp_err_t h_rec_start(httpd_req_t *r)
 {
+    CHECK_AUTH(r);
     const char *path = NULL;
     esp_err_t e = recorder_start(&path);
     char buf[160];
@@ -792,12 +963,14 @@ static esp_err_t h_rec_start(httpd_req_t *r)
 
 static esp_err_t h_rec_stop(httpd_req_t *r)
 {
+    CHECK_AUTH(r);
     recorder_stop();
     return send_str(r, "application/json", "{\"ok\":true}");
 }
 
 static esp_err_t h_play(httpd_req_t *r)
 {
+    CHECK_AUTH(r);
     char body[300];
     int n = read_body(r, body, sizeof(body));
     if (n <= 0) return send_str(r, "text/plain", "missing uri");
@@ -807,6 +980,7 @@ static esp_err_t h_play(httpd_req_t *r)
 
 static esp_err_t h_stop(httpd_req_t *r)
 {
+    CHECK_AUTH(r);
     radio_stop();
     return send_str(r, "application/json", "{\"ok\":true}");
 }
@@ -962,7 +1136,8 @@ static esp_err_t h_screen_bmp(httpd_req_t *r)
 static esp_err_t webui_register_routes(httpd_handle_t srv)
 {
     httpd_uri_t routes[] = {
-        { .uri = "/",                .method = HTTP_GET,  .handler = h_index },
+        { .uri = "/",                .method = HTTP_GET,  .handler = h_root_redirect },
+        { .uri = "/ui",              .method = HTTP_GET,  .handler = h_index },
         { .uri = "/api/state",       .method = HTTP_GET,  .handler = h_state },
         { .uri = "/api/list",        .method = HTTP_GET,  .handler = h_list },
         { .uri = "/api/cfg",         .method = HTTP_POST, .handler = h_cfg },

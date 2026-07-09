@@ -1,6 +1,7 @@
 #pragma once
 #include "esp_err.h"
 #include "esp_http_server.h"
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,6 +22,18 @@ void      webui_stop(void);
    framebuffer is RGB565 with the LV_COLOR_16_SWAP byte order this
    project uses. */
 void      webui_set_framebuffer(const void *fb, int w, int h);
+
+/* Enable/disable HTTP Basic Auth for configuration endpoints.
+   Pass NULL username to disable auth (default). */
+void      webui_set_auth(const char *username, const char *password);
+
+/* Check if a request has valid Basic Auth credentials.
+   Returns true if auth is disabled or credentials are valid. */
+bool      webui_check_auth(httpd_req_t *req);
+
+/* Pre-request hook compatible with esp_wifi_config's wifi_cfg_http_hook_t.
+   Can be passed directly to wifi_cfg_config_t.http.pre_request_hook. */
+esp_err_t webui_auth_pre_request_hook(httpd_req_t *req, void *ctx);
 
 #ifdef __cplusplus
 }
