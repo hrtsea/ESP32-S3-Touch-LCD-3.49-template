@@ -33,6 +33,7 @@ idf_component_register(
         "utils/bg_fetcher.c"
         "utils/http_timer.c"
         "utils/wifi_adapter.c"
+        "utils/wifi_bridge.c"
         "config/config.c"
         "data/data_source.c"
         "data/nas_event_loop.c"

@@ -279,7 +279,9 @@ static void ui_event_wifi_connect(lv_event_t *e)
         return;
     }
     char pass[65] = {0};
-    if (app_cfg_get_ssid_pass(ap->ssid, pass, sizeof(pass))) {
+    wifi_network_t net;
+    if (wifi_cfg_get_network(ap->ssid, &net) == ESP_OK) {
+        strncpy(pass, net.password, sizeof(pass) - 1);
         app_cfg_wifi_connect_save(ap->ssid, pass);
         if (s_wifi_status_label) lv_label_set_text_fmt(s_wifi_status_label, tr(I18N_WIFI_CONNECTING), ap->ssid);
         return;
@@ -294,16 +296,7 @@ static void ui_event_wifi_forget(lv_event_t *e)
     if (idx < 0 || idx >= (int)wifi_cfg_get_scan_count()) return;
     const wifi_scan_ap_t *ap = wifi_cfg_get_scan_ap((uint16_t)idx);
     if (!ap) return;
-    nvs_handle_t h;
-    if (nvs_open(NVS_NS_WIFI, NVS_READWRITE, &h) == ESP_OK) {
-        char key[16] = {0};
-        size_t copy_len = strlen(ap->ssid);
-        if (copy_len > sizeof(key) - 1) copy_len = sizeof(key) - 1;
-        memcpy(key, ap->ssid, copy_len);
-        nvs_erase_key(h, key);
-        nvs_commit(h);
-        nvs_close(h);
-    }
+    wifi_cfg_remove_network(ap->ssid);
     if (strncmp(ap->ssid, g_cfg.last_ssid, sizeof(g_cfg.last_ssid)) == 0) {
         app_cfg_set_last_ssid("");
         wifi_cfg_disconnect();
@@ -336,7 +329,7 @@ static void wifi_config_refresh_list(void)
         return;
     }
     char curr_ssid[33];
-    wifi_get_curr_ssid(curr_ssid, sizeof(curr_ssid));
+    wifi_cfg_get_current_ssid(curr_ssid, sizeof(curr_ssid));
     bool connected = wifi_is_connected();
     for (int i = 0; i < (int)scan_n; i++) {
         const wifi_scan_ap_t *ap = wifi_cfg_get_scan_ap((uint16_t)i);
@@ -347,8 +340,8 @@ static void wifi_config_refresh_list(void)
         bool is_connected = connected &&
                             strncmp(ap->ssid, curr_ssid, sizeof(curr_ssid)) == 0;
         bool is_selected  = (i == g_wifi_sel);
-        char dummy_pass[2];
-        bool is_saved = app_cfg_get_ssid_pass(ap->ssid, dummy_pass, sizeof(dummy_pass));
+        wifi_network_t net;
+        bool is_saved = (wifi_cfg_get_network(ap->ssid, &net) == ESP_OK);
         lv_obj_set_style_bg_color(btn,
             is_selected ? lv_color_make(0x40, 0x40, 0x60)
                         : lv_color_make(0x20, 0x20, 0x30), 0);
@@ -427,7 +420,7 @@ void ui_Screen_WifiConfig_screen_init(void)
     lv_obj_set_width(s_wifi_status_label, lv_pct(100));
     {
         char ssid_buf[33];
-        wifi_get_curr_ssid(ssid_buf, sizeof(ssid_buf));
+        wifi_cfg_get_current_ssid(ssid_buf, sizeof(ssid_buf));
         lv_label_set_text_fmt(s_wifi_status_label, "%s",
                               wifi_is_connected() ? ssid_buf : tr(I18N_WIFI_NOT_CONN));
     }

@@ -11,7 +11,6 @@ extern "C" {
 
 /* NVS 命名空间定义 */
 #define NVS_NS_CFG   "cfg"      /* 配置存储命名空间 */
-#define NVS_NS_WIFI  "wifi"     /* WiFi 凭证存储命名空间 */
 #define CFG_VERSION  7u         /* 配置版本号，用于配置迁移 */
 
 /* 默认 WiFi 凭证（可通过 wifi_secret.h 覆盖） */
@@ -135,8 +134,6 @@ void app_cfg_init(void);                                            /* 初始化
 void app_cfg_load(void);                                            /* 加载配置（调用 app_cfg_init） */
 void app_cfg_save(void);                                            /* 保存配置到 NVS（增量：只写脏字段） */
 void app_cfg_flush(void);                                           /* 立即刷新脏字段到 NVS（同步阻塞，用于关机等场景） */
-void app_cfg_save_ssid_pass(const char *ssid, const char *pass);    /* 保存 WiFi SSID 和密码到 NVS */
-bool app_cfg_get_ssid_pass(const char *ssid, char *pass, size_t pass_len); /* 获取指定 SSID 的密码 */
 size_t app_cfg_get_last_ssid(char *buf, size_t buf_len);  /* 获取最后连接的 SSID（线程安全） */
 
 /* 获取器 API */

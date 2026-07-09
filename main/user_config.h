@@ -54,4 +54,26 @@
 #define SUNMAP_RECOMPUTE_MS (5 * 60 * 1000)
 
 
+/*
+ * Provisioning / SoftAP & web UI credentials.
+ *
+ * These are DEVELOPMENT defaults kept out of main.cpp so the source tree
+ * carries no inline plaintext secrets. For production builds, override via
+ * sdkconfig (CONFIG_DEFAULT_AP_SSID / CONFIG_DEFAULT_AP_PASSWORD / ...) or
+ * inject from NVS / a local secrets header excluded from VCS.
+ */
+#ifndef DEFAULT_AP_SSID
+#define DEFAULT_AP_SSID      "NAS-Monitor"
+#endif
+#ifndef DEFAULT_AP_PASSWORD
+#define DEFAULT_AP_PASSWORD  "12345678"   /* DEV ONLY: must be overridden in production */
+#endif
+#ifndef WEBUI_AUTH_USER
+#define WEBUI_AUTH_USER      "admin"
+#endif
+#ifndef WEBUI_AUTH_PASSWORD
+#define WEBUI_AUTH_PASSWORD  "admin"      /* DEV ONLY: must be overridden in production */
+#endif
+
+
 #endif

@@ -520,11 +520,13 @@ void toggleWiFi(lv_event_t * e)
         if (!wifi_is_connected() && wifi_has_credentials()) {
             char ssid[33] = {0};
             char pass[65] = {0};
-            wifi_get_curr_ssid(ssid, sizeof(ssid));
+            wifi_cfg_get_current_ssid(ssid, sizeof(ssid));
             if (ssid[0] == '\0') {
                 app_cfg_get_last_ssid(ssid, sizeof(ssid));
             }
-            if (ssid[0] && app_cfg_get_ssid_pass(ssid, pass, sizeof(pass))) {
+            wifi_network_t net;
+            if (ssid[0] && wifi_cfg_get_network(ssid, &net) == ESP_OK) {
+                strncpy(pass, net.password, sizeof(pass) - 1);
                 wifi_connect(ssid, pass);
             }
         }

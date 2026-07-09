@@ -48,13 +48,8 @@ bool wifi_has_credentials(void) {
     return count > 0;
 }
 
-void wifi_get_curr_ssid(char *buf, size_t buf_size) {
-    wifi_cfg_get_current_ssid(buf, buf_size);
-}
-
 void wifi_connect(const char *ssid, const char *password) {
     s_connect_started_ms = esp_timer_get_time() / 1000;
-    s_last_reason = 0;
     wifi_network_t network = {0};
     strncpy(network.ssid, ssid, sizeof(network.ssid) - 1);
     if (password && *password) {
@@ -81,12 +76,11 @@ uint32_t wifi_get_connect_started_ms(void) {
     return s_connect_started_ms;
 }
 
-uint8_t wifi_get_last_reason(void) {
-    return s_last_reason;
+void wifi_set_last_reason(uint8_t reason) {
+    s_last_reason = reason;
 }
 
-const char *wifi_reason_str(uint8_t reason) {
-    (void)reason;
-    return "unknown";
+uint8_t wifi_get_last_reason(void) {
+    return s_last_reason;
 }
 

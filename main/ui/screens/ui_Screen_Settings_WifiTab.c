@@ -24,11 +24,9 @@ static void ui_event_Settings_Button_NetworkScan(lv_event_t * e);
 static void ui_event_Settings_Switch_Wifi(lv_event_t * e);
 
 static void s_on_wifi_event(const event_t *evt, void *user_data);
-static void s_wifi_status_timer_cb(lv_timer_t *t);
 static void wifi_tab_refresh_list(void);
 static void wifi_tab_refresh_status(void);
 
-static lv_timer_t *s_status_timer = NULL;
 static bool s_event_subscribed = false;
 
 void ui_event_Settings_Tabpage_network(lv_event_t * e)
@@ -124,8 +122,8 @@ static void wifi_tab_refresh_status(void)
         uint8_t reason = wifi_get_last_reason();
         char buf[128];
         if (reason) {
-            snprintf(buf, sizeof(buf), "%s %s: %s",
-                     LV_SYMBOL_WARNING, ssid_buf, wifi_reason_str(reason));
+            snprintf(buf, sizeof(buf), "%s %s: reason %u",
+                     LV_SYMBOL_WARNING, ssid_buf, (unsigned)reason);
         } else if (elapsed > 15000) {
             snprintf(buf, sizeof(buf), "%s %s: timed out",
                      LV_SYMBOL_WARNING, ssid_buf);
@@ -141,12 +139,6 @@ static void wifi_tab_refresh_status(void)
         lv_obj_set_style_text_color(ui_Settings_Label_connectStatus,
                                     lv_color_hex(0xFF0000), LV_PART_MAIN | LV_STATE_DEFAULT);
     }
-}
-
-static void s_wifi_status_timer_cb(lv_timer_t *t)
-{
-    (void)t;
-    wifi_tab_refresh_status();
 }
 
 static void s_on_wifi_event(const event_t *evt, void *user_data)
@@ -290,8 +282,6 @@ void ui_Screen_Settings_WifiTab_init(lv_obj_t *parent)
         s_event_subscribed = true;
     }
 
-    s_status_timer = lv_timer_create(s_wifi_status_timer_cb, 1000, NULL);
-
     wifi_tab_refresh_status();
     wifi_tab_refresh_list();
 }
@@ -304,11 +294,6 @@ void ui_Screen_Settings_WifiTab_cleanup(void)
         event_bus_unsubscribe(EVENT_WIFI_SCAN_STARTED, s_on_wifi_event);
         event_bus_unsubscribe(EVENT_WIFI_SCAN_DONE, s_on_wifi_event);
         s_event_subscribed = false;
-    }
-
-    if (s_status_timer) {
-        lv_timer_del(s_status_timer);
-        s_status_timer = NULL;
     }
 
     ui_Settings_Tabpage_network = NULL;

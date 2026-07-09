@@ -262,10 +262,10 @@ void app_cfg_init(void)
     if (loaded_ver < CFG_VERSION) {
         cfg_migrate(loaded_ver);
         
-        /* 如果定义了默认 WiFi 凭证，保存到 NVS */
+        /* 默认 WiFi 凭证改由 esp_wifi_config 的 default_networks 在 NVS 空时回退注入，
+         * 见 main.cpp network_init()，此处不再重复存储到 app_cfg。 */
         if (DEFAULT_WIFI_SSID[0] && DEFAULT_WIFI_PASS[0]) {
             strncpy(g_cfg.last_ssid, DEFAULT_WIFI_SSID, sizeof(g_cfg.last_ssid) - 1);
-            app_cfg_save_ssid_pass(DEFAULT_WIFI_SSID, DEFAULT_WIFI_PASS);
         }
         
         /* 保存迁移后的配置 */
@@ -349,49 +349,6 @@ void app_cfg_save(void)
 
     /* 通知订阅者配置已整体保存（细粒度事件由各 setter 单独发布） */
     cfg_publish(CFG_FIELD_ALL);
-}
-
-/**
- * @brief 保存 WiFi SSID 和密码到 NVS
- * 
- * 使用 SSID 作为 key，密码作为 value 存储
- * 
- * @param ssid WiFi SSID
- * @param pass WiFi 密码
- */
-void app_cfg_save_ssid_pass(const char *ssid, const char *pass)
-{
-    if (!ssid || !*ssid) return;
-    char key[16] = {0};
-    strncpy(key, ssid, 15); /* SSID 最多取前15个字符作为 key */
-    
-    nvs_handle_t h;
-    if (nvs_open(NVS_NS_WIFI, NVS_READWRITE, &h) != ESP_OK) return;
-    nvs_set_str(h, key, pass ? pass : "");
-    nvs_commit(h);
-    nvs_close(h);
-}
-
-/**
- * @brief 获取指定 SSID 的密码
- * 
- * @param ssid WiFi SSID
- * @param pass 输出密码缓冲区
- * @param pass_len 密码缓冲区大小
- * @return true 成功获取密码，false 获取失败
- */
-bool app_cfg_get_ssid_pass(const char *ssid, char *pass, size_t pass_len)
-{
-    if (!ssid || !*ssid || !pass) return false;
-    char key[16] = {0};
-    strncpy(key, ssid, 15); /* SSID 最多取前15个字符作为 key */
-    
-    nvs_handle_t h;
-    if (nvs_open(NVS_NS_WIFI, NVS_READONLY, &h) != ESP_OK) return false;
-    size_t l = pass_len;
-    esp_err_t er = nvs_get_str(h, key, pass, &l);
-    nvs_close(h);
-    return er == ESP_OK;
 }
 
 /* ==================== 获取器 API ==================== */

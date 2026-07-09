@@ -20,8 +20,6 @@ void wifi_cfg_scan_adapter(void);
 
 bool wifi_has_credentials(void);
 
-void wifi_get_curr_ssid(char *buf, size_t buf_size);
-
 void wifi_connect(const char *ssid, const char *password);
 
 void wifi_disconnect(void);
@@ -32,6 +30,6 @@ bool wifi_is_connected(void);
 
 uint32_t wifi_get_connect_started_ms(void);
 
-uint8_t wifi_get_last_reason(void);
+void wifi_set_last_reason(uint8_t reason);
 
-const char *wifi_reason_str(uint8_t reason);
+uint8_t wifi_get_last_reason(void);
