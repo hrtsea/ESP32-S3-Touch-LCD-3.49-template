@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -27,6 +28,8 @@ static bool s_inited = false;
 static QueueHandle_t s_event_queue = NULL;
 static NasData s_nas_data_buffer = {0};
 static SemaphoreHandle_t s_nas_data_mux = NULL;
+static esp_timer_handle_t s_tick_1hz_timer = NULL;
+static esp_timer_handle_t s_tick_10hz_timer = NULL;
 
 static const char *s_event_names[EVENT_MAX] = {
     [EVENT_NONE]                = "NONE",
@@ -60,6 +63,18 @@ static const char *s_event_names[EVENT_MAX] = {
     [EVENT_WIFI_PROVISION_CONFIG_RECEIVED] = "WIFI_PROVISION_CONFIG_RECEIVED",
 };
 
+static void tick_1hz_cb(void *arg)
+{
+    (void)arg;
+    event_bus_publish(EVENT_TICK_1HZ, NULL, 0);
+}
+
+static void tick_10hz_cb(void *arg)
+{
+    (void)arg;
+    event_bus_publish(EVENT_TICK_10HZ, NULL, 0);
+}
+
 void event_bus_init(void)
 {
     if (s_inited) return;
@@ -67,8 +82,23 @@ void event_bus_init(void)
     s_mux = xSemaphoreCreateMutex();
     s_nas_data_mux = xSemaphoreCreateMutex();
     s_event_queue = xQueueCreate(EVENT_QUEUE_LEN, sizeof(event_t));
+
+    esp_timer_create_args_t tick_1hz_args = {
+        .callback = tick_1hz_cb,
+        .name = "tick_1hz"
+    };
+    esp_timer_create(&tick_1hz_args, &s_tick_1hz_timer);
+    esp_timer_start_periodic(s_tick_1hz_timer, 1000000);
+
+    esp_timer_create_args_t tick_10hz_args = {
+        .callback = tick_10hz_cb,
+        .name = "tick_10hz"
+    };
+    esp_timer_create(&tick_10hz_args, &s_tick_10hz_timer);
+    esp_timer_start_periodic(s_tick_10hz_timer, 100000);
+
     s_inited = true;
-    ESP_LOGI(TAG, "event bus initialized (%d event slots, queue len=%d)", EVENT_MAX, EVENT_QUEUE_LEN);
+    ESP_LOGI(TAG, "event bus initialized (%d event slots, queue len=%d, ticks enabled)", EVENT_MAX, EVENT_QUEUE_LEN);
 }
 
 void event_bus_subscribe(event_id_t id, event_handler_t handler, void *user_data)

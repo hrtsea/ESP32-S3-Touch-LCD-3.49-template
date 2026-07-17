@@ -11,6 +11,16 @@ extern void ui_Screen_Storage_screen_init(void);
 extern void ui_Screen_Storage_screen_destroy(void);
 extern lv_obj_t * ui_Screen_Storage;
 
+#define MAX_HDD_BARS 8
+extern lv_obj_t *s_hdd_names[MAX_HDD_BARS];
+extern lv_obj_t *s_hdd_bars[MAX_HDD_BARS];
+extern lv_obj_t *s_hdd_percents[MAX_HDD_BARS];
+extern lv_obj_t *s_hdd_temps[MAX_HDD_BARS];
+extern lv_obj_t *s_storage_label_time;
+extern lv_obj_t *s_storage_label_up;
+extern lv_obj_t *s_storage_label_down;
+extern lv_obj_t *s_storage_label_ip;
+
 #ifdef __cplusplus
 }
 #endif

@@ -25,6 +25,17 @@ extern lv_meter_indicator_t *s_cpu_needle;
 extern lv_meter_indicator_t *s_temp_arc_val;
 extern lv_meter_indicator_t *s_temp_needle;
 
+#define MAX_HDD_INDICATORS 6
+extern lv_obj_t *s_hdd_leds[MAX_HDD_INDICATORS];
+extern lv_obj_t *s_hdd_labels[MAX_HDD_INDICATORS];
+
+extern lv_obj_t *s_label_time;
+extern lv_obj_t *s_label_up;
+extern lv_obj_t *s_label_down;
+extern lv_obj_t *s_label_ip;
+extern lv_obj_t *s_icon_wifi;
+extern lv_obj_t *s_icon_bt;
+
 #ifdef __cplusplus
 }
 #endif

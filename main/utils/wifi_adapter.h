@@ -7,6 +7,7 @@
 typedef wifi_scan_result_t wifi_scan_ap_t;
 
 const char *wifi_cfg_get_current_ssid(char *buf, size_t buf_size);
+const char *wifi_cfg_get_current_ip(char *buf, size_t buf_size);
 
 void wifi_cfg_clear_credentials(void);
 

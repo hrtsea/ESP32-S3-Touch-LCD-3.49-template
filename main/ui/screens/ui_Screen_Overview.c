@@ -2,7 +2,6 @@
 #include "ui_Screen_Overview.h"
 #include "esp_log.h"
 #include "esp_system.h"
-#include "esp_timer.h"
 #include "esp_wifi_config.h"
 #include "wifi_adapter.h"
 
@@ -22,13 +21,13 @@ lv_obj_t *ui_Screen_Overview = NULL;
 #define COLOR_LED_GRAY  lv_color_hex(0x666666)
 #define COLOR_TEMP      lv_color_hex(0xFF8C00)
 
-static lv_obj_t *s_label_time = NULL;
-static lv_obj_t *s_label_up = NULL;
-static lv_obj_t *s_label_down = NULL;
-static lv_obj_t *s_label_ip = NULL;
+lv_obj_t *s_label_time = NULL;
+lv_obj_t *s_label_up = NULL;
+lv_obj_t *s_label_down = NULL;
+lv_obj_t *s_label_ip = NULL;
 static lv_obj_t *s_btn_refresh = NULL;
-static lv_obj_t *s_icon_wifi = NULL;
-static lv_obj_t *s_icon_bt = NULL;
+lv_obj_t *s_icon_wifi = NULL;
+lv_obj_t *s_icon_bt = NULL;
 
 lv_obj_t *s_meter_cpu = NULL;
 lv_obj_t *s_meter_temp = NULL;
@@ -44,9 +43,11 @@ lv_obj_t *s_label_mem_percent = NULL;
 lv_obj_t *s_bar_disk = NULL;
 lv_obj_t *s_label_disk_percent = NULL;
 
-static lv_timer_t *s_update_timer = NULL;
+#define MAX_HDD_INDICATORS 6
+lv_obj_t *s_hdd_leds[MAX_HDD_INDICATORS] = {NULL};
+lv_obj_t *s_hdd_labels[MAX_HDD_INDICATORS] = {NULL};
+static lv_obj_t *s_hdd_container = NULL;
 
-static void update_timer_cb(lv_timer_t *timer);
 static void refresh_btn_cb(lv_event_t *e);
 
 static void create_status_bar(lv_obj_t *parent)
@@ -288,19 +289,18 @@ static void create_mem_disk_module(lv_obj_t *parent)
 
 static void create_hdd_indicators(lv_obj_t *parent)
 {
-    lv_obj_t *hdd_container = lv_obj_create(parent);
-    lv_obj_set_size(hdd_container, 640, 35);
-    lv_obj_set_style_bg_color(hdd_container, COLOR_BG, 0);
-    lv_obj_set_style_border_width(hdd_container, 0, 0);
-    lv_obj_set_style_radius(hdd_container, 0, 0);
-    lv_obj_clear_flag(hdd_container, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_align(hdd_container, LV_ALIGN_BOTTOM_MID, 0, -5);
+    s_hdd_container = lv_obj_create(parent);
+    lv_obj_set_size(s_hdd_container, 640, 35);
+    lv_obj_set_style_bg_color(s_hdd_container, COLOR_BG, 0);
+    lv_obj_set_style_border_width(s_hdd_container, 0, 0);
+    lv_obj_set_style_radius(s_hdd_container, 0, 0);
+    lv_obj_clear_flag(s_hdd_container, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_align(s_hdd_container, LV_ALIGN_BOTTOM_MID, 0, -5);
 
-    const char *hdd_labels[] = {"HDD1", "HDD2", "HDD3", "HDD4", "HDD5", "HDD6"};
-    const bool hdd_active[] = {false, true, true, true, true, true};
+    const char *hdd_labels_init[] = {"HDD1", "HDD2", "HDD3", "HDD4", "HDD5", "HDD6"};
 
-    for (int i = 0; i < 6; i++) {
-        lv_obj_t *btn_hdd = lv_btn_create(hdd_container);
+    for (int i = 0; i < MAX_HDD_INDICATORS; i++) {
+        lv_obj_t *btn_hdd = lv_btn_create(s_hdd_container);
         lv_obj_set_size(btn_hdd, 95, 35);
         lv_obj_set_style_bg_color(btn_hdd, COLOR_INACTIVE, 0);
         lv_obj_set_style_border_width(btn_hdd, 0, 0);
@@ -310,133 +310,17 @@ static void create_hdd_indicators(lv_obj_t *parent)
 
         lv_obj_add_event_cb(btn_hdd, ui_event_Screen_Overview_hdd_clicked, LV_EVENT_ALL, NULL);
 
-        lv_obj_t *label_hdd = lv_label_create(btn_hdd);
-        lv_label_set_text(label_hdd, hdd_labels[i]);
-        lv_obj_set_style_text_color(label_hdd, COLOR_TEXT, 0);
-        lv_obj_set_style_text_font(label_hdd, &lv_font_montserrat_14, 0);
-        lv_obj_center(label_hdd);
+        s_hdd_labels[i] = lv_label_create(btn_hdd);
+        lv_label_set_text(s_hdd_labels[i], hdd_labels_init[i]);
+        lv_obj_set_style_text_color(s_hdd_labels[i], COLOR_TEXT, 0);
+        lv_obj_set_style_text_font(s_hdd_labels[i], &lv_font_montserrat_14, 0);
+        lv_obj_center(s_hdd_labels[i]);
 
-        lv_obj_t *led = lv_obj_create(btn_hdd);
-        lv_obj_set_size(led, 14, 14);
-        lv_obj_set_style_bg_color(led, hdd_active[i] ? COLOR_LED_GREEN : COLOR_LED_GRAY, 0);
-        lv_obj_set_style_radius(led, LV_RADIUS_CIRCLE, 0);
-        lv_obj_align(led, LV_ALIGN_RIGHT_MID, -5, 0);
-    }
-}
-
-static void update_timer_cb(lv_timer_t *timer)
-{
-    (void)timer;
-
-    if (s_label_time != NULL) {
-        time_t now_t = time(NULL);
-        struct tm *tm_now = localtime(&now_t);
-        static char time_str[9];
-        snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", tm_now->tm_hour, tm_now->tm_min, tm_now->tm_sec);
-        lv_label_set_text(s_label_time, time_str);
-    }
-
-    if (s_label_up != NULL) {
-        float tx_speed = data_source_get_tx_speed_mbps();
-        static char tx_str[16];
-
-        if (tx_speed < 0.01f) {
-            snprintf(tx_str, sizeof(tx_str), "▲ 0.00KB/s");
-        } else if (tx_speed < 1.0f) {
-            snprintf(tx_str, sizeof(tx_str), "▲ %.2fKB/s", tx_speed * 1024.0f);
-        } else {
-            snprintf(tx_str, sizeof(tx_str), "▲ %.2fMB/s", tx_speed);
-        }
-        lv_label_set_text(s_label_up, tx_str);
-    }
-
-    if (s_label_down != NULL) {
-        float rx_speed = data_source_get_rx_speed_mbps();
-        static char rx_str[16];
-
-        if (rx_speed < 0.01f) {
-            snprintf(rx_str, sizeof(rx_str), "▼ 0.00KB/s");
-        } else if (rx_speed < 1.0f) {
-            snprintf(rx_str, sizeof(rx_str), "▼ %.2fKB/s", rx_speed * 1024.0f);
-        } else {
-            snprintf(rx_str, sizeof(rx_str), "▼ %.2fMB/s", rx_speed);
-        }
-        lv_label_set_text(s_label_down, rx_str);
-    }
-
-    if (s_label_ip != NULL) {
-        const char *ip = g_config.nas_ip;
-        if (ip && ip[0]) {
-            static char ip_str[48];
-            snprintf(ip_str, sizeof(ip_str), "IP: %s", ip);
-            lv_label_set_text(s_label_ip, ip_str);
-        } else {
-            lv_label_set_text(s_label_ip, "IP: --");
-        }
-    }
-
-    if (s_icon_wifi != NULL) {
-        char ssid_buf[33];
-        wifi_cfg_get_current_ssid(ssid_buf, sizeof(ssid_buf));
-        if (wifi_cfg_is_connected()) {
-            lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0x80, 0xff, 0x80), 0);
-        } else if (ssid_buf[0]) {
-            lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0xff, 0xa0, 0x40), 0);
-        } else {
-            lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0x40, 0x40, 0x40), 0);
-        }
-    }
-
-    if (s_icon_bt != NULL) {
-        lv_obj_set_style_text_color(s_icon_bt, lv_color_make(0x40, 0x40, 0x40), 0);
-    }
-
-    const NasData *data = data_source_get_data();
-    if (data && data->is_online) {
-        int cpu_pct = (int)data->system.cpu_pct;
-        int temp = data->system.temp_cpu;
-        int mem_pct = (int)data->system.ram_pct;
-        int disk_pct = 50;
-
-        if (data->volume_count > 0) {
-            disk_pct = (int)data->volumes[0].used_pct;
-        } else if (data->disk_count > 0) {
-            disk_pct = (int)data->disks[0].used_pct;
-        }
-
-        if (s_meter_cpu && s_cpu_arc_val && s_cpu_needle && s_label_cpu_percent) {
-            cpu_pct = (cpu_pct < 0) ? 0 : (cpu_pct > 100) ? 100 : cpu_pct;
-            lv_meter_set_indicator_end_value(s_meter_cpu, s_cpu_arc_val, cpu_pct);
-            lv_meter_set_indicator_value(s_meter_cpu, s_cpu_needle, cpu_pct);
-            static char cpu_str[8];
-            snprintf(cpu_str, sizeof(cpu_str), "%d%%", cpu_pct);
-            lv_label_set_text(s_label_cpu_percent, cpu_str);
-        }
-
-        if (s_meter_temp && s_temp_arc_val && s_temp_needle && s_label_temp_val) {
-            temp = (temp < 0) ? 0 : (temp > 100) ? 100 : temp;
-            lv_meter_set_indicator_end_value(s_meter_temp, s_temp_arc_val, temp);
-            lv_meter_set_indicator_value(s_meter_temp, s_temp_needle, temp);
-            static char temp_str[10];
-            snprintf(temp_str, sizeof(temp_str), "%d°C", temp);
-            lv_label_set_text(s_label_temp_val, temp_str);
-        }
-
-        if (s_bar_mem && s_label_mem_percent) {
-            mem_pct = (mem_pct < 0) ? 0 : (mem_pct > 100) ? 100 : mem_pct;
-            lv_bar_set_value(s_bar_mem, mem_pct, LV_ANIM_ON);
-            static char mem_str[8];
-            snprintf(mem_str, sizeof(mem_str), "%d%%", mem_pct);
-            lv_label_set_text(s_label_mem_percent, mem_str);
-        }
-
-        if (s_bar_disk && s_label_disk_percent) {
-            disk_pct = (disk_pct < 0) ? 0 : (disk_pct > 100) ? 100 : disk_pct;
-            lv_bar_set_value(s_bar_disk, disk_pct, LV_ANIM_ON);
-            static char disk_str[8];
-            snprintf(disk_str, sizeof(disk_str), "%d%%", disk_pct);
-            lv_label_set_text(s_label_disk_percent, disk_str);
-        }
+        s_hdd_leds[i] = lv_obj_create(btn_hdd);
+        lv_obj_set_size(s_hdd_leds[i], 14, 14);
+        lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_LED_GRAY, 0);
+        lv_obj_set_style_radius(s_hdd_leds[i], LV_RADIUS_CIRCLE, 0);
+        lv_obj_align(s_hdd_leds[i], LV_ALIGN_RIGHT_MID, -5, 0);
     }
 }
 
@@ -471,8 +355,6 @@ void ui_Screen_Overview_screen_init(void)
 
     lv_obj_add_event_cb(ui_Screen_Overview, ui_event_Screen_Overview_gesture, LV_EVENT_GESTURE, NULL);
 
-    s_update_timer = lv_timer_create(update_timer_cb, 5000, NULL);
-
     event_bus_subscribe(EVENT_WIFI_CONNECTED, s_on_wifi_event, NULL);
 
     ESP_LOGI("Overview", "Overview screen initialized");
@@ -480,11 +362,6 @@ void ui_Screen_Overview_screen_init(void)
 
 void ui_Screen_Overview_screen_destroy(void)
 {
-    if (s_update_timer) {
-        lv_timer_del(s_update_timer);
-        s_update_timer = NULL;
-    }
-
     event_bus_unsubscribe(EVENT_WIFI_CONNECTED, s_on_wifi_event);
 
     if (ui_Screen_Overview) {
@@ -513,6 +390,12 @@ void ui_Screen_Overview_screen_destroy(void)
     s_label_mem_percent = NULL;
     s_bar_disk = NULL;
     s_label_disk_percent = NULL;
+
+    for (int i = 0; i < MAX_HDD_INDICATORS; i++) {
+        s_hdd_leds[i] = NULL;
+        s_hdd_labels[i] = NULL;
+    }
+    s_hdd_container = NULL;
 
     ESP_LOGI("Overview", "Overview screen destroyed");
 }

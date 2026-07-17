@@ -14,8 +14,6 @@ extern "C" {
 void       ui_events_wifi_status_cb(bool connected, const char *ip_addr);
 void       ui_events_start_dim_timer(void);
 void       ui_events_stop_dim_timer(void);
-void       ui_events_start_status_timer(void);
-void       ui_events_stop_status_timer(void);
 void       ui_events_subscribe_events(void);
 void       ui_events_unsubscribe_events(void);
 

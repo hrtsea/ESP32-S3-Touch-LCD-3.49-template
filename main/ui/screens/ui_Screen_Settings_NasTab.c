@@ -1,6 +1,7 @@
 #include "../ui.h"
 #include "ui_Screen_Settings_NasTab.h"
 #include "esp_log.h"
+#include "data_source.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_12);
 LV_FONT_DECLARE(lv_font_montserrat_14);
@@ -174,7 +175,10 @@ static void dialog_save_cb(lv_event_t* e) {
 
         config_save_nas(g_config.nas_type, ip, port, username, password, g_config.nas_https);
 
-        ESP_LOGI(TAG, "NAS config saved");
+        ESP_LOGI(TAG, "NAS config saved, switching data source...");
+        data_source_switch(NAS_TYPES[dialog_temp_nas_type_idx].id);
+
+        ESP_LOGI(TAG, "Data source switch initiated");
     }
 
     if (nas_config_dialog) {

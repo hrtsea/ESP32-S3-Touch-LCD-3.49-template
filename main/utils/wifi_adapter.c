@@ -19,6 +19,17 @@ const char *wifi_cfg_get_current_ssid(char *buf, size_t buf_size) {
     return buf;
 }
 
+const char *wifi_cfg_get_current_ip(char *buf, size_t buf_size) {
+    wifi_status_t status;
+    if (wifi_cfg_get_status(&status) == ESP_OK) {
+        strncpy(buf, status.ip, buf_size - 1);
+        buf[buf_size - 1] = '\0';
+        return buf;
+    }
+    buf[0] = '\0';
+    return buf;
+}
+
 void wifi_cfg_clear_credentials(void) {
     wifi_cfg_factory_reset();
 }
