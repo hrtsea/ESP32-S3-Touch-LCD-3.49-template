@@ -12,14 +12,13 @@ extern void ui_Screen_Storage_screen_init(void);
 extern void ui_Screen_Storage_screen_destroy(void);
 extern lv_obj_t * ui_Screen_Storage;
 
-extern lv_obj_t *s_hdd_names[MAX_DISKS];
-extern lv_obj_t *s_hdd_bars[MAX_DISKS];
-extern lv_obj_t *s_hdd_percents[MAX_DISKS];
-extern lv_obj_t *s_hdd_temps[MAX_DISKS];
-extern lv_obj_t *s_storage_label_time;
-extern lv_obj_t *s_storage_label_up;
-extern lv_obj_t *s_storage_label_down;
-extern lv_obj_t *s_storage_label_ip;
+void storage_screen_update_time(const char *time_str);
+void storage_screen_update_network(int upload_kbps, int download_kbps);
+void storage_screen_update_ip(const char *ip_str);
+void storage_screen_update_hdd_name(int index, const char *name);
+void storage_screen_update_hdd_bar(int index, int used_pct, int health);
+void storage_screen_update_hdd_temp(int index, int temp);
+void storage_screen_update_hdd_online(int index, bool online);
 
 #ifdef __cplusplus
 }

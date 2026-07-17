@@ -19,12 +19,6 @@
 #include "screens/ui_Screen_Storage.h"
 #include "screens/ui_Screen_Boot.h"
 
-#define COLOR_PRIMARY   lv_color_hex(0x40E0D0)
-#define COLOR_WARNING   lv_color_make(0xff, 0xa0, 0x40)
-#define COLOR_CRITICAL  lv_color_make(0xff, 0x40, 0x40)
-#define COLOR_LED_GREEN lv_color_make(0x40, 0xff, 0x40)
-#define COLOR_LED_GRAY  lv_color_make(0x40, 0x40, 0x40)
-
 #define UI_UPDATE(code) do { \
     if (lvgl_lock(50)) { \
         code; \
@@ -41,24 +35,6 @@ static int s_current_tile_idx = 0;
 
 static TaskHandle_t s_ui_task_hdl = NULL;
 static bool s_running = false;
-
-extern lv_obj_t *s_meter_cpu;
-extern lv_obj_t *s_meter_temp;
-extern lv_obj_t *s_label_cpu_percent;
-extern lv_obj_t *s_label_temp_val;
-extern lv_meter_indicator_t *s_cpu_arc_val;
-extern lv_meter_indicator_t *s_cpu_needle;
-extern lv_meter_indicator_t *s_temp_arc_val;
-extern lv_meter_indicator_t *s_temp_needle;
-extern lv_obj_t *s_bar_mem;
-extern lv_obj_t *s_label_mem_percent;
-extern lv_obj_t *s_bar_disk;
-extern lv_obj_t *s_label_disk_percent;
-
-extern lv_obj_t *s_storage_label_time;
-extern lv_obj_t *s_storage_label_up;
-extern lv_obj_t *s_storage_label_down;
-extern lv_obj_t *s_storage_label_ip;
 
 static void ip_label_ensure(void)
 {
@@ -122,8 +98,8 @@ static void time_update_timer_cb(lv_timer_t *t)
     struct tm *tm_now = localtime(&now_t);
     static char time_str[9];
     snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", tm_now->tm_hour, tm_now->tm_min, tm_now->tm_sec);
-    if (s_label_time != NULL) lv_label_set_text(s_label_time, time_str);
-    if (s_storage_label_time != NULL) lv_label_set_text(s_storage_label_time, time_str);
+    overview_screen_update_time(time_str);
+    storage_screen_update_time(time_str);
 }
 
 void ui_events_start_time_timer(void)
@@ -149,211 +125,48 @@ void ui_events_stop_dim_timer(void)
     }
 }
 
-static NasData s_last_nas_data = {0};
+static float s_last_tx_speed = 0.0f;
+static float s_last_rx_speed = 0.0f;
 
 static void on_nas_data_update_evt(const NasData *data)
 {
     if (!data) {
-        ESP_LOGW(TAG, "NAS data event with invalid data");
         return;
     }
 
-    ESP_LOGD(TAG, "Received NAS data update (cpu=%.1f%%, temp=%d°C, mem=%.1f%%, online=%d)",
-             data->system.cpu_pct, data->system.temp_cpu, data->system.ram_pct, data->is_online);
-
     if (data->is_online) {
-        int cpu_pct = (int)data->system.cpu_pct;
-        int temp = data->system.temp_cpu;
-        int mem_pct = (int)data->system.ram_pct;
-        int disk_pct = (int)data->system.disk_pct;
-
-        if (s_meter_cpu && s_cpu_arc_val && s_cpu_needle && s_label_cpu_percent) {
-            cpu_pct = (cpu_pct < 0) ? 0 : (cpu_pct > 100) ? 100 : cpu_pct;
-            if (abs(cpu_pct - s_last_nas_data.system.cpu_pct) >= 2) {
-                lv_meter_set_indicator_end_value(s_meter_cpu, s_cpu_arc_val, cpu_pct);
-                lv_meter_set_indicator_value(s_meter_cpu, s_cpu_needle, cpu_pct);
-                static char cpu_str[8];
-                snprintf(cpu_str, sizeof(cpu_str), "%d%%", cpu_pct);
-                lv_label_set_text(s_label_cpu_percent, cpu_str);
-                s_last_nas_data.system.cpu_pct = cpu_pct;
-            }
-        }
-
-        if (s_meter_temp && s_temp_arc_val && s_temp_needle && s_label_temp_val) {
-            temp = (temp < 0) ? 0 : (temp > 100) ? 100 : temp;
-            if (abs(temp - s_last_nas_data.system.temp_cpu) >= 1) {
-                lv_meter_set_indicator_end_value(s_meter_temp, s_temp_arc_val, temp);
-                lv_meter_set_indicator_value(s_meter_temp, s_temp_needle, temp);
-                static char temp_str[10];
-                snprintf(temp_str, sizeof(temp_str), "%d°C", temp);
-                lv_label_set_text(s_label_temp_val, temp_str);
-                s_last_nas_data.system.temp_cpu = temp;
-            }
-        }
-
-        if (s_bar_mem && s_label_mem_percent) {
-            mem_pct = (mem_pct < 0) ? 0 : (mem_pct > 100) ? 100 : mem_pct;
-            if (abs(mem_pct - s_last_nas_data.system.ram_pct) >= 2) {
-                lv_bar_set_value(s_bar_mem, mem_pct, LV_ANIM_ON);
-                static char mem_str[8];
-                snprintf(mem_str, sizeof(mem_str), "%d%%", mem_pct);
-                lv_label_set_text(s_label_mem_percent, mem_str);
-                s_last_nas_data.system.ram_pct = mem_pct;
-            }
-        }
-
-        if (s_bar_disk && s_label_disk_percent) {
-            disk_pct = (disk_pct < 0) ? 0 : (disk_pct > 100) ? 100 : disk_pct;
-            if (abs(disk_pct - (int)s_last_nas_data.system.disk_pct) >= 1) {
-                lv_bar_set_value(s_bar_disk, disk_pct, LV_ANIM_ON);
-                static char disk_str[8];
-                snprintf(disk_str, sizeof(disk_str), "%d%%", disk_pct);
-                lv_label_set_text(s_label_disk_percent, disk_str);
-                s_last_nas_data.system.disk_pct = (float)disk_pct;
-            }
-        }
+        overview_screen_update_cpu((int)data->system.cpu_pct);
+        overview_screen_update_temp(data->system.temp_cpu);
+        overview_screen_update_mem((int)data->system.ram_pct);
+        overview_screen_update_disk((int)data->system.disk_pct);
 
         uint8_t total_slots = config_get_total_disk_slots();
         if (total_slots == 0) total_slots = 1;
 
         for (int i = 0; i < total_slots; i++) {
-            if (s_hdd_leds[i] && i < data->disk_slot_count) {
+            if (i < data->disk_slot_count) {
                 const NasDiskInfo *disk = &data->disks[i];
-                if (disk->online) {
-                    if (s_last_nas_data.disks[i].health != disk->health) {
-                        if (disk->health == HEALTH_OK) {
-                            lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_LED_GREEN, 0);
-                        } else if (disk->health == HEALTH_WARNING) {
-                            lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_WARNING, 0);
-                        } else if (disk->health == HEALTH_CRITICAL) {
-                            lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_CRITICAL, 0);
-                        } else {
-                            lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_LED_GRAY, 0);
-                        }
-                        s_last_nas_data.disks[i].health = disk->health;
-                    }
-                    if (s_hdd_labels[i]) {
-                        const char *name = disk->name[0] ? disk->name : "HDD";
-                        if (strcmp(name, s_last_nas_data.disks[i].name) != 0) {
-                            lv_label_set_text_fmt(s_hdd_labels[i], "%s", name);
-                            strncpy(s_last_nas_data.disks[i].name, name, sizeof(s_last_nas_data.disks[i].name));
-                        }
-                    }
-                } else {
-                    if (s_last_nas_data.disks[i].online != 0) {
-                        lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_LED_GRAY, 0);
-                        s_last_nas_data.disks[i].online = 0;
-                    }
-                }
+                overview_screen_update_hdd_led(i, disk->online, disk->health);
+                overview_screen_update_hdd_name(i, disk->name);
             }
         }
 
-        for (int i = 0; i < MAX_DISKS; i++) {
-            if (i < data->disk_slot_count) {
-                const NasDiskInfo *disk = &data->disks[i];
-
-                if (s_hdd_names[i]) {
-                    const char *name = disk->name[0] ? disk->name : "HDD";
-                    if (strcmp(name, s_last_nas_data.disks[i].name) != 0) {
-                        lv_label_set_text(s_hdd_names[i], name);
-                        strncpy(s_last_nas_data.disks[i].name, name, sizeof(s_last_nas_data.disks[i].name));
-                    }
-                }
-
-                if (s_hdd_bars[i]) {
-                    int pct = (disk->used_pct > 100) ? 100 : disk->used_pct;
-                    if (abs(pct - s_last_nas_data.disks[i].used_pct) >= 2) {
-                        lv_bar_set_value(s_hdd_bars[i], pct, LV_ANIM_ON);
-                        s_last_nas_data.disks[i].used_pct = pct;
-                    }
-
-                    lv_color_t color = COLOR_PRIMARY;
-                    if (disk->health == HEALTH_WARNING) {
-                        color = COLOR_WARNING;
-                    } else if (disk->health == HEALTH_CRITICAL) {
-                        color = COLOR_CRITICAL;
-                    }
-                    if (s_last_nas_data.disks[i].health != disk->health) {
-                        lv_obj_set_style_bg_color(s_hdd_bars[i], color, LV_PART_INDICATOR);
-                        s_last_nas_data.disks[i].health = disk->health;
-                    }
-                }
-
-                if (s_hdd_percents[i]) {
-                    int pct = (disk->used_pct > 100) ? 100 : disk->used_pct;
-                    if (abs(pct - s_last_nas_data.disks[i].used_pct) >= 2) {
-                        static char pct_str[8];
-                        snprintf(pct_str, sizeof(pct_str), "%d%%", pct);
-                        lv_label_set_text(s_hdd_percents[i], pct_str);
-                    }
-                }
-
-                if (s_hdd_temps[i]) {
-                    if (disk->temp > 0) {
-                        static char temp_str[16];
-                        snprintf(temp_str, sizeof(temp_str), "%d°C", disk->temp);
-                        if (abs(disk->temp - s_last_nas_data.disks[i].temp) >= 1) {
-                            lv_label_set_text(s_hdd_temps[i], temp_str);
-                            s_last_nas_data.disks[i].temp = disk->temp;
-                        }
-                    } else {
-                        lv_label_set_text(s_hdd_temps[i], "--°C");
-                    }
-                }
-
-                if (disk->online && s_last_nas_data.disks[i].online != 1) {
-                    if (s_hdd_names[i]) lv_obj_clear_flag(s_hdd_names[i], LV_OBJ_FLAG_HIDDEN);
-                    if (s_hdd_bars[i]) lv_obj_clear_flag(s_hdd_bars[i], LV_OBJ_FLAG_HIDDEN);
-                    if (s_hdd_percents[i]) lv_obj_clear_flag(s_hdd_percents[i], LV_OBJ_FLAG_HIDDEN);
-                    if (s_hdd_temps[i]) lv_obj_clear_flag(s_hdd_temps[i], LV_OBJ_FLAG_HIDDEN);
-                    s_last_nas_data.disks[i].online = 1;
-                } else if (!disk->online && s_last_nas_data.disks[i].online != 0) {
-                    if (s_hdd_names[i]) lv_obj_add_flag(s_hdd_names[i], LV_OBJ_FLAG_HIDDEN);
-                    if (s_hdd_bars[i]) lv_obj_add_flag(s_hdd_bars[i], LV_OBJ_FLAG_HIDDEN);
-                    if (s_hdd_percents[i]) lv_obj_add_flag(s_hdd_percents[i], LV_OBJ_FLAG_HIDDEN);
-                    if (s_hdd_temps[i]) lv_obj_add_flag(s_hdd_temps[i], LV_OBJ_FLAG_HIDDEN);
-                    s_last_nas_data.disks[i].online = 0;
-                }
-            }
+        for (int i = 0; i < data->disk_slot_count; i++) {
+            const NasDiskInfo *disk = &data->disks[i];
+            storage_screen_update_hdd_name(i, disk->name);
+            storage_screen_update_hdd_bar(i, (int)disk->used_pct, disk->health);
+            storage_screen_update_hdd_temp(i, disk->temp);
+            storage_screen_update_hdd_online(i, disk->online);
         }
 
         float tx_speed = (float)data->network.tx_bps / 8000000.0f;
-        if (fabs(tx_speed - s_last_nas_data.network.tx_bps) >= 0.05f) {
-            static char tx_str[16];
-            if (tx_speed < 0.01f) {
-                snprintf(tx_str, sizeof(tx_str), "▲ 0.00KB/s");
-            } else if (tx_speed < 1.0f) {
-                snprintf(tx_str, sizeof(tx_str), "▲ %.2fKB/s", tx_speed * 1024.0f);
-            } else {
-                snprintf(tx_str, sizeof(tx_str), "▲ %.2fMB/s", tx_speed);
-            }
-            if (s_label_up != NULL) lv_label_set_text(s_label_up, tx_str);
-            if (s_storage_label_up != NULL) lv_label_set_text(s_storage_label_up, tx_str);
-            s_last_nas_data.network.tx_bps = tx_speed;
-        }
-
         float rx_speed = (float)data->network.rx_bps / 8000000.0f;
-        if (fabs(rx_speed - s_last_nas_data.network.rx_bps) >= 0.05f) {
-            static char rx_str[16];
-            if (rx_speed < 0.01f) {
-                snprintf(rx_str, sizeof(rx_str), "▼ 0.00KB/s");
-            } else if (rx_speed < 1.0f) {
-                snprintf(rx_str, sizeof(rx_str), "▼ %.2fKB/s", rx_speed * 1024.0f);
-            } else {
-                snprintf(rx_str, sizeof(rx_str), "▼ %.2fMB/s", rx_speed);
-            }
-            if (s_label_down != NULL) lv_label_set_text(s_label_down, rx_str);
-            if (s_storage_label_down != NULL) lv_label_set_text(s_storage_label_down, rx_str);
-            s_last_nas_data.network.rx_bps = rx_speed;
-        }
-    }
-
-    if (s_icon_bt != NULL) {
-        bool prev_online = s_last_nas_data.is_online;
-        if (data->is_online != prev_online) {
-            lv_obj_set_style_text_color(s_icon_bt, data->is_online ?
-                lv_color_make(0x80, 0xff, 0x80) : lv_color_make(0xff, 0x40, 0x40), 0);
-            s_last_nas_data.is_online = data->is_online;
+        if (fabs(tx_speed - s_last_tx_speed) >= 0.05f ||
+            fabs(rx_speed - s_last_rx_speed) >= 0.05f) {
+            overview_screen_update_network((int)(data->network.tx_bps / 1000), (int)(data->network.rx_bps / 1000));
+            storage_screen_update_network((int)(data->network.tx_bps / 1000), (int)(data->network.rx_bps / 1000));
+            s_last_tx_speed = tx_speed;
+            s_last_rx_speed = rx_speed;
         }
     }
 }
@@ -362,32 +175,14 @@ static void on_wifi_state_changed(bool connected)
 {
     char ip_buf[16];
     wifi_cfg_get_current_ip(ip_buf, sizeof(ip_buf));
-    static char ip_str[24];
-    if (ip_buf[0]) {
-        snprintf(ip_str, sizeof(ip_str), "IP: %s", ip_buf);
-    } else {
-        snprintf(ip_str, sizeof(ip_str), "IP: --");
-    }
-    if (s_label_ip != NULL) lv_label_set_text(s_label_ip, ip_str);
-    if (s_storage_label_ip != NULL) lv_label_set_text(s_storage_label_ip, ip_str);
-
-    if (s_icon_wifi != NULL) {
-        char ssid_buf[33];
-        wifi_cfg_get_current_ssid(ssid_buf, sizeof(ssid_buf));
-        if (connected) {
-            lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0x80, 0xff, 0x80), 0);
-        } else if (ssid_buf[0]) {
-            lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0xff, 0xa0, 0x40), 0);
-        } else {
-            lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0x40, 0x40, 0x40), 0);
-        }
-    }
+    overview_screen_update_ip(ip_buf);
+    storage_screen_update_ip(ip_buf);
+    overview_screen_update_wifi(connected);
 }
 
 static void task_ui_event_loop(void *arg)
 {
     (void)arg;
-    ESP_LOGI(TAG, "UI event loop task started");
 
     while (s_running) {
         event_t evt;
@@ -475,23 +270,18 @@ static void task_ui_event_loop(void *arg)
         }
     }
 
-    ESP_LOGI(TAG, "UI event loop task stopping");
     vTaskDelete(NULL);
 }
 
 void ui_events_start(void)
 {
     if (s_running) {
-        ESP_LOGW(TAG, "UI event loop already running");
         return;
     }
 
     s_running = true;
     xTaskCreate(task_ui_event_loop, "ui_event_loop", 8192, NULL, 1, &s_ui_task_hdl);
-
     ui_events_start_time_timer();
-
-    ESP_LOGI(TAG, "UI event loop started");
 }
 
 void ui_events_stop(void)
@@ -506,8 +296,6 @@ void ui_events_stop(void)
         vTaskDelete(s_ui_task_hdl);
         s_ui_task_hdl = NULL;
     }
-
-    ESP_LOGI(TAG, "UI event loop stopped");
 }
 
 static void tileview_gesture_cb(lv_event_t *e)
@@ -610,14 +398,10 @@ void ui_events_start_tile_monitor(void)
     }
 }
 
-
-
-static char _ssid_buf[64];
-
 void ui_Screen_Boot_event_handler(lv_event_t* e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
-    
+
     if (event_code == LV_EVENT_CLICKED) {
         ui_Screen_Boot_stop_timeout();
         if (ui_Screen_Overview == NULL) {
@@ -630,7 +414,7 @@ void ui_Screen_Boot_event_handler(lv_event_t* e)
 void ui_event_Screen_Overview_hdd_clicked(lv_event_t* e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
-    
+
     if (event_code == LV_EVENT_CLICKED) {
         if (ui_Screen_Storage == NULL) {
             ui_Screen_Storage_screen_init();
@@ -642,39 +426,20 @@ void ui_event_Screen_Overview_hdd_clicked(lv_event_t* e)
 void ui_event_Screen_Overview_gesture(lv_event_t* e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
-    lv_obj_t *target = lv_event_get_target(e);
-    lv_obj_t *current_scr = lv_scr_act();
-    
-    ESP_LOGI("Events", "Overview gesture event: code=%d, target=%p, current_scr=%p, Screen_Overview=%p", 
-             (int)event_code, (void*)target, (void*)current_scr, (void*)ui_Screen_Overview);
-    
+
     if (event_code == LV_EVENT_GESTURE) {
         lv_indev_t *indev = lv_indev_get_act();
-        if (!indev) {
-            ESP_LOGW("Events", "No active input device!");
-            return;
-        }
-        
+        if (!indev) return;
+
         lv_dir_t dir = lv_indev_get_gesture_dir(indev);
-        lv_point_t point;
-        lv_indev_get_point(indev, &point);
-        
-        ESP_LOGI("Events", "Overview gesture detected: dir=%d (1=LEFT, 2=RIGHT, 3=TOP, 4=BOTTOM), point=(%d,%d)", 
-                 (int)dir, point.x, point.y);
-        
+
         if (dir == LV_DIR_RIGHT) {
-            ESP_LOGI("Events", "Swiping RIGHT -> Loading Settings screen");
             if (ui_Screen_Settings == NULL) {
-                ESP_LOGI("Events", "Settings screen not created, initializing...");
                 ui_Screen_Settings_screen_init();
             }
-            ESP_LOGI("Events", "Settings screen pointer: %p", (void*)ui_Screen_Settings);
             lv_scr_load_anim(ui_Screen_Settings, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0, false);
-            ESP_LOGI("Events", "Screen load animation initiated");
         } else if (dir == LV_DIR_LEFT) {
-            ESP_LOGI("Events", "Swiping LEFT -> Loading Storage screen");
             if (ui_Screen_Storage == NULL) {
-                ESP_LOGI("Events", "Storage screen not created, initializing...");
                 ui_Screen_Storage_screen_init();
             }
             lv_scr_load_anim(ui_Screen_Storage, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300, 0, false);
@@ -685,14 +450,11 @@ void ui_event_Screen_Overview_gesture(lv_event_t* e)
 void ui_event_Screen_Settings_gesture(lv_event_t* e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
-    
+
     if (event_code == LV_EVENT_GESTURE) {
         lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-        
-        ESP_LOGI("Events", "Settings gesture detected: dir=%d", (int)dir);
-        
+
         if (dir == LV_DIR_LEFT) {
-            ESP_LOGI("Events", "Swiping LEFT -> Loading Overview screen");
             if (ui_Screen_Overview == NULL) {
                 ui_Screen_Overview_screen_init();
             }
@@ -704,14 +466,11 @@ void ui_event_Screen_Settings_gesture(lv_event_t* e)
 void ui_event_Screen_Storage_gesture(lv_event_t* e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
-    
+
     if (event_code == LV_EVENT_GESTURE) {
         lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-        
-        ESP_LOGI("Events", "Storage gesture detected: dir=%d", (int)dir);
-        
+
         if (dir == LV_DIR_RIGHT) {
-            ESP_LOGI("Events", "Swiping RIGHT -> Loading Overview screen");
             if (ui_Screen_Overview == NULL) {
                 ui_Screen_Overview_screen_init();
             }
@@ -722,7 +481,7 @@ void ui_event_Screen_Storage_gesture(lv_event_t* e)
 
 void resetScreenOffTimer(lv_event_t * e)
 {
-    ESP_LOGD("Events", "resetScreenOffTimer called");
+    (void)e;
 }
 
 void saveWiFiCredential(lv_event_t * e)
@@ -747,22 +506,18 @@ void saveWiFiCredential(lv_event_t * e)
 
     if (ssid[0] == '\0') return;
 
-    ESP_LOGI("Events", "WiFi connect: ssid=%s pass_len=%u",
-             ssid, (unsigned)strlen(password));
-
     app_cfg_wifi_connect_save(ssid, password);
 }
 
 void scanNetwork(lv_event_t * e)
 {
-    ESP_LOGI("Events", "scanNetwork called");
+    (void)e;
     wifi_start_scan();
 }
 
 void toggleWiFi(lv_event_t * e)
 {
     bool enabled = lv_obj_has_state(ui_Settings_Switch_Wifi, LV_STATE_CHECKED);
-    ESP_LOGI("Events", "toggleWiFi called: %s", enabled ? "ON" : "OFF");
 
     if (enabled) {
         if (!wifi_is_connected() && wifi_has_credentials()) {
@@ -785,61 +540,56 @@ void toggleWiFi(lv_event_t * e)
 
 void setBrightness(lv_event_t * e)
 {
-    uint16_t selected = lv_dropdown_get_selected(ui_Settings_Dropdown_Brightness);
-    ESP_LOGI("Events", "setBrightness called: %d", selected);
+    (void)e;
 }
 
 void setTimer(lv_event_t * e)
 {
-    uint16_t selected = lv_dropdown_get_selected(ui_Settings_Dropdown_SleepTimer);
-    const char *options[] = {"0", "15", "30", "60"};
-    int seconds = atoi(options[selected]);
-    ESP_LOGI("Events", "setTimer called: %d seconds", seconds);
+    (void)e;
 }
 
 void setWallpaper(lv_event_t * e)
 {
-    ESP_LOGD("Events", "setWallpaper called");
+    (void)e;
 }
 
 void loadStationFromSDCARD(lv_event_t * e)
 {
-    ESP_LOGD("Events", "loadStationFromSDCARD called");
+    (void)e;
 }
 
 void loadMusicFromSDCARD(lv_event_t * e)
 {
-    ESP_LOGD("Events", "loadMusicFromSDCARD called");
+    (void)e;
 }
 
 void set_query_para_autoip(lv_event_t * e)
 {
-    ESP_LOGD("Events", "set_query_para_autoip called");
+    (void)e;
 }
 
 void setOffsetHour(lv_event_t * e)
 {
-    ESP_LOGD("Events", "setOffsetHour called");
+    (void)e;
 }
 
 void setOffsetMinute(lv_event_t * e)
 {
-    ESP_LOGD("Events", "setOffsetMinute called");
+    (void)e;
 }
 
 void setTempUnit(lv_event_t * e)
 {
-    ESP_LOGD("Events", "setTempUnit called");
+    (void)e;
 }
 
 void saveConfig(lv_event_t * e)
 {
+    (void)e;
     app_cfg_save();
-    ESP_LOGI("Events", "saveConfig called");
 }
 
 void turnonScreen(lv_event_t * e)
 {
-    ESP_LOGD("Events", "turnonScreen called");
+    (void)e;
 }
-

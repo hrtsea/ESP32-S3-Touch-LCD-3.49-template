@@ -12,29 +12,16 @@ extern void ui_Screen_Overview_screen_init(void);
 extern void ui_Screen_Overview_screen_destroy(void);
 extern lv_obj_t * ui_Screen_Overview;
 
-extern lv_obj_t *s_meter_cpu;
-extern lv_obj_t *s_meter_temp;
-extern lv_obj_t *s_label_cpu_percent;
-extern lv_obj_t *s_label_temp_val;
-extern lv_obj_t *s_bar_mem;
-extern lv_obj_t *s_label_mem_percent;
-extern lv_obj_t *s_bar_disk;
-extern lv_obj_t *s_label_disk_percent;
-
-extern lv_meter_indicator_t *s_cpu_arc_val;
-extern lv_meter_indicator_t *s_cpu_needle;
-extern lv_meter_indicator_t *s_temp_arc_val;
-extern lv_meter_indicator_t *s_temp_needle;
-
-extern lv_obj_t *s_hdd_leds[MAX_DISKS];
-extern lv_obj_t *s_hdd_labels[MAX_DISKS];
-
-extern lv_obj_t *s_label_time;
-extern lv_obj_t *s_label_up;
-extern lv_obj_t *s_label_down;
-extern lv_obj_t *s_label_ip;
-extern lv_obj_t *s_icon_wifi;
-extern lv_obj_t *s_icon_bt;
+void overview_screen_update_time(const char *time_str);
+void overview_screen_update_network(int upload_kbps, int download_kbps);
+void overview_screen_update_ip(const char *ip_str);
+void overview_screen_update_wifi(bool connected);
+void overview_screen_update_cpu(int cpu_pct);
+void overview_screen_update_temp(int temp);
+void overview_screen_update_mem(int mem_pct);
+void overview_screen_update_disk(int disk_pct);
+void overview_screen_update_hdd_led(int index, bool online, int health);
+void overview_screen_update_hdd_name(int index, const char *name);
 
 #ifdef __cplusplus
 }
