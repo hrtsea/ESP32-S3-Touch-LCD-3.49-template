@@ -124,6 +124,18 @@ typedef struct ConfigBackup {
 extern ConfigBackup g_config_backup;
 extern AppConfig g_config;
 
+static inline uint8_t config_get_total_disk_slots(void) {
+    return g_config.sata_disk_count + g_config.m2_disk_count;
+}
+
+static inline bool config_is_sata_slot(uint8_t index) {
+    return index < g_config.sata_disk_count;
+}
+
+static inline bool config_is_m2_slot(uint8_t index) {
+    return index >= g_config.sata_disk_count && index < config_get_total_disk_slots();
+}
+
 void config_load(void);
 void config_save(void);
 void config_save_wifi(const char* ssid, const char* pass);

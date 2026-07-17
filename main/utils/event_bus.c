@@ -7,6 +7,7 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "nas_data.h"
+#include "config.h"
 
 static const char *TAG = "event_bus";
 
@@ -61,6 +62,7 @@ static const char *s_event_names[EVENT_MAX] = {
     [EVENT_WIFI_PROVISION_START] = "WIFI_PROVISION_START",
     [EVENT_WIFI_PROVISION_STOP] = "WIFI_PROVISION_STOP",
     [EVENT_WIFI_PROVISION_CONFIG_RECEIVED] = "WIFI_PROVISION_CONFIG_RECEIVED",
+    [EVENT_DISK_CONFIG_CHANGED] = "DISK_CONFIG_CHANGED",
 };
 
 static void tick_1hz_cb(void *arg)
@@ -140,6 +142,7 @@ void event_bus_publish_nas_data(const NasData *data)
 
     xSemaphoreTake(s_nas_data_mux, portMAX_DELAY);
     memcpy(&s_nas_data_buffer, data, sizeof(NasData));
+    s_nas_data_buffer.disk_slot_count = config_get_total_disk_slots();
     xSemaphoreGive(s_nas_data_mux);
 
     event_t evt = {

@@ -186,14 +186,7 @@ void data_source_disconnect(void)
 bool data_source_poll(void)
 {
     if (g_data_source == NULL) return false;
-    bool result = ds_poll(g_data_source);
-    if (result) {
-        const NasData *data = ds_get_data(g_data_source);
-        if (data && data->is_online) {
-            event_bus_publish(EVENT_NAS_DATA_UPDATE, (void*)data, sizeof(NasData));
-        }
-    }
-    return result;
+    return ds_poll(g_data_source);
 }
 
 bool data_source_is_connected(void)

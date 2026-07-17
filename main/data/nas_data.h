@@ -36,6 +36,7 @@ typedef struct NasSystemInfo {
     uint32_t uptime_s;
     float cpu_pct;
     float ram_pct;
+    float disk_pct;
     uint32_t ram_total_mb;
     uint32_t ram_used_mb;
     uint32_t ram_free_mb;
@@ -62,6 +63,8 @@ typedef struct NasDiskInfo {
     uint8_t used_pct;
     uint32_t read_kbps;
     uint32_t write_kbps;
+    bool online;
+    uint8_t slot_index;
 } NasDiskInfo;
 
 typedef struct NasVolumeInfo {
@@ -108,6 +111,7 @@ typedef struct NasData {
     NasSystemInfo   system;
     NasDiskInfo     disks[MAX_DISKS];
     uint8_t         disk_count;
+    uint8_t         disk_slot_count;
     NasVolumeInfo   volumes[MAX_VOLUMES];
     uint8_t         volume_count;
     NasServiceInfo  services[MAX_SERVICES];

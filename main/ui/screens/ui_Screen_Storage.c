@@ -13,8 +13,6 @@ lv_obj_t *ui_Screen_Storage = NULL;
 #define COLOR_WARNING   lv_color_make(0xff, 0xa0, 0x40)
 #define COLOR_CRITICAL  lv_color_make(0xff, 0x40, 0x40)
 
-#define MAX_HDD_BARS 8
-
 #define LV_OBJ_CHECK(obj, name) \
     if (!(obj)) { \
         ESP_LOGE("Storage", "Failed to create %s - out of memory", name); \
@@ -26,10 +24,10 @@ lv_obj_t *s_storage_label_up = NULL;
 lv_obj_t *s_storage_label_down = NULL;
 lv_obj_t *s_storage_label_ip = NULL;
 
-lv_obj_t *s_hdd_names[MAX_HDD_BARS] = {NULL};
-lv_obj_t *s_hdd_bars[MAX_HDD_BARS] = {NULL};
-lv_obj_t *s_hdd_percents[MAX_HDD_BARS] = {NULL};
-lv_obj_t *s_hdd_temps[MAX_HDD_BARS] = {NULL};
+lv_obj_t *s_hdd_names[MAX_DISKS] = {NULL};
+lv_obj_t *s_hdd_bars[MAX_DISKS] = {NULL};
+lv_obj_t *s_hdd_percents[MAX_DISKS] = {NULL};
+lv_obj_t *s_hdd_temps[MAX_DISKS] = {NULL};
 static lv_obj_t *s_storage_container = NULL;
 
 static void create_storage_status_bar(lv_obj_t *parent)
@@ -104,17 +102,31 @@ static void create_hdd_storage_bars(lv_obj_t *parent)
     lv_obj_clear_flag(s_storage_container, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_align(s_storage_container, LV_ALIGN_TOP_MID, 0, 40);
 
-    for (int col = 0; col < 2; col++) {
-        for (int row = 0; row < 4; row++) {
-            int index = col * 4 + row;
-            if (index >= MAX_HDD_BARS) break;
+    uint8_t total_disks = config_get_total_disk_slots();
+    if (total_disks == 0) total_disks = 1;
+
+    uint8_t cols = (total_disks <= 4) ? 1 : 2;
+    uint8_t rows = (total_disks + cols - 1) / cols;
+
+    for (uint8_t col = 0; col < cols; col++) {
+        for (uint8_t row = 0; row < rows; row++) {
+            uint8_t index = col * rows + row;
+            if (index >= total_disks) break;
 
             int x_offset = col * 310 + 10;
             int y_offset = row * 28 + 5;
 
+            char label_text[16];
+            if (config_is_sata_slot(index)) {
+                snprintf(label_text, sizeof(label_text), "HDD%d", index + 1);
+            } else {
+                uint8_t m2_index = index - g_config.sata_disk_count;
+                snprintf(label_text, sizeof(label_text), "M.2%d", m2_index + 1);
+            }
+
             s_hdd_names[index] = lv_label_create(s_storage_container);
             LV_OBJ_CHECK(s_hdd_names[index], "hdd_name");
-            lv_label_set_text(s_hdd_names[index], "HDD");
+            lv_label_set_text(s_hdd_names[index], label_text);
             lv_obj_set_style_text_color(s_hdd_names[index], COLOR_TEXT, 0);
             lv_obj_set_style_text_font(s_hdd_names[index], &lv_font_montserrat_14, 0);
             lv_obj_align(s_hdd_names[index], LV_ALIGN_TOP_LEFT, x_offset, y_offset);
@@ -175,7 +187,7 @@ void ui_Screen_Storage_screen_destroy(void)
     s_storage_label_down = NULL;
     s_storage_label_ip = NULL;
 
-    for (int i = 0; i < MAX_HDD_BARS; i++) {
+    for (int i = 0; i < MAX_DISKS; i++) {
         s_hdd_names[i] = NULL;
         s_hdd_bars[i] = NULL;
         s_hdd_percents[i] = NULL;

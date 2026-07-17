@@ -68,7 +68,11 @@ static void generate_mock_data(NasData* data)
     data->fan.enabled = true;
     data->fan.stall_alarm = (s_counter % 500 == 0);
 
-    data->disk_count = 6;
+    data->disk_count = config_get_total_disk_slots();
+    data->disk_slot_count = config_get_total_disk_slots();
+
+    uint64_t total_size_gb = 0;
+    uint64_t total_used_gb = 0;
 
     for (int i = 0; i < 3; i++) {
         snprintf(data->disks[i].name, sizeof(data->disks[i].name), "Disk %d", i + 1);
@@ -81,32 +85,31 @@ static void generate_mock_data(NasData* data)
         data->disks[i].health = HEALTH_OK;
         data->disks[i].read_kbps = 100000 + (s_counter % 50000) + (i * 10000);
         data->disks[i].write_kbps = 80000 + (s_counter % 40000) + (i * 8000);
+        data->disks[i].online = true;
+        data->disks[i].slot_index = i;
+        total_size_gb += data->disks[i].size_gb;
+        total_used_gb += data->disks[i].used_gb;
     }
 
-    for (int i = 3; i < 5; i++) {
-        snprintf(data->disks[i].name, sizeof(data->disks[i].name), "Disk %d", i + 1);
-        snprintf(data->disks[i].model_name, sizeof(data->disks[i].model_name), "WD RED %dTB", 4 + i);
-        snprintf(data->disks[i].device, sizeof(data->disks[i].device), "/dev/sd%c", 'a' + i);
-        data->disks[i].size_gb = 4000 + (i * 1000);
-        data->disks[i].used_gb = 0;
-        data->disks[i].used_pct = 0;
-        data->disks[i].temp = 0;
-        data->disks[i].health = HEALTH_CRITICAL;
-        data->disks[i].read_kbps = 0;
-        data->disks[i].write_kbps = 0;
-    }
+    int empty_slot = 3;
+    snprintf(data->disks[empty_slot].name, sizeof(data->disks[empty_slot].name), "Disk %d", empty_slot + 1);
+    snprintf(data->disks[empty_slot].model_name, sizeof(data->disks[empty_slot].model_name), "Empty");
+    snprintf(data->disks[empty_slot].device, sizeof(data->disks[empty_slot].device), "/dev/sd%c", 'a' + empty_slot);
+    data->disks[empty_slot].size_gb = 0;
+    data->disks[empty_slot].used_gb = 0;
+    data->disks[empty_slot].used_pct = 0;
+    data->disks[empty_slot].temp = 0;
+    data->disks[empty_slot].health = HEALTH_UNKNOWN;
+    data->disks[empty_slot].read_kbps = 0;
+    data->disks[empty_slot].write_kbps = 0;
+    data->disks[empty_slot].online = false;
+    data->disks[empty_slot].slot_index = empty_slot;
 
-    int m2_online_idx = 5;
-    snprintf(data->disks[m2_online_idx].name, sizeof(data->disks[m2_online_idx].name), "M.2 1");
-    snprintf(data->disks[m2_online_idx].model_name, sizeof(data->disks[m2_online_idx].model_name), "Samsung 980 PRO 1TB");
-    snprintf(data->disks[m2_online_idx].device, sizeof(data->disks[m2_online_idx].device), "/dev/nvme0n1");
-    data->disks[m2_online_idx].size_gb = 1000;
-    data->disks[m2_online_idx].used_gb = 500 + (s_counter % 500);
-    data->disks[m2_online_idx].used_pct = (uint8_t)((uint64_t)data->disks[m2_online_idx].used_gb * 100 / data->disks[m2_online_idx].size_gb);
-    data->disks[m2_online_idx].temp = 40 + (s_counter % 10);
-    data->disks[m2_online_idx].health = HEALTH_OK;
-    data->disks[m2_online_idx].read_kbps = 300000 + (s_counter % 100000);
-    data->disks[m2_online_idx].write_kbps = 250000 + (s_counter % 80000);
+    if (total_size_gb > 0) {
+        data->system.disk_pct = (float)(total_used_gb * 100) / (float)total_size_gb;
+    } else {
+        data->system.disk_pct = 0;
+    }
 
     data->volume_count = 2;
     for (int i = 0; i < 2; i++) {

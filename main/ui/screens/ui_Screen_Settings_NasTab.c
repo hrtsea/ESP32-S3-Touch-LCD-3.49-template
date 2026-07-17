@@ -60,11 +60,11 @@ static void update_disk_total(void) {
     int total = sata + m2;
 
     char buf[32];
-    snprintf(buf, sizeof(buf), "Total: %d/16", total);
+    snprintf(buf, sizeof(buf), "Total: %d/%d", total, MAX_DISKS);
     lv_label_set_text(disk_total_label, buf);
 
     theme_palette_t theme = theme_get();
-    if (total > 16) {
+    if (total > MAX_DISKS) {
         lv_obj_set_style_text_color(disk_total_label, theme.danger, 0);
     } else {
         lv_obj_set_style_text_color(disk_total_label, theme.info, 0);
@@ -75,7 +75,7 @@ static void update_sata_dropdown_options(void) {
     if (!sata_disk_dropdown) return;
 
     int m2 = m2_disk_dropdown ? (int)lv_dropdown_get_selected(m2_disk_dropdown) : g_config.m2_disk_count;
-    int max_sata = 16 - m2;
+    int max_sata = MAX_DISKS - m2;
 
     int current_sata_value = -1;
     if (sata_disk_dropdown && lv_dropdown_get_option_cnt(sata_disk_dropdown) > 0) {
@@ -105,7 +105,7 @@ static void update_m2_dropdown_options(void) {
     if (!m2_disk_dropdown) return;
 
     int sata = sata_disk_dropdown ? (int)lv_dropdown_get_selected(sata_disk_dropdown) : g_config.sata_disk_count;
-    int max_m2 = 16 - sata;
+    int max_m2 = MAX_DISKS - sata;
 
     int current_m2_value = -1;
     if (m2_disk_dropdown && lv_dropdown_get_option_cnt(m2_disk_dropdown) > 0) {
@@ -859,7 +859,7 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
 
     disk_total_label = lv_label_create(disk_count_row);
     char disk_buf[32];
-    int total_disks = g_config.sata_disk_count + g_config.m2_disk_count;
+    int total_disks = config_get_total_disk_slots();
     snprintf(disk_buf, sizeof(disk_buf), "Total: %d/16", total_disks);
     lv_label_set_text(disk_total_label, disk_buf);
     lv_obj_set_style_text_font(disk_total_label, &lv_font_montserrat_12, 0);

@@ -43,9 +43,8 @@ lv_obj_t *s_label_mem_percent = NULL;
 lv_obj_t *s_bar_disk = NULL;
 lv_obj_t *s_label_disk_percent = NULL;
 
-#define MAX_HDD_INDICATORS 6
-lv_obj_t *s_hdd_leds[MAX_HDD_INDICATORS] = {NULL};
-lv_obj_t *s_hdd_labels[MAX_HDD_INDICATORS] = {NULL};
+lv_obj_t *s_hdd_leds[MAX_DISKS] = {NULL};
+lv_obj_t *s_hdd_labels[MAX_DISKS] = {NULL};
 static lv_obj_t *s_hdd_container = NULL;
 
 static void refresh_btn_cb(lv_event_t *e);
@@ -297,21 +296,35 @@ static void create_hdd_indicators(lv_obj_t *parent)
     lv_obj_clear_flag(s_hdd_container, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_align(s_hdd_container, LV_ALIGN_BOTTOM_MID, 0, -5);
 
-    const char *hdd_labels_init[] = {"HDD1", "HDD2", "HDD3", "HDD4", "HDD5", "HDD6"};
+    uint8_t total_disks = config_get_total_disk_slots();
+    if (total_disks == 0) total_disks = 1;
 
-    for (int i = 0; i < MAX_HDD_INDICATORS; i++) {
+    float spacing = (640.0f - 8.0f * 2) / total_disks;
+    float width = spacing - 8.0f;
+    if (width > 95.0f) width = 95.0f;
+    if (width < 50.0f) width = 50.0f;
+
+    for (uint8_t i = 0; i < total_disks; i++) {
+        char label_text[16];
+        if (config_is_sata_slot(i)) {
+            snprintf(label_text, sizeof(label_text), "HDD%d", i + 1);
+        } else {
+            uint8_t m2_index = i - g_config.sata_disk_count;
+            snprintf(label_text, sizeof(label_text), "M.2%d", m2_index + 1);
+        }
+
         lv_obj_t *btn_hdd = lv_btn_create(s_hdd_container);
-        lv_obj_set_size(btn_hdd, 95, 35);
+        lv_obj_set_size(btn_hdd, (int)width, 35);
         lv_obj_set_style_bg_color(btn_hdd, COLOR_INACTIVE, 0);
         lv_obj_set_style_border_width(btn_hdd, 0, 0);
         lv_obj_set_style_radius(btn_hdd, 3, 0);
         lv_obj_set_style_pad_all(btn_hdd, 0, 0);
-        lv_obj_align(btn_hdd, LV_ALIGN_LEFT_MID, 8 + i * 103, 0);
+        lv_obj_align(btn_hdd, LV_ALIGN_LEFT_MID, 8 + (int)(i * spacing), 0);
 
         lv_obj_add_event_cb(btn_hdd, ui_event_Screen_Overview_hdd_clicked, LV_EVENT_ALL, NULL);
 
         s_hdd_labels[i] = lv_label_create(btn_hdd);
-        lv_label_set_text(s_hdd_labels[i], hdd_labels_init[i]);
+        lv_label_set_text(s_hdd_labels[i], label_text);
         lv_obj_set_style_text_color(s_hdd_labels[i], COLOR_TEXT, 0);
         lv_obj_set_style_text_font(s_hdd_labels[i], &lv_font_montserrat_14, 0);
         lv_obj_center(s_hdd_labels[i]);
@@ -381,7 +394,7 @@ void ui_Screen_Overview_screen_destroy(void)
     s_bar_disk = NULL;
     s_label_disk_percent = NULL;
 
-    for (int i = 0; i < MAX_HDD_INDICATORS; i++) {
+    for (int i = 0; i < MAX_DISKS; i++) {
         s_hdd_leds[i] = NULL;
         s_hdd_labels[i] = NULL;
     }

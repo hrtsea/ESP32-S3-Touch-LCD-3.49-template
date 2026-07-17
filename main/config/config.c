@@ -1,4 +1,6 @@
 #include "config.h"
+#include "app_info.h"
+#include "event_bus.h"
 #include <string.h>
 #include "nvs_flash.h"
 #include "nvs.h"
@@ -334,6 +336,12 @@ void config_save_disk_config(uint8_t sata_count, uint8_t m2_count)
         return;
     }
 
+    if (sata_count > MAX_DISKS) sata_count = MAX_DISKS;
+    if (m2_count > MAX_DISKS) m2_count = MAX_DISKS;
+    if (sata_count + m2_count > MAX_DISKS) {
+        m2_count = MAX_DISKS - sata_count;
+    }
+
     nvs_set_u8(h, NVS_SATA_DISK_COUNT, sata_count);
     nvs_set_u8(h, NVS_M2_DISK_COUNT, m2_count);
 
@@ -342,6 +350,8 @@ void config_save_disk_config(uint8_t sata_count, uint8_t m2_count)
 
     g_config.sata_disk_count = sata_count;
     g_config.m2_disk_count = m2_count;
+
+    event_bus_publish(EVENT_DISK_CONFIG_CHANGED, NULL, 0);
 }
 
 void config_reset(void)

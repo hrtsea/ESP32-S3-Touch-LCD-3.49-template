@@ -2,6 +2,7 @@
 #define UI_SCREEN_OVERVIEW_H
 
 #include <lvgl.h>
+#include "../config/app_info.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,9 +26,8 @@ extern lv_meter_indicator_t *s_cpu_needle;
 extern lv_meter_indicator_t *s_temp_arc_val;
 extern lv_meter_indicator_t *s_temp_needle;
 
-#define MAX_HDD_INDICATORS 6
-extern lv_obj_t *s_hdd_leds[MAX_HDD_INDICATORS];
-extern lv_obj_t *s_hdd_labels[MAX_HDD_INDICATORS];
+extern lv_obj_t *s_hdd_leds[MAX_DISKS];
+extern lv_obj_t *s_hdd_labels[MAX_DISKS];
 
 extern lv_obj_t *s_label_time;
 extern lv_obj_t *s_label_up;

@@ -1,6 +1,7 @@
 #include "ui_events.h"
 
 #include <time.h>
+#include <math.h>
 #include "esp_log.h"
 #include "event_bus.h"
 #include "freertos/FreeRTOS.h"
@@ -23,6 +24,13 @@
 #define COLOR_CRITICAL  lv_color_make(0xff, 0x40, 0x40)
 #define COLOR_LED_GREEN lv_color_make(0x40, 0xff, 0x40)
 #define COLOR_LED_GRAY  lv_color_make(0x40, 0x40, 0x40)
+
+#define UI_UPDATE(code) do { \
+    if (lvgl_lock(50)) { \
+        code; \
+        lvgl_unlock(); \
+    } \
+} while(0)
 
 static const char *TAG = "ui_events";
 
@@ -107,66 +115,23 @@ static void dim_timer_cb(lv_timer_t *t)
     }
 }
 
-static void on_tick_1hz_evt(void)
+static void time_update_timer_cb(lv_timer_t *t)
 {
+    (void)t;
     time_t now_t = time(NULL);
     struct tm *tm_now = localtime(&now_t);
     static char time_str[9];
     snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", tm_now->tm_hour, tm_now->tm_min, tm_now->tm_sec);
     if (s_label_time != NULL) lv_label_set_text(s_label_time, time_str);
     if (s_storage_label_time != NULL) lv_label_set_text(s_storage_label_time, time_str);
+}
 
-    float tx_speed = data_source_get_tx_speed_mbps();
-    static char tx_str[16];
-    if (tx_speed < 0.01f) {
-        snprintf(tx_str, sizeof(tx_str), "▲ 0.00KB/s");
-    } else if (tx_speed < 1.0f) {
-        snprintf(tx_str, sizeof(tx_str), "▲ %.2fKB/s", tx_speed * 1024.0f);
-    } else {
-        snprintf(tx_str, sizeof(tx_str), "▲ %.2fMB/s", tx_speed);
-    }
-    if (s_label_up != NULL) lv_label_set_text(s_label_up, tx_str);
-    if (s_storage_label_up != NULL) lv_label_set_text(s_storage_label_up, tx_str);
-
-    float rx_speed = data_source_get_rx_speed_mbps();
-    static char rx_str[16];
-    if (rx_speed < 0.01f) {
-        snprintf(rx_str, sizeof(rx_str), "▼ 0.00KB/s");
-    } else if (rx_speed < 1.0f) {
-        snprintf(rx_str, sizeof(rx_str), "▼ %.2fKB/s", rx_speed * 1024.0f);
-    } else {
-        snprintf(rx_str, sizeof(rx_str), "▼ %.2fMB/s", rx_speed);
-    }
-    if (s_label_down != NULL) lv_label_set_text(s_label_down, rx_str);
-    if (s_storage_label_down != NULL) lv_label_set_text(s_storage_label_down, rx_str);
-
-    char ip_buf[16];
-    wifi_cfg_get_current_ip(ip_buf, sizeof(ip_buf));
-    static char ip_str[24];
-    if (ip_buf[0]) {
-        snprintf(ip_str, sizeof(ip_str), "IP: %s", ip_buf);
-    } else {
-        snprintf(ip_str, sizeof(ip_str), "IP: --");
-    }
-    if (s_label_ip != NULL) lv_label_set_text(s_label_ip, ip_str);
-    if (s_storage_label_ip != NULL) lv_label_set_text(s_storage_label_ip, ip_str);
-
-    if (s_icon_wifi != NULL) {
-        char ssid_buf[33];
-        wifi_cfg_get_current_ssid(ssid_buf, sizeof(ssid_buf));
-        if (wifi_cfg_is_connected()) {
-            lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0x80, 0xff, 0x80), 0);
-        } else if (ssid_buf[0]) {
-            lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0xff, 0xa0, 0x40), 0);
-        } else {
-            lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0x40, 0x40, 0x40), 0);
-        }
-    }
-
-    bool nas_connected = data_source_is_connected();
-    if (s_icon_bt != NULL) {
-        lv_obj_set_style_text_color(s_icon_bt, nas_connected ?
-            lv_color_make(0x80, 0xff, 0x80) : lv_color_make(0xff, 0x40, 0x40), 0);
+void ui_events_start_time_timer(void)
+{
+    static bool created = false;
+    if (!created) {
+        lv_timer_create(time_update_timer_cb, 1000, NULL);
+        created = true;
     }
 }
 
@@ -184,129 +149,237 @@ void ui_events_stop_dim_timer(void)
     }
 }
 
+static NasData s_last_nas_data = {0};
+
 static void on_nas_data_update_evt(const NasData *data)
 {
-    if (!data || !data->is_online) {
+    if (!data) {
         ESP_LOGW(TAG, "NAS data event with invalid data");
         return;
     }
 
-    ESP_LOGD(TAG, "Received NAS data update (cpu=%.1f%%, temp=%d°C, mem=%.1f%%)",
-             data->system.cpu_pct, data->system.temp_cpu, data->system.ram_pct);
+    ESP_LOGD(TAG, "Received NAS data update (cpu=%.1f%%, temp=%d°C, mem=%.1f%%, online=%d)",
+             data->system.cpu_pct, data->system.temp_cpu, data->system.ram_pct, data->is_online);
 
-    int cpu_pct = (int)data->system.cpu_pct;
-    int temp = data->system.temp_cpu;
-    int mem_pct = (int)data->system.ram_pct;
-    int disk_pct = 50;
+    if (data->is_online) {
+        int cpu_pct = (int)data->system.cpu_pct;
+        int temp = data->system.temp_cpu;
+        int mem_pct = (int)data->system.ram_pct;
+        int disk_pct = (int)data->system.disk_pct;
 
-    if (data->volume_count > 0) {
-        disk_pct = (int)data->volumes[0].used_pct;
-    } else if (data->disk_count > 0) {
-        disk_pct = (int)data->disks[0].used_pct;
-    }
+        if (s_meter_cpu && s_cpu_arc_val && s_cpu_needle && s_label_cpu_percent) {
+            cpu_pct = (cpu_pct < 0) ? 0 : (cpu_pct > 100) ? 100 : cpu_pct;
+            if (abs(cpu_pct - s_last_nas_data.system.cpu_pct) >= 2) {
+                lv_meter_set_indicator_end_value(s_meter_cpu, s_cpu_arc_val, cpu_pct);
+                lv_meter_set_indicator_value(s_meter_cpu, s_cpu_needle, cpu_pct);
+                static char cpu_str[8];
+                snprintf(cpu_str, sizeof(cpu_str), "%d%%", cpu_pct);
+                lv_label_set_text(s_label_cpu_percent, cpu_str);
+                s_last_nas_data.system.cpu_pct = cpu_pct;
+            }
+        }
 
-    if (s_meter_cpu && s_cpu_arc_val && s_cpu_needle && s_label_cpu_percent) {
-        cpu_pct = (cpu_pct < 0) ? 0 : (cpu_pct > 100) ? 100 : cpu_pct;
-        lv_meter_set_indicator_end_value(s_meter_cpu, s_cpu_arc_val, cpu_pct);
-        lv_meter_set_indicator_value(s_meter_cpu, s_cpu_needle, cpu_pct);
-        static char cpu_str[8];
-        snprintf(cpu_str, sizeof(cpu_str), "%d%%", cpu_pct);
-        lv_label_set_text(s_label_cpu_percent, cpu_str);
-    }
+        if (s_meter_temp && s_temp_arc_val && s_temp_needle && s_label_temp_val) {
+            temp = (temp < 0) ? 0 : (temp > 100) ? 100 : temp;
+            if (abs(temp - s_last_nas_data.system.temp_cpu) >= 1) {
+                lv_meter_set_indicator_end_value(s_meter_temp, s_temp_arc_val, temp);
+                lv_meter_set_indicator_value(s_meter_temp, s_temp_needle, temp);
+                static char temp_str[10];
+                snprintf(temp_str, sizeof(temp_str), "%d°C", temp);
+                lv_label_set_text(s_label_temp_val, temp_str);
+                s_last_nas_data.system.temp_cpu = temp;
+            }
+        }
 
-    if (s_meter_temp && s_temp_arc_val && s_temp_needle && s_label_temp_val) {
-        temp = (temp < 0) ? 0 : (temp > 100) ? 100 : temp;
-        lv_meter_set_indicator_end_value(s_meter_temp, s_temp_arc_val, temp);
-        lv_meter_set_indicator_value(s_meter_temp, s_temp_needle, temp);
-        static char temp_str[10];
-        snprintf(temp_str, sizeof(temp_str), "%d°C", temp);
-        lv_label_set_text(s_label_temp_val, temp_str);
-    }
+        if (s_bar_mem && s_label_mem_percent) {
+            mem_pct = (mem_pct < 0) ? 0 : (mem_pct > 100) ? 100 : mem_pct;
+            if (abs(mem_pct - s_last_nas_data.system.ram_pct) >= 2) {
+                lv_bar_set_value(s_bar_mem, mem_pct, LV_ANIM_ON);
+                static char mem_str[8];
+                snprintf(mem_str, sizeof(mem_str), "%d%%", mem_pct);
+                lv_label_set_text(s_label_mem_percent, mem_str);
+                s_last_nas_data.system.ram_pct = mem_pct;
+            }
+        }
 
-    if (s_bar_mem && s_label_mem_percent) {
-        mem_pct = (mem_pct < 0) ? 0 : (mem_pct > 100) ? 100 : mem_pct;
-        lv_bar_set_value(s_bar_mem, mem_pct, LV_ANIM_ON);
-        static char mem_str[8];
-        snprintf(mem_str, sizeof(mem_str), "%d%%", mem_pct);
-        lv_label_set_text(s_label_mem_percent, mem_str);
-    }
+        if (s_bar_disk && s_label_disk_percent) {
+            disk_pct = (disk_pct < 0) ? 0 : (disk_pct > 100) ? 100 : disk_pct;
+            if (abs(disk_pct - (int)s_last_nas_data.system.disk_pct) >= 1) {
+                lv_bar_set_value(s_bar_disk, disk_pct, LV_ANIM_ON);
+                static char disk_str[8];
+                snprintf(disk_str, sizeof(disk_str), "%d%%", disk_pct);
+                lv_label_set_text(s_label_disk_percent, disk_str);
+                s_last_nas_data.system.disk_pct = (float)disk_pct;
+            }
+        }
 
-    if (s_bar_disk && s_label_disk_percent) {
-        disk_pct = (disk_pct < 0) ? 0 : (disk_pct > 100) ? 100 : disk_pct;
-        lv_bar_set_value(s_bar_disk, disk_pct, LV_ANIM_ON);
-        static char disk_str[8];
-        snprintf(disk_str, sizeof(disk_str), "%d%%", disk_pct);
-        lv_label_set_text(s_label_disk_percent, disk_str);
-    }
+        uint8_t total_slots = config_get_total_disk_slots();
+        if (total_slots == 0) total_slots = 1;
 
-    for (int i = 0; i < MAX_HDD_INDICATORS; i++) {
-        if (s_hdd_leds[i] && i < data->disk_count) {
-            const NasDiskInfo *disk = &data->disks[i];
-            if (disk->health == HEALTH_OK) {
-                lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_LED_GREEN, 0);
-            } else if (disk->health == HEALTH_WARNING) {
-                lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_WARNING, 0);
-            } else if (disk->health == HEALTH_CRITICAL) {
-                lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_CRITICAL, 0);
+        for (int i = 0; i < total_slots; i++) {
+            if (s_hdd_leds[i] && i < data->disk_slot_count) {
+                const NasDiskInfo *disk = &data->disks[i];
+                if (disk->online) {
+                    if (s_last_nas_data.disks[i].health != disk->health) {
+                        if (disk->health == HEALTH_OK) {
+                            lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_LED_GREEN, 0);
+                        } else if (disk->health == HEALTH_WARNING) {
+                            lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_WARNING, 0);
+                        } else if (disk->health == HEALTH_CRITICAL) {
+                            lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_CRITICAL, 0);
+                        } else {
+                            lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_LED_GRAY, 0);
+                        }
+                        s_last_nas_data.disks[i].health = disk->health;
+                    }
+                    if (s_hdd_labels[i]) {
+                        const char *name = disk->name[0] ? disk->name : "HDD";
+                        if (strcmp(name, s_last_nas_data.disks[i].name) != 0) {
+                            lv_label_set_text_fmt(s_hdd_labels[i], "%s", name);
+                            strncpy(s_last_nas_data.disks[i].name, name, sizeof(s_last_nas_data.disks[i].name));
+                        }
+                    }
+                } else {
+                    if (s_last_nas_data.disks[i].online != 0) {
+                        lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_LED_GRAY, 0);
+                        s_last_nas_data.disks[i].online = 0;
+                    }
+                }
+            }
+        }
+
+        for (int i = 0; i < MAX_DISKS; i++) {
+            if (i < data->disk_slot_count) {
+                const NasDiskInfo *disk = &data->disks[i];
+
+                if (s_hdd_names[i]) {
+                    const char *name = disk->name[0] ? disk->name : "HDD";
+                    if (strcmp(name, s_last_nas_data.disks[i].name) != 0) {
+                        lv_label_set_text(s_hdd_names[i], name);
+                        strncpy(s_last_nas_data.disks[i].name, name, sizeof(s_last_nas_data.disks[i].name));
+                    }
+                }
+
+                if (s_hdd_bars[i]) {
+                    int pct = (disk->used_pct > 100) ? 100 : disk->used_pct;
+                    if (abs(pct - s_last_nas_data.disks[i].used_pct) >= 2) {
+                        lv_bar_set_value(s_hdd_bars[i], pct, LV_ANIM_ON);
+                        s_last_nas_data.disks[i].used_pct = pct;
+                    }
+
+                    lv_color_t color = COLOR_PRIMARY;
+                    if (disk->health == HEALTH_WARNING) {
+                        color = COLOR_WARNING;
+                    } else if (disk->health == HEALTH_CRITICAL) {
+                        color = COLOR_CRITICAL;
+                    }
+                    if (s_last_nas_data.disks[i].health != disk->health) {
+                        lv_obj_set_style_bg_color(s_hdd_bars[i], color, LV_PART_INDICATOR);
+                        s_last_nas_data.disks[i].health = disk->health;
+                    }
+                }
+
+                if (s_hdd_percents[i]) {
+                    int pct = (disk->used_pct > 100) ? 100 : disk->used_pct;
+                    if (abs(pct - s_last_nas_data.disks[i].used_pct) >= 2) {
+                        static char pct_str[8];
+                        snprintf(pct_str, sizeof(pct_str), "%d%%", pct);
+                        lv_label_set_text(s_hdd_percents[i], pct_str);
+                    }
+                }
+
+                if (s_hdd_temps[i]) {
+                    if (disk->temp > 0) {
+                        static char temp_str[16];
+                        snprintf(temp_str, sizeof(temp_str), "%d°C", disk->temp);
+                        if (abs(disk->temp - s_last_nas_data.disks[i].temp) >= 1) {
+                            lv_label_set_text(s_hdd_temps[i], temp_str);
+                            s_last_nas_data.disks[i].temp = disk->temp;
+                        }
+                    } else {
+                        lv_label_set_text(s_hdd_temps[i], "--°C");
+                    }
+                }
+
+                if (disk->online && s_last_nas_data.disks[i].online != 1) {
+                    if (s_hdd_names[i]) lv_obj_clear_flag(s_hdd_names[i], LV_OBJ_FLAG_HIDDEN);
+                    if (s_hdd_bars[i]) lv_obj_clear_flag(s_hdd_bars[i], LV_OBJ_FLAG_HIDDEN);
+                    if (s_hdd_percents[i]) lv_obj_clear_flag(s_hdd_percents[i], LV_OBJ_FLAG_HIDDEN);
+                    if (s_hdd_temps[i]) lv_obj_clear_flag(s_hdd_temps[i], LV_OBJ_FLAG_HIDDEN);
+                    s_last_nas_data.disks[i].online = 1;
+                } else if (!disk->online && s_last_nas_data.disks[i].online != 0) {
+                    if (s_hdd_names[i]) lv_obj_add_flag(s_hdd_names[i], LV_OBJ_FLAG_HIDDEN);
+                    if (s_hdd_bars[i]) lv_obj_add_flag(s_hdd_bars[i], LV_OBJ_FLAG_HIDDEN);
+                    if (s_hdd_percents[i]) lv_obj_add_flag(s_hdd_percents[i], LV_OBJ_FLAG_HIDDEN);
+                    if (s_hdd_temps[i]) lv_obj_add_flag(s_hdd_temps[i], LV_OBJ_FLAG_HIDDEN);
+                    s_last_nas_data.disks[i].online = 0;
+                }
+            }
+        }
+
+        float tx_speed = (float)data->network.tx_bps / 8000000.0f;
+        if (fabs(tx_speed - s_last_nas_data.network.tx_bps) >= 0.05f) {
+            static char tx_str[16];
+            if (tx_speed < 0.01f) {
+                snprintf(tx_str, sizeof(tx_str), "▲ 0.00KB/s");
+            } else if (tx_speed < 1.0f) {
+                snprintf(tx_str, sizeof(tx_str), "▲ %.2fKB/s", tx_speed * 1024.0f);
             } else {
-                lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_LED_GRAY, 0);
+                snprintf(tx_str, sizeof(tx_str), "▲ %.2fMB/s", tx_speed);
             }
-            if (s_hdd_labels[i]) {
-                lv_label_set_text_fmt(s_hdd_labels[i], "%s", disk->name[0] ? disk->name : "HDD");
+            if (s_label_up != NULL) lv_label_set_text(s_label_up, tx_str);
+            if (s_storage_label_up != NULL) lv_label_set_text(s_storage_label_up, tx_str);
+            s_last_nas_data.network.tx_bps = tx_speed;
+        }
+
+        float rx_speed = (float)data->network.rx_bps / 8000000.0f;
+        if (fabs(rx_speed - s_last_nas_data.network.rx_bps) >= 0.05f) {
+            static char rx_str[16];
+            if (rx_speed < 0.01f) {
+                snprintf(rx_str, sizeof(rx_str), "▼ 0.00KB/s");
+            } else if (rx_speed < 1.0f) {
+                snprintf(rx_str, sizeof(rx_str), "▼ %.2fKB/s", rx_speed * 1024.0f);
+            } else {
+                snprintf(rx_str, sizeof(rx_str), "▼ %.2fMB/s", rx_speed);
             }
-        } else if (s_hdd_leds[i]) {
-            lv_obj_set_style_bg_color(s_hdd_leds[i], COLOR_LED_GRAY, 0);
+            if (s_label_down != NULL) lv_label_set_text(s_label_down, rx_str);
+            if (s_storage_label_down != NULL) lv_label_set_text(s_storage_label_down, rx_str);
+            s_last_nas_data.network.rx_bps = rx_speed;
         }
     }
 
-    for (int i = 0; i < MAX_HDD_BARS; i++) {
-        if (i < data->disk_count) {
-            const NasDiskInfo *disk = &data->disks[i];
+    if (s_icon_bt != NULL) {
+        bool prev_online = s_last_nas_data.is_online;
+        if (data->is_online != prev_online) {
+            lv_obj_set_style_text_color(s_icon_bt, data->is_online ?
+                lv_color_make(0x80, 0xff, 0x80) : lv_color_make(0xff, 0x40, 0x40), 0);
+            s_last_nas_data.is_online = data->is_online;
+        }
+    }
+}
 
-            if (s_hdd_names[i]) {
-                const char *name = disk->name[0] ? disk->name : "HDD";
-                lv_label_set_text(s_hdd_names[i], name);
-            }
+static void on_wifi_state_changed(bool connected)
+{
+    char ip_buf[16];
+    wifi_cfg_get_current_ip(ip_buf, sizeof(ip_buf));
+    static char ip_str[24];
+    if (ip_buf[0]) {
+        snprintf(ip_str, sizeof(ip_str), "IP: %s", ip_buf);
+    } else {
+        snprintf(ip_str, sizeof(ip_str), "IP: --");
+    }
+    if (s_label_ip != NULL) lv_label_set_text(s_label_ip, ip_str);
+    if (s_storage_label_ip != NULL) lv_label_set_text(s_storage_label_ip, ip_str);
 
-            if (s_hdd_bars[i]) {
-                int pct = (disk->used_pct > 100) ? 100 : disk->used_pct;
-                lv_bar_set_value(s_hdd_bars[i], pct, LV_ANIM_ON);
-
-                lv_color_t color = COLOR_PRIMARY;
-                if (disk->health == HEALTH_WARNING) {
-                    color = COLOR_WARNING;
-                } else if (disk->health == HEALTH_CRITICAL) {
-                    color = COLOR_CRITICAL;
-                }
-                lv_obj_set_style_bg_color(s_hdd_bars[i], color, LV_PART_INDICATOR);
-            }
-
-            if (s_hdd_percents[i]) {
-                int pct = (disk->used_pct > 100) ? 100 : disk->used_pct;
-                static char pct_str[8];
-                snprintf(pct_str, sizeof(pct_str), "%d%%", pct);
-                lv_label_set_text(s_hdd_percents[i], pct_str);
-            }
-
-            if (s_hdd_temps[i]) {
-                if (disk->temp > 0) {
-                    static char temp_str[16];
-                    snprintf(temp_str, sizeof(temp_str), "%d°C", disk->temp);
-                    lv_label_set_text(s_hdd_temps[i], temp_str);
-                } else {
-                    lv_label_set_text(s_hdd_temps[i], "--°C");
-                }
-            }
-
-            if (s_hdd_names[i]) lv_obj_clear_flag(s_hdd_names[i], LV_OBJ_FLAG_HIDDEN);
-            if (s_hdd_bars[i]) lv_obj_clear_flag(s_hdd_bars[i], LV_OBJ_FLAG_HIDDEN);
-            if (s_hdd_percents[i]) lv_obj_clear_flag(s_hdd_percents[i], LV_OBJ_FLAG_HIDDEN);
-            if (s_hdd_temps[i]) lv_obj_clear_flag(s_hdd_temps[i], LV_OBJ_FLAG_HIDDEN);
+    if (s_icon_wifi != NULL) {
+        char ssid_buf[33];
+        wifi_cfg_get_current_ssid(ssid_buf, sizeof(ssid_buf));
+        if (connected) {
+            lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0x80, 0xff, 0x80), 0);
+        } else if (ssid_buf[0]) {
+            lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0xff, 0xa0, 0x40), 0);
         } else {
-            if (s_hdd_names[i]) lv_obj_add_flag(s_hdd_names[i], LV_OBJ_FLAG_HIDDEN);
-            if (s_hdd_bars[i]) lv_obj_add_flag(s_hdd_bars[i], LV_OBJ_FLAG_HIDDEN);
-            if (s_hdd_percents[i]) lv_obj_add_flag(s_hdd_percents[i], LV_OBJ_FLAG_HIDDEN);
-            if (s_hdd_temps[i]) lv_obj_add_flag(s_hdd_temps[i], LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_style_text_color(s_icon_wifi, lv_color_make(0x40, 0x40, 0x40), 0);
         }
     }
 }
@@ -323,46 +396,69 @@ static void task_ui_event_loop(void *arg)
         }
 
         switch (evt.id) {
-            case EVENT_TICK_1HZ:
-                on_tick_1hz_evt();
-                break;
-
             case EVENT_NAS_DATA_UPDATE:
                 if (evt.data && evt.data_len >= sizeof(NasData)) {
-                    on_nas_data_update_evt((const NasData *)evt.data);
+                    UI_UPDATE(on_nas_data_update_evt((const NasData *)evt.data));
                 }
+                break;
+
+            case EVENT_WIFI_CONNECTED:
+                UI_UPDATE(on_wifi_state_changed(true));
+                break;
+
+            case EVENT_WIFI_DISCONNECTED:
+                UI_UPDATE(on_wifi_state_changed(false));
                 break;
 
             case EVENT_BACKLIGHT_CHANGED:
                 if (evt.data && evt.data_len >= sizeof(uint8_t)) {
                     uint8_t bri = *(uint8_t *)evt.data;
-                    if (ui_helpers_get_dim_state() == 0) {
-                        ui_helpers_backlight_apply(bri);
-                    }
+                    UI_UPDATE(
+                        if (ui_helpers_get_dim_state() == 0) {
+                            ui_helpers_backlight_apply(bri);
+                        }
+                    );
                 }
                 break;
 
             case EVENT_SHOW_FPS_CHANGED:
                 if (evt.data && evt.data_len >= sizeof(uint8_t)) {
                     uint8_t show = *(uint8_t *)evt.data;
-                    lv_obj_t *fps_lbl = disp_driver_get_fps_label();
-                    if (fps_lbl) {
-                        if (show) lv_obj_clear_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
-                        else lv_obj_add_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
-                    }
+                    UI_UPDATE(
+                        lv_obj_t *fps_lbl = disp_driver_get_fps_label();
+                        if (fps_lbl) {
+                            if (show) lv_obj_clear_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
+                            else lv_obj_add_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
+                        }
+                    );
                 }
                 break;
 
             case EVENT_TILE_CHANGED:
                 if (evt.data && evt.data_len >= sizeof(int)) {
                     int idx = *(int *)evt.data;
-                    lv_obj_t *tv = ui_helpers_get_tileview();
-                    if (tv) {
-                        if (idx < 0) idx = 0;
-                        if (idx > 5) idx = 5;
-                        lv_obj_set_tile_id(tv, idx, 0, LV_ANIM_OFF);
-                    }
+                    UI_UPDATE(
+                        lv_obj_t *tv = ui_helpers_get_tileview();
+                        if (tv) {
+                            if (idx < 0) idx = 0;
+                            if (idx > 5) idx = 5;
+                            lv_obj_set_tile_id(tv, idx, 0, LV_ANIM_OFF);
+                        }
+                    );
                 }
+                break;
+
+            case EVENT_DISK_CONFIG_CHANGED:
+                UI_UPDATE(
+                    if (ui_Screen_Overview) {
+                        ui_Screen_Overview_screen_destroy();
+                        ui_Screen_Overview_screen_init();
+                    }
+                    if (ui_Screen_Storage) {
+                        ui_Screen_Storage_screen_destroy();
+                        ui_Screen_Storage_screen_init();
+                    }
+                );
                 break;
 
             case EVENT_CFG_CHANGED:
@@ -392,6 +488,8 @@ void ui_events_start(void)
 
     s_running = true;
     xTaskCreate(task_ui_event_loop, "ui_event_loop", 8192, NULL, 1, &s_ui_task_hdl);
+
+    ui_events_start_time_timer();
 
     ESP_LOGI(TAG, "UI event loop started");
 }
