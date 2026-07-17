@@ -3,6 +3,8 @@
 #include <time.h>
 #include "esp_log.h"
 #include "event_bus.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "disp_driver.h"
 #include "esp_wifi_config.h"
 #include "wifi_adapter.h"
@@ -28,6 +30,9 @@ static lv_timer_t *s_dim_timer = NULL;
 static lv_obj_t *s_ip_label = NULL;
 
 static int s_current_tile_idx = 0;
+
+static TaskHandle_t s_ui_task_hdl = NULL;
+static bool s_running = false;
 
 extern lv_obj_t *s_meter_cpu;
 extern lv_obj_t *s_meter_temp;
@@ -102,13 +107,8 @@ static void dim_timer_cb(lv_timer_t *t)
     }
 }
 
-static void on_tick_1hz_evt(const event_t *evt, void *user_data)
+static void on_tick_1hz_evt(void)
 {
-    (void)evt;
-    (void)user_data;
-
-    if (!lvgl_lock(50)) return;
-
     time_t now_t = time(NULL);
     struct tm *tm_now = localtime(&now_t);
     static char time_str[9];
@@ -168,8 +168,6 @@ static void on_tick_1hz_evt(const event_t *evt, void *user_data)
         lv_obj_set_style_text_color(s_icon_bt, nas_connected ?
             lv_color_make(0x80, 0xff, 0x80) : lv_color_make(0xff, 0x40, 0x40), 0);
     }
-
-    lvgl_unlock();
 }
 
 void ui_events_start_dim_timer(void)
@@ -186,66 +184,8 @@ void ui_events_stop_dim_timer(void)
     }
 }
 
-static void on_backlight_changed_evt(const event_t *evt, void *user_data)
+static void on_nas_data_update_evt(const NasData *data)
 {
-    (void)user_data;
-    if (!evt || !evt->data || evt->data_len < sizeof(uint8_t)) return;
-    uint8_t bri = *(uint8_t *)evt->data;
-    if (ui_helpers_get_dim_state() == 0) {
-        ui_helpers_backlight_apply(bri);
-    }
-}
-
-static void on_show_fps_changed_evt(const event_t *evt, void *user_data)
-{
-    (void)user_data;
-    if (!evt || !evt->data || evt->data_len < sizeof(uint8_t)) return;
-    uint8_t show = *(uint8_t *)evt->data;
-    lv_obj_t *fps_lbl = disp_driver_get_fps_label();
-    if (fps_lbl) {
-        if (show) lv_obj_clear_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
-        else      lv_obj_add_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
-    }
-}
-
-static void on_tile_changed_evt(const event_t *evt, void *user_data)
-{
-    (void)user_data;
-    if (!evt || !evt->data || evt->data_len < sizeof(int)) return;
-    int idx = *(int *)evt->data;
-    lv_obj_t *tv = ui_helpers_get_tileview();
-    if (!tv) return;
-    if (idx < 0) idx = 0;
-    if (idx > 5) idx = 5;
-    lv_obj_set_tile_id(tv, idx, 0, LV_ANIM_OFF);
-}
-
-static void on_cfg_changed_evt(const event_t *evt, void *user_data)
-{
-    (void)user_data;
-    if (!evt || !evt->data || evt->data_len < sizeof(cfg_change_info_t)) return;
-    const cfg_change_info_t *info = (const cfg_change_info_t *)evt->data;
-    switch (info->field) {
-        case CFG_FIELD_BG_MODE:
-            if (g_cfg.bg_mode == 2) bg_fetcher_ensure();
-            break;
-        case CFG_FIELD_BG_URL:
-            if (g_cfg.bg_mode == 2) bg_fetcher_ensure();
-            break;
-        default:
-            break;
-    }
-}
-
-static void on_nas_data_update_evt(const event_t *evt, void *user_data)
-{
-    (void)user_data;
-    if (!evt || evt->id != EVENT_NAS_DATA_UPDATE) {
-        ESP_LOGW(TAG, "Invalid NAS data event");
-        return;
-    }
-
-    const NasData *data = (const NasData *)evt->data;
     if (!data || !data->is_online) {
         ESP_LOGW(TAG, "NAS data event with invalid data");
         return;
@@ -253,11 +193,6 @@ static void on_nas_data_update_evt(const event_t *evt, void *user_data)
 
     ESP_LOGD(TAG, "Received NAS data update (cpu=%.1f%%, temp=%d°C, mem=%.1f%%)",
              data->system.cpu_pct, data->system.temp_cpu, data->system.ram_pct);
-
-    if (!lvgl_lock(50)) {
-        ESP_LOGD(TAG, "LVGL lock failed, skipping UI update");
-        return;
-    }
 
     int cpu_pct = (int)data->system.cpu_pct;
     int temp = data->system.temp_cpu;
@@ -374,28 +309,107 @@ static void on_nas_data_update_evt(const event_t *evt, void *user_data)
             if (s_hdd_temps[i]) lv_obj_add_flag(s_hdd_temps[i], LV_OBJ_FLAG_HIDDEN);
         }
     }
-
-    lvgl_unlock();
 }
 
-void ui_events_subscribe_events(void)
+static void task_ui_event_loop(void *arg)
 {
-    event_bus_subscribe(EVENT_BACKLIGHT_CHANGED, on_backlight_changed_evt, NULL);
-    event_bus_subscribe(EVENT_SHOW_FPS_CHANGED, on_show_fps_changed_evt, NULL);
-    event_bus_subscribe(EVENT_TILE_CHANGED, on_tile_changed_evt, NULL);
-    event_bus_subscribe(EVENT_NAS_DATA_UPDATE, on_nas_data_update_evt, NULL);
-    event_bus_subscribe(EVENT_CFG_CHANGED, on_cfg_changed_evt, NULL);
-    event_bus_subscribe(EVENT_TICK_1HZ, on_tick_1hz_evt, NULL);
+    (void)arg;
+    ESP_LOGI(TAG, "UI event loop task started");
+
+    while (s_running) {
+        event_t evt;
+        if (!event_bus_receive(&evt, portMAX_DELAY)) {
+            continue;
+        }
+
+        switch (evt.id) {
+            case EVENT_TICK_1HZ:
+                on_tick_1hz_evt();
+                break;
+
+            case EVENT_NAS_DATA_UPDATE:
+                if (evt.data && evt.data_len >= sizeof(NasData)) {
+                    on_nas_data_update_evt((const NasData *)evt.data);
+                }
+                break;
+
+            case EVENT_BACKLIGHT_CHANGED:
+                if (evt.data && evt.data_len >= sizeof(uint8_t)) {
+                    uint8_t bri = *(uint8_t *)evt.data;
+                    if (ui_helpers_get_dim_state() == 0) {
+                        ui_helpers_backlight_apply(bri);
+                    }
+                }
+                break;
+
+            case EVENT_SHOW_FPS_CHANGED:
+                if (evt.data && evt.data_len >= sizeof(uint8_t)) {
+                    uint8_t show = *(uint8_t *)evt.data;
+                    lv_obj_t *fps_lbl = disp_driver_get_fps_label();
+                    if (fps_lbl) {
+                        if (show) lv_obj_clear_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
+                        else lv_obj_add_flag(fps_lbl, LV_OBJ_FLAG_HIDDEN);
+                    }
+                }
+                break;
+
+            case EVENT_TILE_CHANGED:
+                if (evt.data && evt.data_len >= sizeof(int)) {
+                    int idx = *(int *)evt.data;
+                    lv_obj_t *tv = ui_helpers_get_tileview();
+                    if (tv) {
+                        if (idx < 0) idx = 0;
+                        if (idx > 5) idx = 5;
+                        lv_obj_set_tile_id(tv, idx, 0, LV_ANIM_OFF);
+                    }
+                }
+                break;
+
+            case EVENT_CFG_CHANGED:
+                if (evt.data && evt.data_len >= sizeof(cfg_change_info_t)) {
+                    const cfg_change_info_t *info = (const cfg_change_info_t *)evt.data;
+                    if (info->field == CFG_FIELD_BG_MODE || info->field == CFG_FIELD_BG_URL) {
+                        if (g_cfg.bg_mode == 2) bg_fetcher_ensure();
+                    }
+                }
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    ESP_LOGI(TAG, "UI event loop task stopping");
+    vTaskDelete(NULL);
 }
 
-void ui_events_unsubscribe_events(void)
+void ui_events_start(void)
 {
-    event_bus_unsubscribe(EVENT_BACKLIGHT_CHANGED, on_backlight_changed_evt);
-    event_bus_unsubscribe(EVENT_SHOW_FPS_CHANGED, on_show_fps_changed_evt);
-    event_bus_unsubscribe(EVENT_TILE_CHANGED, on_tile_changed_evt);
-    event_bus_unsubscribe(EVENT_NAS_DATA_UPDATE, on_nas_data_update_evt);
-    event_bus_unsubscribe(EVENT_CFG_CHANGED, on_cfg_changed_evt);
-    event_bus_unsubscribe(EVENT_TICK_1HZ, on_tick_1hz_evt);
+    if (s_running) {
+        ESP_LOGW(TAG, "UI event loop already running");
+        return;
+    }
+
+    s_running = true;
+    xTaskCreate(task_ui_event_loop, "ui_event_loop", 8192, NULL, 1, &s_ui_task_hdl);
+
+    ESP_LOGI(TAG, "UI event loop started");
+}
+
+void ui_events_stop(void)
+{
+    if (!s_running) {
+        return;
+    }
+
+    s_running = false;
+
+    if (s_ui_task_hdl != NULL) {
+        vTaskDelete(s_ui_task_hdl);
+        s_ui_task_hdl = NULL;
+    }
+
+    ESP_LOGI(TAG, "UI event loop stopped");
 }
 
 static void tileview_gesture_cb(lv_event_t *e)

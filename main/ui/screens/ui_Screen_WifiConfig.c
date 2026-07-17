@@ -105,7 +105,8 @@ static void s_on_wifi_event(const event_t *evt, void *user_data)
         lv_timer_t *timer = lv_timer_create(s_wifi_connected_timer_cb, 100, NULL);
         if (timer) return;
     }
-    wifi_config_refresh_status();
+    lv_timer_t *timer = lv_timer_create((lv_timer_cb_t)wifi_config_refresh_status, 0, NULL);
+    (void)timer;
 }
 
 static void kb_close(void)

@@ -144,21 +144,21 @@ static void wifi_tab_refresh_status(void)
 static void s_on_wifi_event(const event_t *evt, void *user_data)
 {
     (void)user_data;
-    if (!lvgl_lock(100)) return;
-
     switch (evt->id) {
-        case EVENT_WIFI_SCAN_DONE:
-            wifi_tab_refresh_list();
+        case EVENT_WIFI_SCAN_DONE: {
+            lv_timer_t *timer = lv_timer_create((lv_timer_cb_t)wifi_tab_refresh_list, 0, NULL);
+            (void)timer;
             break;
+        }
         case EVENT_WIFI_CONNECTED:
-        case EVENT_WIFI_DISCONNECTED:
-            wifi_tab_refresh_status();
+        case EVENT_WIFI_DISCONNECTED: {
+            lv_timer_t *timer = lv_timer_create((lv_timer_cb_t)wifi_tab_refresh_status, 0, NULL);
+            (void)timer;
             break;
+        }
         default:
             break;
     }
-
-    lvgl_unlock();
 }
 
 void ui_Screen_Settings_WifiTab_init(lv_obj_t *parent)
