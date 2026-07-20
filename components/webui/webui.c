@@ -37,6 +37,8 @@
 #include "recorder.h"
 #include "radio.h"
 #include "sdcard_bsp.h"
+#include "config.h"       /* g_config, config_save_* */
+#include "fan_control.h"  /* FanConfig */
 
 /* ── Basic Auth configuration ──────────────────────────────────── */
 
@@ -330,6 +332,97 @@ static const char k_index_html[] =
 "<section><h2>Recordings</h2>\n"
 " <table id=tbl><tr><th>name</th><th>size</th><th>dur</th><th></th></tr></table>\n"
 "</section>\n"
+"<section id=devsettings><h2>Device Settings</h2>\n"
+" <div id=dsstat class=meta>Load settings...</div>\n"
+" <h3 style='margin:12px 0 6px;font-size:14px;color:#aac'>WiFi</h3>\n"
+" <label>SSID</label>\n"
+" <input id=cf_ssid type=text maxlength=32 style='width:100%;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px'>\n"
+" <label>Password (leave blank to keep current)</label>\n"
+" <input id=cf_wifipass type=password maxlength=64 style='width:100%;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px'>\n"
+" <h3 style='margin:12px 0 6px;font-size:14px;color:#aac'>NAS Connection</h3>\n"
+" <label>NAS type</label>\n"
+" <select id=cf_nas_type style='width:100%;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px'>\n"
+"  <option value=mock>Mock (test)</option><option value=synology>Synology DSM</option>\n"
+"  <option value=qnap>QNAP QTS</option><option value=truenas>TrueNAS</option>\n"
+"  <option value=fnos>FNOS</option><option value=unraid>Unraid</option>\n"
+"  <option value=netdata>Netdata</option><option value=snmp>SNMP</option>\n"
+"  <option value=linux_http>Linux (HTTP)</option><option value=linux_serial>Linux (Serial)</option>\n"
+"  <option value=windows>Windows</option>\n"
+" </select>\n"
+" <label>IP / Host</label>\n"
+" <input id=cf_nas_ip type=text maxlength=39 style='width:100%;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px'>\n"
+" <label>Port</label>\n"
+" <input id=cf_nas_port type=number min=1 max=65535 style='width:120px'>\n"
+" <label>Username</label>\n"
+" <input id=cf_nas_user type=text maxlength=31 style='width:100%;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px'>\n"
+" <label>Password (leave blank to keep current)</label>\n"
+" <input id=cf_nas_pass type=password maxlength=64 style='width:100%;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px'>\n"
+" <label>HTTPS <input id=cf_nas_https type=checkbox></label>\n"
+" <label>SNMP community</label>\n"
+" <input id=cf_snmp_comm type=text maxlength=31 style='width:100%;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px'>\n"
+" <label>SNMP version</label>\n"
+" <select id=cf_snmp_ver style='width:120px;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px'>\n"
+"  <option value=1>1</option><option value=2>2</option><option value=3>3</option>\n"
+" </select>\n"
+" <label>Serial baud</label>\n"
+" <input id=cf_serial_baud type=number style='width:120px'>\n"
+" <h3 style='margin:12px 0 6px;font-size:14px;color:#aac'>Display</h3>\n"
+" <label>Poll interval (s, 1-30)</label>\n"
+" <input id=cf_poll_sec type=number min=1 max=30 style='width:120px'>\n"
+" <label>Rotation angle</label>\n"
+" <select id=cf_rotation style='width:120px;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px'>\n"
+"  <option value=0>0</option><option value=90>90</option><option value=180>180</option><option value=270>270</option>\n"
+" </select>\n"
+" <label>Auto dim <input id=cf_autodim type=checkbox></label>\n"
+" <h3 style='margin:12px 0 6px;font-size:14px;color:#aac'>Disk Slots</h3>\n"
+" <label>SATA disk count (0-16)</label>\n"
+" <input id=cf_sata type=number min=0 max=16 style='width:120px'>\n"
+" <label>M.2 disk count (0-16)</label>\n"
+" <input id=cf_m2 type=number min=0 max=16 style='width:120px'>\n"
+" <h3 style='margin:12px 0 6px;font-size:14px;color:#aac'>Time & Weather</h3>\n"
+" <label>Timezone (-12 to 14)</label>\n"
+" <input id=cf_tz type=number min=-12 max=14 style='width:120px'>\n"
+" <label>Auto cycle enabled <input id=cf_cycle_en type=checkbox></label>\n"
+" <label>Auto cycle interval (s)</label>\n"
+" <input id=cf_cycle_int type=number min=1 max=300 style='width:120px'>\n"
+" <label>Weather API key</label>\n"
+" <input id=cf_wkey type=text maxlength=64 style='width:100%;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px'>\n"
+" <label>Weather city</label>\n"
+" <input id=cf_wcity type=text maxlength=31 style='width:100%;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px'>\n"
+" <h3 style='margin:12px 0 6px;font-size:14px;color:#aac'>Fan</h3>\n"
+" <label>Enabled <input id=cf_fan_en type=checkbox></label>\n"
+" <label>Mode\n"
+" <select id=cf_fan_mode style='width:120px;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px'>\n"
+"  <option value=0>Auto</option><option value=1>Manual</option>\n"
+" </select></label>\n"
+" <label>Manual PWM % <input id=cf_fan_manual type=range min=0 max=100></label>\n"
+" <label>Temp source\n"
+" <select id=cf_fan_tsrc style='width:120px;background:#111;color:#eee;border:1px solid #333;padding:6px;border-radius:4px'>\n"
+"  <option value=0>Max CPU+Sys</option><option value=1>Avg CPU+Sys</option>\n"
+"  <option value=2>CPU only</option><option value=3>Sys only</option>\n"
+" </select></label>\n"
+" <label>Hysteresis</label>\n"
+" <input id=cf_fan_hyst type=number style='width:120px'>\n"
+" <label>Min change %</label>\n"
+" <input id=cf_fan_minchg type=number style='width:120px'>\n"
+" <label>Min PWM %</label>\n"
+" <input id=cf_fan_minpwm type=range min=0 max=100>\n"
+" <label>Emergency temp</label>\n"
+" <input id=cf_fan_emerg type=number style='width:120px'>\n"
+" <label>Stall detect (s)</label>\n"
+" <input id=cf_fan_stall type=number style='width:120px'>\n"
+" <label>Ramp time (ms)</label>\n"
+" <input id=cf_fan_ramp type=number style='width:120px'>\n"
+" <label>Fan curve (5 points: temp &rarr; PWM %)</label>\n"
+" <div id=cf_fan_curve style='display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:4px'>\n"
+"  <input id=cf_fc0t type=number placeholder='t0'><input id=cf_fc0p type=number placeholder='p0'>\n"
+"  <input id=cf_fc1t type=number placeholder='t1'><input id=cf_fc1p type=number placeholder='p1'>\n"
+"  <input id=cf_fc2t type=number placeholder='t2'><input id=cf_fc2p type=number placeholder='p2'>\n"
+"  <input id=cf_fc3t type=number placeholder='t3'><input id=cf_fc3p type=number placeholder='p3'>\n"
+"  <input id=cf_fc4t type=number placeholder='t4'><input id=cf_fc4p type=number placeholder='p4'>\n"
+" </div>\n"
+" <button id=cfsave style='margin-top:10px'>Save Settings</button>\n"
+"</section>\n"
 "<script>\n"
 "let rr=1.0;\n"
 "function f(p,o){return fetch(p,o).then(r=>r.json?r.json().catch(()=>{}):r)}\n"
@@ -515,6 +608,84 @@ static const char k_index_html[] =
 "};\n"
 "setWifiAuth('admin','admin');\n"
 "setInterval(loadWifiStatus,5000);loadWifiStatus();loadWifiNetworks();\n"
+"/* Device Settings: load + save */\n"
+"function loadSettings(){fetch('/api/settings').then(r=>r.json()).then(j=>{\n"
+" document.getElementById('cf_ssid').value=j.wifi_ssid||'';\n"
+" document.getElementById('cf_nas_type').value=j.nas_type||'mock';\n"
+" document.getElementById('cf_nas_ip').value=j.nas_ip||'';\n"
+" document.getElementById('cf_nas_port').value=j.nas_port||0;\n"
+" document.getElementById('cf_nas_user').value=j.nas_user||'';\n"
+" document.getElementById('cf_snmp_comm').value=j.snmp_comm||'';\n"
+" document.getElementById('cf_snmp_ver').value=j.snmp_ver||2;\n"
+" document.getElementById('cf_serial_baud').value=j.serial_baud||115200;\n"
+" document.getElementById('cf_poll_sec').value=j.poll_sec||5;\n"
+" document.getElementById('cf_rotation').value=j.rotation_angle||0;\n"
+" document.getElementById('cf_autodim').checked=!!j.autodim;\n"
+" document.getElementById('cf_nas_https').checked=!!j.nas_https;\n"
+" document.getElementById('cf_tz').value=j.timezone||0;\n"
+" document.getElementById('cf_cycle_en').checked=!!j.auto_cycle_enabled;\n"
+" document.getElementById('cf_cycle_int').value=j.auto_cycle_interval_sec||10;\n"
+" document.getElementById('cf_sata').value=j.sata_disk_count||0;\n"
+" document.getElementById('cf_m2').value=j.m2_disk_count||0;\n"
+" document.getElementById('cf_wkey').value=j.weather_api_key||'';\n"
+" document.getElementById('cf_wcity').value=j.weather_city||'';\n"
+" document.getElementById('cf_fan_en').checked=!!j.fan_enabled;\n"
+" document.getElementById('cf_fan_mode').value=j.fan_mode||0;\n"
+" document.getElementById('cf_fan_manual').value=j.fan_manual_pct||0;\n"
+" document.getElementById('cf_fan_tsrc').value=j.fan_temp_source||0;\n"
+" document.getElementById('cf_fan_hyst').value=j.fan_hysteresis||0;\n"
+" document.getElementById('cf_fan_minchg').value=j.fan_min_change_pct||0;\n"
+" document.getElementById('cf_fan_minpwm').value=j.fan_min_pwm_pct||0;\n"
+" document.getElementById('cf_fan_emerg').value=j.fan_emergency_temp||0;\n"
+" document.getElementById('cf_fan_stall').value=j.fan_stall_detect_sec||0;\n"
+" document.getElementById('cf_fan_ramp').value=j.fan_ramp_time_ms||0;\n"
+" if(j.fan_curve){for(let i=0;i<5;i++){if(j.fan_curve[i]){\n"
+"  document.getElementById('cf_fc'+i+'t').value=j.fan_curve[i].temp;\n"
+"  document.getElementById('cf_fc'+i+'p').value=j.fan_curve[i].pct;\n"
+" }}}\n"
+" document.getElementById('dsstat').textContent='Loaded.';\n"
+"}).catch(e=>{document.getElementById('dsstat').textContent='Load failed: '+e.message})}\n"
+"document.getElementById('cfsave').onclick=()=>{\n"
+" let p=new URLSearchParams();\n"
+" p.set('wifi_ssid',document.getElementById('cf_ssid').value);\n"
+" p.set('wifi_pass',document.getElementById('cf_wifipass').value);\n"
+" p.set('nas_type',document.getElementById('cf_nas_type').value);\n"
+" p.set('nas_ip',document.getElementById('cf_nas_ip').value);\n"
+" p.set('nas_port',document.getElementById('cf_nas_port').value);\n"
+" p.set('nas_user',document.getElementById('cf_nas_user').value);\n"
+" p.set('nas_pass',document.getElementById('cf_nas_pass').value);\n"
+" p.set('nas_https',document.getElementById('cf_nas_https').checked?'1':'0');\n"
+" p.set('snmp_comm',document.getElementById('cf_snmp_comm').value);\n"
+" p.set('snmp_ver',document.getElementById('cf_snmp_ver').value);\n"
+" p.set('serial_baud',document.getElementById('cf_serial_baud').value);\n"
+" p.set('poll_sec',document.getElementById('cf_poll_sec').value);\n"
+" p.set('rotation_angle',document.getElementById('cf_rotation').value);\n"
+" p.set('autodim',document.getElementById('cf_autodim').checked?'1':'0');\n"
+" p.set('timezone',document.getElementById('cf_tz').value);\n"
+" p.set('auto_cycle_enabled',document.getElementById('cf_cycle_en').checked?'1':'0');\n"
+" p.set('auto_cycle_interval_sec',document.getElementById('cf_cycle_int').value);\n"
+" p.set('sata_disk_count',document.getElementById('cf_sata').value);\n"
+" p.set('m2_disk_count',document.getElementById('cf_m2').value);\n"
+" p.set('weather_api_key',document.getElementById('cf_wkey').value);\n"
+" p.set('weather_city',document.getElementById('cf_wcity').value);\n"
+" p.set('fan_enabled',document.getElementById('cf_fan_en').checked?'1':'0');\n"
+" p.set('fan_mode',document.getElementById('cf_fan_mode').value);\n"
+" p.set('fan_manual_pct',document.getElementById('cf_fan_manual').value);\n"
+" p.set('fan_temp_source',document.getElementById('cf_fan_tsrc').value);\n"
+" p.set('fan_hysteresis',document.getElementById('cf_fan_hyst').value);\n"
+" p.set('fan_min_change_pct',document.getElementById('cf_fan_minchg').value);\n"
+" p.set('fan_min_pwm_pct',document.getElementById('cf_fan_minpwm').value);\n"
+" p.set('fan_emergency_temp',document.getElementById('cf_fan_emerg').value);\n"
+" p.set('fan_stall_detect_sec',document.getElementById('cf_fan_stall').value);\n"
+" p.set('fan_ramp_time_ms',document.getElementById('cf_fan_ramp').value);\n"
+" for(let i=0;i<5;i++){p.set('fan_curve_'+i+'_temp',document.getElementById('cf_fc'+i+'t').value);p.set('fan_curve_'+i+'_pct',document.getElementById('cf_fc'+i+'p').value)}\n"
+" document.getElementById('dsstat').textContent='Saving...';\n"
+" fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p.toString()})\n"
+"  .then(r=>r.json()).then(j=>{\n"
+"   document.getElementById('dsstat').textContent=j.reboot_required?'Saved. Reboot required for some changes.':'Saved.';\n"
+"  }).catch(e=>{document.getElementById('dsstat').textContent='Save failed: '+e.message})\n"
+"};\n"
+"loadSettings();\n"
 "</script></body></html>\n";
 
 static esp_err_t h_index(httpd_req_t *r)
@@ -659,6 +830,31 @@ static int form_int(const char *body, const char *key, int dflt)
         p++;
     }
     return dflt;
+}
+
+/* form_str is defined later (near /api/quotes). Forward-declare so
+   form_bool can use it here. Returns 1 on success, 0 if key absent. */
+static int form_str(const char *body, const char *key, char *dst, size_t dst_sz);
+
+/* Parse a boolean field: accepts 0/1/on/true (case-insensitive via first char). */
+static bool form_bool(const char *body, const char *key, bool dflt)
+{
+    char buf[8];
+    if (!form_str(body, key, buf, sizeof(buf))) return dflt;
+    if (buf[0]=='1' || buf[0]=='t' || buf[0]=='T' || buf[0]=='o' || buf[0]=='O') return true;
+    return false;
+}
+
+/* Check whether a key is present in the body (even if empty). */
+static bool form_has(const char *body, const char *key)
+{
+    size_t klen = strlen(key);
+    const char *p = body;
+    while ((p = strstr(p, key)) != NULL) {
+        if ((p == body || p[-1] == '&') && p[klen] == '=') return true;
+        p++;
+    }
+    return false;
 }
 
 static esp_err_t h_cfg(httpd_req_t *r)
@@ -1131,6 +1327,201 @@ static esp_err_t h_screen_bmp(httpd_req_t *r)
     return ESP_OK;
 }
 
+/* ---------- /api/settings ---------- */
+
+/* GET /api/settings — return all device config as JSON.
+   Passwords are NOT echoed (empty string) for security. */
+static esp_err_t h_settings_get(httpd_req_t *r)
+{
+    CHECK_AUTH(r);
+    char *json = malloc(2048);
+    if (!json) return send_str(r, "application/json", "{\"error\":\"oom\"}");
+    const AppConfig *c = &g_config;
+    int n = snprintf(json, 2048,
+        "{\"wifi_ssid\":\"%s\",\"wifi_pass\":\"\","
+        "\"nas_type\":\"%s\",\"nas_ip\":\"%s\",\"nas_port\":%u,"
+        "\"nas_user\":\"%s\",\"nas_pass\":\"\",\"nas_https\":%d,"
+        "\"snmp_comm\":\"%s\",\"snmp_ver\":%u,\"serial_baud\":%lu,"
+        "\"poll_sec\":%u,\"rotation_angle\":%u,\"autodim\":%d,"
+        "\"timezone\":%d,"
+        "\"auto_cycle_enabled\":%d,\"auto_cycle_interval_sec\":%u,"
+        "\"sata_disk_count\":%u,\"m2_disk_count\":%u,"
+        "\"weather_api_key\":\"%s\",\"weather_city\":\"%s\","
+        "\"fan_enabled\":%d,\"fan_mode\":%d,\"fan_manual_pct\":%u,"
+        "\"fan_temp_source\":%d,\"fan_hysteresis\":%u,\"fan_min_change_pct\":%u,"
+        "\"fan_min_pwm_pct\":%u,\"fan_emergency_temp\":%d,"
+        "\"fan_stall_detect_sec\":%u,\"fan_ramp_time_ms\":%u,"
+        "\"fan_curve\":["
+        "{\"temp\":%d,\"pct\":%u},{\"temp\":%d,\"pct\":%u},"
+        "{\"temp\":%d,\"pct\":%u},{\"temp\":%d,\"pct\":%u},"
+        "{\"temp\":%d,\"pct\":%u}]}",
+        c->ssid,
+        c->nas_type, c->nas_ip, (unsigned)c->nas_port,
+        c->nas_user, (int)c->nas_https,
+        c->snmp_comm, (unsigned)c->snmp_ver, (unsigned long)c->serial_baud,
+        (unsigned)c->poll_sec, (unsigned)c->rotation_angle, (int)c->autodim,
+        (int)c->timezone,
+        (int)c->auto_cycle_enabled, (unsigned)c->auto_cycle_interval_sec,
+        (unsigned)c->sata_disk_count, (unsigned)c->m2_disk_count,
+        c->weather_api_key, c->weather_city,
+        (int)c->fan.enabled, (int)c->fan.mode, (unsigned)c->fan.manual_pwm_pct,
+        (int)c->fan.temp_source, (unsigned)c->fan.hysteresis, (unsigned)c->fan.min_change_pct,
+        (unsigned)c->fan.min_pwm_pct, (int)c->fan.emergency_temp,
+        (unsigned)c->fan.stall_detect_sec, (unsigned)c->fan.ramp_time_ms,
+        (int)c->fan.curve[0].temp, (unsigned)c->fan.curve[0].pwm_pct,
+        (int)c->fan.curve[1].temp, (unsigned)c->fan.curve[1].pwm_pct,
+        (int)c->fan.curve[2].temp, (unsigned)c->fan.curve[2].pwm_pct,
+        (int)c->fan.curve[3].temp, (unsigned)c->fan.curve[3].pwm_pct,
+        (int)c->fan.curve[4].temp, (unsigned)c->fan.curve[4].pwm_pct);
+    if (n <= 0 || n >= 2048) {
+        free(json);
+        return send_str(r, "application/json", "{\"error\":\"overflow\"}");
+    }
+    esp_err_t ret = send_str(r, "application/json", json);
+    free(json);
+    return ret;
+}
+
+/* POST /api/settings — update config fields from form-urlencoded body.
+   Only fields present in the body are changed; missing fields keep their
+   current value. Passwords: empty value means "keep current".
+   Returns {"ok":true,"reboot_required":<0|1>}. reboot_required is set when
+   fields that need a restart to take effect are modified. */
+static esp_err_t h_settings_post(httpd_req_t *r)
+{
+    CHECK_AUTH(r);
+    char *body = malloc(2048);
+    if (!body) return send_str(r, "application/json", "{\"error\":\"oom\"}");
+    int n = read_body(r, body, 2048);
+    if (n <= 0) { free(body); return send_str(r, "text/plain", "empty"); }
+
+    bool reboot_required = false;
+    char tmp[80];
+
+    /* WiFi: empty password keeps current value */
+    if (form_has(body, "wifi_ssid") || form_has(body, "wifi_pass")) {
+        char ssid[33] = {0};
+        char pass[65] = {0};
+        if (form_str(body, "wifi_ssid", tmp, sizeof(tmp))) {
+            strncpy(ssid, tmp, sizeof(ssid) - 1);
+        } else {
+            strncpy(ssid, g_config.ssid, sizeof(ssid) - 1);
+        }
+        if (form_str(body, "wifi_pass", tmp, sizeof(tmp)) && tmp[0]) {
+            strncpy(pass, tmp, sizeof(pass) - 1);
+        } else {
+            strncpy(pass, g_config.wifipass, sizeof(pass) - 1);
+        }
+        config_save_wifi(ssid, pass);
+        reboot_required = true;
+    }
+
+    /* NAS connection */
+    if (form_has(body, "nas_type") || form_has(body, "nas_ip") ||
+        form_has(body, "nas_port") || form_has(body, "nas_user") ||
+        form_has(body, "nas_pass") || form_has(body, "nas_https")) {
+        char type[16] = {0}, ip[40] = {0}, user[32] = {0}, pass[65] = {0};
+        if (form_str(body, "nas_type", tmp, sizeof(tmp))) strncpy(type, tmp, sizeof(type)-1);
+        else strncpy(type, g_config.nas_type, sizeof(type)-1);
+        if (form_str(body, "nas_ip", tmp, sizeof(tmp))) strncpy(ip, tmp, sizeof(ip)-1);
+        else strncpy(ip, g_config.nas_ip, sizeof(ip)-1);
+        if (form_str(body, "nas_user", tmp, sizeof(tmp))) strncpy(user, tmp, sizeof(user)-1);
+        else strncpy(user, g_config.nas_user, sizeof(user)-1);
+        if (form_str(body, "nas_pass", tmp, sizeof(tmp)) && tmp[0]) strncpy(pass, tmp, sizeof(pass)-1);
+        else strncpy(pass, g_config.nas_pass, sizeof(pass)-1);
+        uint16_t port = (uint16_t)form_int(body, "nas_port", g_config.nas_port);
+        bool https = form_has(body, "nas_https") ? form_bool(body, "nas_https", false) : g_config.nas_https;
+        config_save_nas(type, ip, port, user, pass, https);
+        reboot_required = true;
+    }
+
+    /* SNMP / serial (no dedicated setter — write g_config + config_save) */
+    if (form_has(body, "snmp_comm")) {
+        form_str(body, "snmp_comm", g_config.snmp_comm, sizeof(g_config.snmp_comm));
+        reboot_required = true;
+    }
+    if (form_has(body, "snmp_ver")) {
+        g_config.snmp_ver = (uint8_t)form_int(body, "snmp_ver", g_config.snmp_ver);
+        reboot_required = true;
+    }
+    if (form_has(body, "serial_baud")) {
+        g_config.serial_baud = (uint32_t)form_int(body, "serial_baud", (int)g_config.serial_baud);
+        reboot_required = true;
+    }
+
+    /* Display: brightness is kept from g_config (it has its own endpoint) */
+    if (form_has(body, "poll_sec") || form_has(body, "rotation_angle") || form_has(body, "autodim")) {
+        uint8_t rot = (uint8_t)form_int(body, "rotation_angle", g_config.rotation_angle);
+        bool autodim = form_has(body, "autodim") ? form_bool(body, "autodim", false) : g_config.autodim;
+        config_save_display(rot, g_config.brightness, autodim);
+        if (form_has(body, "rotation_angle")) reboot_required = true;
+    }
+
+    /* Disk slots */
+    if (form_has(body, "sata_disk_count") || form_has(body, "m2_disk_count")) {
+        uint8_t sata = (uint8_t)form_int(body, "sata_disk_count", g_config.sata_disk_count);
+        uint8_t m2   = (uint8_t)form_int(body, "m2_disk_count", g_config.m2_disk_count);
+        config_save_disk_config(sata, m2);
+        reboot_required = true;
+    }
+
+    /* Timezone / auto-cycle / weather (no dedicated setter) */
+    if (form_has(body, "timezone")) g_config.timezone = (int8_t)form_int(body, "timezone", g_config.timezone);
+    if (form_has(body, "auto_cycle_enabled"))
+        g_config.auto_cycle_enabled = form_bool(body, "auto_cycle_enabled", false);
+    if (form_has(body, "auto_cycle_interval_sec"))
+        g_config.auto_cycle_interval_sec = (uint8_t)form_int(body, "auto_cycle_interval_sec", g_config.auto_cycle_interval_sec);
+    if (form_has(body, "weather_api_key"))
+        form_str(body, "weather_api_key", g_config.weather_api_key, sizeof(g_config.weather_api_key));
+    if (form_has(body, "weather_city"))
+        form_str(body, "weather_city", g_config.weather_city, sizeof(g_config.weather_city));
+
+    /* Fan: assemble FanConfig from individual keys, then save */
+    bool fan_changed = form_has(body, "fan_enabled") || form_has(body, "fan_mode") ||
+                       form_has(body, "fan_manual_pct") || form_has(body, "fan_temp_source") ||
+                       form_has(body, "fan_hysteresis") || form_has(body, "fan_min_change_pct") ||
+                       form_has(body, "fan_min_pwm_pct") || form_has(body, "fan_emergency_temp") ||
+                       form_has(body, "fan_stall_detect_sec") || form_has(body, "fan_ramp_time_ms");
+    for (int i = 0; i < FAN_CURVE_POINTS; i++) {
+        char k[24];
+        snprintf(k, sizeof(k), "fan_curve_%d_temp", i);
+        if (form_has(body, k)) fan_changed = true;
+        snprintf(k, sizeof(k), "fan_curve_%d_pct", i);
+        if (form_has(body, k)) fan_changed = true;
+    }
+    if (fan_changed) {
+        FanConfig fc = g_config.fan;  /* start from current */
+        if (form_has(body, "fan_enabled")) fc.enabled = form_bool(body, "fan_enabled", false);
+        if (form_has(body, "fan_mode")) fc.mode = (FanMode)form_int(body, "fan_mode", fc.mode);
+        if (form_has(body, "fan_manual_pct")) fc.manual_pwm_pct = (uint8_t)form_int(body, "fan_manual_pct", fc.manual_pwm_pct);
+        if (form_has(body, "fan_temp_source")) fc.temp_source = (TempSource)form_int(body, "fan_temp_source", fc.temp_source);
+        if (form_has(body, "fan_hysteresis")) fc.hysteresis = (uint8_t)form_int(body, "fan_hysteresis", fc.hysteresis);
+        if (form_has(body, "fan_min_change_pct")) fc.min_change_pct = (uint8_t)form_int(body, "fan_min_change_pct", fc.min_change_pct);
+        if (form_has(body, "fan_min_pwm_pct")) fc.min_pwm_pct = (uint8_t)form_int(body, "fan_min_pwm_pct", fc.min_pwm_pct);
+        if (form_has(body, "fan_emergency_temp")) fc.emergency_temp = (int16_t)form_int(body, "fan_emergency_temp", fc.emergency_temp);
+        if (form_has(body, "fan_stall_detect_sec")) fc.stall_detect_sec = (uint8_t)form_int(body, "fan_stall_detect_sec", fc.stall_detect_sec);
+        if (form_has(body, "fan_ramp_time_ms")) fc.ramp_time_ms = (uint16_t)form_int(body, "fan_ramp_time_ms", fc.ramp_time_ms);
+        for (int i = 0; i < FAN_CURVE_POINTS; i++) {
+            char k[24];
+            snprintf(k, sizeof(k), "fan_curve_%d_temp", i);
+            if (form_has(body, k)) fc.curve[i].temp = (int16_t)form_int(body, k, fc.curve[i].temp);
+            snprintf(k, sizeof(k), "fan_curve_%d_pct", i);
+            if (form_has(body, k)) fc.curve[i].pwm_pct = (uint8_t)form_int(body, k, fc.curve[i].pwm_pct);
+        }
+        config_save_fan(&fc);
+        fan_control_apply_config(&fc);  /* hot-apply */
+    }
+
+    /* Persist fields that lack a dedicated setter */
+    config_save();
+
+    char resp[64];
+    snprintf(resp, sizeof(resp), "{\"ok\":true,\"reboot_required\":%d}", (int)reboot_required);
+    esp_err_t ret = send_str(r, "application/json", resp);
+    free(body);
+    return ret;
+}
+
 /* ---------- start/stop ---------- */
 
 static esp_err_t webui_register_routes(httpd_handle_t srv)
@@ -1153,6 +1544,8 @@ static esp_err_t webui_register_routes(httpd_handle_t srv)
         { .uri = "/api/play",        .method = HTTP_POST, .handler = h_play },
         { .uri = "/api/stop",        .method = HTTP_POST, .handler = h_stop },
         { .uri = "/screen.bmp",      .method = HTTP_GET,  .handler = h_screen_bmp },
+        { .uri = "/api/settings",    .method = HTTP_GET,  .handler = h_settings_get },
+        { .uri = "/api/settings",    .method = HTTP_POST, .handler = h_settings_post },
         { .uri = "/rec/*",           .method = HTTP_GET,  .handler = h_rec_get },
     };
     for (size_t i = 0; i < sizeof(routes)/sizeof(routes[0]); i++) {
@@ -1182,8 +1575,8 @@ esp_err_t webui_start(void)
     cfg.server_port  = 80;
     cfg.lru_purge_enable = true;
     cfg.uri_match_fn = httpd_uri_match_wildcard;
-    cfg.max_uri_handlers = 24;
-    cfg.stack_size   = 4 * 1024;
+    cfg.max_uri_handlers = 28;
+    cfg.stack_size   = 8 * 1024;
     cfg.task_priority = 2;
     cfg.recv_wait_timeout = 10;
     cfg.send_wait_timeout = 10;

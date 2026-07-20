@@ -20,6 +20,7 @@ extern lv_obj_t * ui_Settings_Tabview_ConfigPanel;
 #include "ui_Screen_Settings_MusicTab.h"
 #include "ui_Screen_Settings_RegionTab.h"
 #include "ui_Screen_Settings_GuideTab.h"
+#include "ui_Screen_Settings_FanTab.h"
 
 extern void ui_event_Settings_Button_closeConfig(lv_event_t * e);
 extern lv_obj_t * ui_Settings_Button_closeConfig;

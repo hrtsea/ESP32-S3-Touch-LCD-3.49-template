@@ -26,6 +26,7 @@
 
 #include "app_cfg.h"
 #include "disp_driver.h"
+#include "../data/fan_control.h"
 
 #define TM_YEAR_OFFSET 1900
 #define TM_MONTH_OFFSET 1
@@ -82,20 +83,20 @@ void hw_init(void)
     lcd_bl_pwm_bsp_init((uint16_t)(BL_MAX_BRIGHTNESS - g_cfg.brightness));
     status_text_append("BL OK\n");
 
-    ESP_LOGI(TAG, "[4/9] LCD panel + LVGL");
+    ESP_LOGI(TAG, "[4/10] LCD panel + LVGL");
     disp_driver_init();
     status_text_append("LCD/Touch OK\n");
 
-    ESP_LOGI(TAG, "[5/9] RTC + IMU");
+    ESP_LOGI(TAG, "[5/10] RTC + IMU");
     i2c_rtc_setup();
     i2c_imu_setup();
     status_text_append("RTC/IMU OK\n");
 
-    ESP_LOGI(TAG, "[6/9] ADC battery");
+    ESP_LOGI(TAG, "[6/10] ADC battery");
     adc_bsp_init();
     status_text_append("ADC OK\n");
 
-    ESP_LOGI(TAG, "[7/9] Audio MIDI (ES8311 + ES7210 + I2S TDM)");
+    ESP_LOGI(TAG, "[7/10] Audio MIDI (ES8311 + ES7210 + I2S TDM)");
     if (audio_min_init() == ESP_OK) {
         audio_min_set_volume(g_cfg.audio_volume);
         status_text_append("MIDI OK\n");
@@ -103,10 +104,16 @@ void hw_init(void)
         status_text_append("MIDI FAIL\n");
     }
 
-    ESP_LOGI(TAG, "[9/9] SD card + Buttons");
+    ESP_LOGI(TAG, "[8/10] Fan control (PWM + TACH)");
+    fan_control_init();
+    status_text_append("FAN OK\n");
+
+    ESP_LOGI(TAG, "[9/10] SD card + Buttons");
     _sdcard_init();
     button_Init();
-    status_text_append("SD/Btn OK");
+    status_text_append("SD/Btn OK\n");
+
+    ESP_LOGI(TAG, "[10/10] System time");
     system_time_init();
 }
 

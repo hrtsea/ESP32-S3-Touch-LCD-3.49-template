@@ -74,6 +74,20 @@ extern "C" {
 #endif
 
 /* ============================================================
+ * 风扇硬件引脚定义（占位符，实际硬件确定后修改 user_config.h 覆盖）
+ * ============================================================ */
+#ifndef FAN_PWM_GPIO
+#define FAN_PWM_GPIO      4
+#endif
+#ifndef FAN_TACH_GPIO
+#define FAN_TACH_GPIO     5
+#endif
+#define FAN_PWM_FREQ_HZ      25000     /* 25KHz 风扇标准 PWM 频率 */
+#define FAN_PWM_RES_BITS     10        /* 10bit = 1024 级 */
+#define FAN_PULSES_PER_REV   2         /* 风扇每转脉冲数（典型 2） */
+#define FAN_RPM_SAMPLE_MS    1000       /* 1 秒采样窗口 */
+
+/* ============================================================
  * 应用配置结构体
  * ============================================================ */
 

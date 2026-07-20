@@ -18,6 +18,9 @@
 #include "screens/ui_Screen_Settings.h"
 #include "screens/ui_Screen_Storage.h"
 #include "screens/ui_Screen_Boot.h"
+#include "screens/ui_Screen_DiskDetail.h"
+#include "screens/ui_Screen_SystemDetail.h"
+#include "../data/fan_control.h"
 
 #define UI_UPDATE(code) do { \
     if (lvgl_lock(50)) { \
@@ -143,6 +146,10 @@ static void on_nas_data_update_evt(const NasData *data)
         uint8_t total_slots = config_get_total_disk_slots();
         if (total_slots == 0) total_slots = 1;
 
+        ESP_LOGI(TAG, "[ui disk] disk_slot_count=%u total_slots=%u sata=%u m2=%u",
+                 data->disk_slot_count, total_slots,
+                 g_config.sata_disk_count, g_config.m2_disk_count);
+
         for (int i = 0; i < total_slots; i++) {
             if (i < data->disk_slot_count) {
                 const NasDiskInfo *disk = &data->disks[i];
@@ -168,6 +175,17 @@ static void on_nas_data_update_evt(const NasData *data)
             s_last_tx_speed = tx_speed;
             s_last_rx_speed = rx_speed;
         }
+    }
+
+    /* 推送温度到风扇控制任务（独立于 UI 更新） */
+    fan_control_on_nas_data(data);
+
+    /* 详情屏数据更新（仅当屏存在时） */
+    if (ui_Screen_DiskDetail != NULL) {
+        ui_Screen_DiskDetail_update_data(data);
+    }
+    if (ui_Screen_SystemDetail != NULL) {
+        ui_Screen_SystemDetail_update_data(data);
     }
 }
 
@@ -254,6 +272,10 @@ static void task_ui_event_loop(void *arg)
                         ui_Screen_Storage_screen_init();
                     }
                 );
+                break;
+
+            case EVENT_FAN_CONFIG_CHANGED:
+                fan_control_apply_config(&g_config.fan);
                 break;
 
             case EVENT_CFG_CHANGED:
@@ -413,14 +435,42 @@ void ui_Screen_Boot_event_handler(lv_event_t* e)
 
 void ui_event_Screen_Overview_hdd_clicked(lv_event_t* e)
 {
-    lv_event_code_t event_code = lv_event_get_code(e);
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
 
-    if (event_code == LV_EVENT_CLICKED) {
-        if (ui_Screen_Storage == NULL) {
-            ui_Screen_Storage_screen_init();
-        }
-        lv_scr_load_anim(ui_Screen_Storage, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0, false);
+    uint8_t *idx_ptr = (uint8_t *)lv_event_get_user_data(e);
+    uint8_t disk_idx = idx_ptr ? *idx_ptr : 0;
+
+    if (ui_Screen_DiskDetail == NULL) {
+        ui_Screen_DiskDetail_screen_init(disk_idx);
+    } else {
+        ui_Screen_DiskDetail_screen_destroy();
+        ui_Screen_DiskDetail_screen_init(disk_idx);
     }
+    lv_scr_load_anim(ui_Screen_DiskDetail, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300, 0, false);
+}
+
+void ui_event_Screen_Overview_cpu_clicked(lv_event_t* e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+    if (ui_Screen_SystemDetail == NULL) {
+        ui_Screen_SystemDetail_screen_init(SYS_DETAIL_CPU);
+    } else {
+        ui_Screen_SystemDetail_screen_destroy();
+        ui_Screen_SystemDetail_screen_init(SYS_DETAIL_CPU);
+    }
+    lv_scr_load_anim(ui_Screen_SystemDetail, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300, 0, false);
+}
+
+void ui_event_Screen_Overview_mem_clicked(lv_event_t* e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+    if (ui_Screen_SystemDetail == NULL) {
+        ui_Screen_SystemDetail_screen_init(SYS_DETAIL_MEM);
+    } else {
+        ui_Screen_SystemDetail_screen_destroy();
+        ui_Screen_SystemDetail_screen_init(SYS_DETAIL_MEM);
+    }
+    lv_scr_load_anim(ui_Screen_SystemDetail, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300, 0, false);
 }
 
 void ui_event_Screen_Overview_gesture(lv_event_t* e)

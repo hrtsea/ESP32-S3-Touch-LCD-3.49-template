@@ -150,6 +150,7 @@ void ui_Screen_Settings_screen_init(void)
     ui_Screen_Settings_MusicTab_init(ui_Settings_Tabview_ConfigPanel);
     ui_Screen_Settings_RegionTab_init(ui_Settings_Tabview_ConfigPanel);
     ui_Screen_Settings_GuideTab_init(ui_Settings_Tabview_ConfigPanel);
+    ui_Screen_Settings_FanTab_init(ui_Settings_Tabview_ConfigPanel);
 
     ui_Settings_Button_closeConfig = lv_btn_create(ui_Screen_Settings);
     lv_obj_set_width(ui_Settings_Button_closeConfig, 50);
@@ -218,4 +219,5 @@ void ui_Screen_Settings_screen_destroy(void)
     ui_Screen_Settings_MusicTab_cleanup();
     ui_Screen_Settings_RegionTab_cleanup();
     ui_Screen_Settings_GuideTab_cleanup();
+    ui_Screen_Settings_FanTab_cleanup();
 }

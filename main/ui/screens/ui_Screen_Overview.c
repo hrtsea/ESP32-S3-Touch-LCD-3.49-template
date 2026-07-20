@@ -228,6 +228,12 @@ static void create_cpu_module(lv_obj_t *parent) {
     lv_obj_set_style_text_color(s_screen.label_temp_val, COLOR_TEXT, 0);
     lv_obj_set_style_text_font(s_screen.label_temp_val, &lv_font_montserrat_14, 0);
     lv_obj_align(s_screen.label_temp_val, LV_ALIGN_CENTER, 0, 20);
+
+    /* CPU meter 可点击，进入 SystemDetail CPU 模式 */
+    lv_obj_add_flag(s_screen.meter_cpu, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(s_screen.meter_cpu, ui_event_Screen_Overview_cpu_clicked, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_flag(s_screen.meter_temp, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(s_screen.meter_temp, ui_event_Screen_Overview_cpu_clicked, LV_EVENT_CLICKED, NULL);
 }
 
 static void create_mem_disk_module(lv_obj_t *parent) {
@@ -245,6 +251,8 @@ static void create_mem_disk_module(lv_obj_t *parent) {
     set_default_style(mem_container);
     lv_obj_set_flex_flow(mem_container, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(mem_container, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_add_flag(mem_container, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(mem_container, ui_event_Screen_Overview_mem_clicked, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *label_mem_title = lv_label_create(mem_container);
     lv_label_set_text(label_mem_title, "MEMORY\n8GB");
@@ -310,6 +318,8 @@ static void create_hdd_indicators(lv_obj_t *parent) {
     if (width > 95.0f) width = 95.0f;
     if (width < 50.0f) width = 50.0f;
 
+    static uint8_t s_hdd_indices[MAX_DISKS];
+
     for (uint8_t i = 0; i < total_disks; i++) {
         char label_text[16];
         if (config_is_sata_slot(i)) {
@@ -327,7 +337,8 @@ static void create_hdd_indicators(lv_obj_t *parent) {
         lv_obj_set_style_pad_all(btn_hdd, 0, 0);
         lv_obj_align(btn_hdd, LV_ALIGN_LEFT_MID, 8 + (int)(i * spacing), 0);
 
-        lv_obj_add_event_cb(btn_hdd, ui_event_Screen_Overview_hdd_clicked, LV_EVENT_ALL, NULL);
+        s_hdd_indices[i] = i;
+        lv_obj_add_event_cb(btn_hdd, ui_event_Screen_Overview_hdd_clicked, LV_EVENT_CLICKED, &s_hdd_indices[i]);
 
         s_screen.hdd_labels[i] = lv_label_create(btn_hdd);
         lv_label_set_text(s_screen.hdd_labels[i], label_text);
@@ -490,9 +501,10 @@ void overview_screen_update_hdd_led(int index, bool online, int health) {
 
 void overview_screen_update_hdd_name(int index, const char *name) {
     if (index >= MAX_DISKS || !s_screen.hdd_labels[index] || !name) return;
-    const char *display_name = name[0] ? name : "HDD";
-    if (strcmp(display_name, s_screen.last_values.hdd_names[index]) != 0) {
-        lv_label_set_text(s_screen.hdd_labels[index], display_name);
-        strncpy(s_screen.last_values.hdd_names[index], display_name, sizeof(s_screen.last_values.hdd_names[index]) - 1);
+    /* name 为空时保留初始槽位标签（HDD1/M.21），不覆盖为默认 "HDD" */
+    if (!name[0]) return;
+    if (strcmp(name, s_screen.last_values.hdd_names[index]) != 0) {
+        lv_label_set_text(s_screen.hdd_labels[index], name);
+        strncpy(s_screen.last_values.hdd_names[index], name, sizeof(s_screen.last_values.hdd_names[index]) - 1);
     }
 }

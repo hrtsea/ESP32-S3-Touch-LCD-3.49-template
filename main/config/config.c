@@ -326,6 +326,8 @@ void config_save_fan(const FanConfig* fan)
     nvs_close(h);
 
     memcpy(&g_config.fan, fan, sizeof(FanConfig));
+
+    event_bus_publish(EVENT_FAN_CONFIG_CHANGED, NULL, 0);
 }
 
 void config_save_disk_config(uint8_t sata_count, uint8_t m2_count)

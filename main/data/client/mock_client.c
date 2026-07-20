@@ -68,42 +68,59 @@ static void generate_mock_data(NasData* data)
     data->fan.enabled = true;
     data->fan.stall_alarm = (s_counter % 500 == 0);
 
-    data->disk_count = config_get_total_disk_slots();
-    data->disk_slot_count = config_get_total_disk_slots();
+    uint8_t sata_count = g_config.sata_disk_count;
+    uint8_t m2_count   = g_config.m2_disk_count;
+    uint8_t total_slots = config_get_total_disk_slots();
+
+    data->disk_count = total_slots;
+    data->disk_slot_count = total_slots;
+
+    ESP_LOGI(TAG, "[mock disk] sata=%u m2=%u total_slots=%u disk_count=%u",
+             sata_count, m2_count, total_slots, data->disk_count);
 
     uint64_t total_size_gb = 0;
     uint64_t total_used_gb = 0;
 
-    for (int i = 0; i < 3; i++) {
-        snprintf(data->disks[i].name, sizeof(data->disks[i].name), "Disk %d", i + 1);
-        snprintf(data->disks[i].model_name, sizeof(data->disks[i].model_name), "WD RED %dTB", 4 + i);
-        snprintf(data->disks[i].device, sizeof(data->disks[i].device), "/dev/sd%c", 'a' + i);
-        data->disks[i].size_gb = 4000 + (i * 1000);
-        data->disks[i].used_gb = 2000 + (s_counter % 1000) + (i * 200);
-        data->disks[i].used_pct = (uint8_t)((uint64_t)data->disks[i].used_gb * 100 / data->disks[i].size_gb);
-        data->disks[i].temp = 35 + (s_counter % 8) + i;
+    /* 按槽位顺序生成硬盘：先 SATA（index 0 ~ sata_count-1），后 M.2（index sata_count ~ total-1） */
+    for (uint8_t i = 0; i < total_slots && i < MAX_DISKS; i++) {
+        bool is_sata = (i < sata_count);
+        uint8_t type_idx = is_sata ? i : (uint8_t)(i - sata_count);
+
+        if (is_sata) {
+            /* SATA 硬盘 - WD RED 系列 */
+            snprintf(data->disks[i].name, sizeof(data->disks[i].name), "SATA%d", type_idx + 1);
+            snprintf(data->disks[i].model_name, sizeof(data->disks[i].model_name), "WD RED %dTB", 4 + type_idx);
+            snprintf(data->disks[i].device, sizeof(data->disks[i].device), "/dev/sd%c", 'a' + type_idx);
+            strncpy(data->disks[i].disk_type, "SATA", sizeof(data->disks[i].disk_type) - 1);
+            data->disks[i].size_gb = 4000 + (type_idx * 1000);
+            data->disks[i].used_gb = 2000 + (s_counter % 1000) + (type_idx * 200);
+            data->disks[i].temp = 35 + (s_counter % 8) + type_idx;
+        } else {
+            /* M.2 硬盘 - Samsung 980 PRO 系列 */
+            snprintf(data->disks[i].name, sizeof(data->disks[i].name), "M.2.%d", type_idx + 1);
+            snprintf(data->disks[i].model_name, sizeof(data->disks[i].model_name), "Samsung 980 PRO %dTB", 1 + type_idx);
+            snprintf(data->disks[i].device, sizeof(data->disks[i].device), "/dev/nvme%un1", type_idx);
+            strncpy(data->disks[i].disk_type, "M.2", sizeof(data->disks[i].disk_type) - 1);
+            data->disks[i].size_gb = 1000 + (type_idx * 500);
+            data->disks[i].used_gb = 400 + (s_counter % 300) + (type_idx * 100);
+            data->disks[i].temp = 45 + (s_counter % 10) + type_idx;
+        }
+
+        data->disks[i].used_pct = (data->disks[i].size_gb > 0)
+            ? (uint8_t)((uint64_t)data->disks[i].used_gb * 100 / data->disks[i].size_gb) : 0;
         data->disks[i].health = HEALTH_OK;
         data->disks[i].read_kbps = 100000 + (s_counter % 50000) + (i * 10000);
         data->disks[i].write_kbps = 80000 + (s_counter % 40000) + (i * 8000);
         data->disks[i].online = true;
         data->disks[i].slot_index = i;
+
         total_size_gb += data->disks[i].size_gb;
         total_used_gb += data->disks[i].used_gb;
-    }
 
-    int empty_slot = 3;
-    snprintf(data->disks[empty_slot].name, sizeof(data->disks[empty_slot].name), "Disk %d", empty_slot + 1);
-    snprintf(data->disks[empty_slot].model_name, sizeof(data->disks[empty_slot].model_name), "Empty");
-    snprintf(data->disks[empty_slot].device, sizeof(data->disks[empty_slot].device), "/dev/sd%c", 'a' + empty_slot);
-    data->disks[empty_slot].size_gb = 0;
-    data->disks[empty_slot].used_gb = 0;
-    data->disks[empty_slot].used_pct = 0;
-    data->disks[empty_slot].temp = 0;
-    data->disks[empty_slot].health = HEALTH_UNKNOWN;
-    data->disks[empty_slot].read_kbps = 0;
-    data->disks[empty_slot].write_kbps = 0;
-    data->disks[empty_slot].online = false;
-    data->disks[empty_slot].slot_index = empty_slot;
+        ESP_LOGI(TAG, "[mock disk] slot[%u] name='%s' type='%s' model='%s' online=%d used_pct=%u temp=%d",
+                 i, data->disks[i].name, data->disks[i].disk_type, data->disks[i].model_name,
+                 data->disks[i].online, data->disks[i].used_pct, data->disks[i].temp);
+    }
 
     if (total_size_gb > 0) {
         data->system.disk_pct = (float)(total_used_gb * 100) / (float)total_size_gb;
