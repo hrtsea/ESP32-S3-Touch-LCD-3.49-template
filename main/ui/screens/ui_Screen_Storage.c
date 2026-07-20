@@ -4,6 +4,8 @@
 #include "esp_wifi_config.h"
 #include "wifi_adapter.h"
 
+LV_FONT_DECLARE(lv_font_montserrat_12);
+
 lv_obj_t *ui_Screen_Storage = NULL;
 
 #define COLOR_BG        lv_color_hex(0x000000)
@@ -39,7 +41,7 @@ static void create_storage_status_bar(lv_obj_t *parent)
     lv_obj_t *status_bar = lv_obj_create(parent);
     LV_OBJ_CHECK(status_bar, "status_bar");
 
-    lv_obj_set_size(status_bar, 640, 35);
+    lv_obj_set_size(status_bar, 640, 30);
     lv_obj_set_style_bg_color(status_bar, COLOR_BG, 0);
     lv_obj_set_style_border_width(status_bar, 0, 0);
     lv_obj_set_style_radius(status_bar, 0, 0);
@@ -49,7 +51,7 @@ static void create_storage_status_bar(lv_obj_t *parent)
     LV_OBJ_CHECK(label_title, "label_title");
     lv_label_set_text(label_title, "Storage");
     lv_obj_set_style_text_color(label_title, COLOR_TEXT, 0);
-    lv_obj_set_style_text_font(label_title, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(label_title, &lv_font_montserrat_12, 0);
     lv_obj_align(label_title, LV_ALIGN_LEFT_MID, 5, 0);
 
     lv_obj_t *label_time = lv_label_create(status_bar);
@@ -57,23 +59,23 @@ static void create_storage_status_bar(lv_obj_t *parent)
     s_screen.label_time = label_time;
     lv_label_set_text(label_time, "--:--");
     lv_obj_set_style_text_color(label_time, COLOR_TEXT, 0);
-    lv_obj_set_style_text_font(label_time, &lv_font_montserrat_14, 0);
-    lv_obj_align(label_time, LV_ALIGN_LEFT_MID, 110, 0);
+    lv_obj_set_style_text_font(label_time, &lv_font_montserrat_12, 0);
+    lv_obj_align(label_time, LV_ALIGN_LEFT_MID, 80, 0);
 
     lv_obj_t *label_up = lv_label_create(status_bar);
     LV_OBJ_CHECK(label_up, "label_up");
     s_screen.label_up = label_up;
-    lv_label_set_text(label_up, "▲ 0.00KB/s");
+    lv_label_set_text(label_up, "▲ 0KB/s");
     lv_obj_set_style_text_color(label_up, COLOR_TEXT, 0);
-    lv_obj_set_style_text_font(label_up, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(label_up, &lv_font_montserrat_12, 0);
     lv_obj_align(label_up, LV_ALIGN_CENTER, -70, 0);
 
     lv_obj_t *label_down = lv_label_create(status_bar);
     LV_OBJ_CHECK(label_down, "label_down");
     s_screen.label_down = label_down;
-    lv_label_set_text(label_down, "▼ 0.00KB/s");
+    lv_label_set_text(label_down, "▼ 0KB/s");
     lv_obj_set_style_text_color(label_down, COLOR_TEXT, 0);
-    lv_obj_set_style_text_font(label_down, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(label_down, &lv_font_montserrat_12, 0);
     lv_obj_align(label_down, LV_ALIGN_CENTER, 70, 0);
 
     lv_obj_t *label_ip = lv_label_create(status_bar);
@@ -81,17 +83,17 @@ static void create_storage_status_bar(lv_obj_t *parent)
     s_screen.label_ip = label_ip;
     lv_label_set_text(label_ip, "IP: --");
     lv_obj_set_style_text_color(label_ip, COLOR_TEXT, 0);
-    lv_obj_set_style_text_font(label_ip, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(label_ip, &lv_font_montserrat_12, 0);
     lv_obj_align(label_ip, LV_ALIGN_RIGHT_MID, -15, 0);
 
     lv_obj_t *divider = lv_obj_create(parent);
     LV_OBJ_CHECK(divider, "divider");
-    lv_obj_set_size(divider, 640, 2);
+    lv_obj_set_size(divider, 640, 1);
     lv_obj_set_style_bg_color(divider, COLOR_INACTIVE, 0);
     lv_obj_set_style_border_width(divider, 0, 0);
     lv_obj_set_style_radius(divider, 0, 0);
     lv_obj_clear_flag(divider, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_align(divider, LV_ALIGN_TOP_MID, 0, 35);
+    lv_obj_align(divider, LV_ALIGN_TOP_MID, 0, 30);
 }
 
 static void create_hdd_storage_bars(lv_obj_t *parent)
@@ -99,26 +101,29 @@ static void create_hdd_storage_bars(lv_obj_t *parent)
     s_screen.container = lv_obj_create(parent);
     LV_OBJ_CHECK(s_screen.container, "storage_container");
 
-    lv_obj_set_size(s_screen.container, 640, 130);
+    lv_obj_set_size(s_screen.container, 640, 140);
     lv_obj_set_style_bg_color(s_screen.container, COLOR_BG, 0);
     lv_obj_set_style_border_width(s_screen.container, 0, 0);
     lv_obj_set_style_radius(s_screen.container, 0, 0);
     lv_obj_clear_flag(s_screen.container, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_align(s_screen.container, LV_ALIGN_TOP_MID, 0, 40);
+    lv_obj_align(s_screen.container, LV_ALIGN_TOP_MID, 0, 32);
 
     uint8_t total_disks = config_get_total_disk_slots();
     if (total_disks == 0) total_disks = 1;
 
-    uint8_t cols = (total_disks <= 4) ? 1 : 2;
+    uint8_t cols = (total_disks <= 4) ? 1 : (total_disks <= 6) ? 2 : 3;
     uint8_t rows = (total_disks + cols - 1) / cols;
+
+    int col_width = (cols == 1) ? 620 : (cols == 2) ? 310 : 205;
+    int row_height = 22;
 
     for (uint8_t col = 0; col < cols; col++) {
         for (uint8_t row = 0; row < rows; row++) {
             uint8_t index = col * rows + row;
             if (index >= total_disks) break;
 
-            int x_offset = col * 310 + 10;
-            int y_offset = row * 28 + 5;
+            int x_offset = col * col_width + 8;
+            int y_offset = row * row_height + 2;
 
             char label_text[16];
             if (config_is_sata_slot(index)) {
@@ -132,32 +137,33 @@ static void create_hdd_storage_bars(lv_obj_t *parent)
             LV_OBJ_CHECK(s_screen.hdd_names[index], "hdd_name");
             lv_label_set_text(s_screen.hdd_names[index], label_text);
             lv_obj_set_style_text_color(s_screen.hdd_names[index], COLOR_TEXT, 0);
-            lv_obj_set_style_text_font(s_screen.hdd_names[index], &lv_font_montserrat_14, 0);
+            lv_obj_set_style_text_font(s_screen.hdd_names[index], &lv_font_montserrat_12, 0);
             lv_obj_align(s_screen.hdd_names[index], LV_ALIGN_TOP_LEFT, x_offset, y_offset);
 
+            int bar_width = (cols == 1) ? 400 : (cols == 2) ? 160 : 100;
             s_screen.hdd_bars[index] = lv_bar_create(s_screen.container);
             LV_OBJ_CHECK(s_screen.hdd_bars[index], "hdd_bar");
-            lv_obj_set_size(s_screen.hdd_bars[index], 170, 16);
+            lv_obj_set_size(s_screen.hdd_bars[index], bar_width, 12);
             lv_bar_set_value(s_screen.hdd_bars[index], 0, LV_ANIM_OFF);
             lv_obj_set_style_bg_color(s_screen.hdd_bars[index], COLOR_INACTIVE, LV_PART_MAIN);
             lv_obj_set_style_bg_color(s_screen.hdd_bars[index], COLOR_PRIMARY, LV_PART_INDICATOR);
-            lv_obj_set_style_radius(s_screen.hdd_bars[index], 4, LV_PART_MAIN);
-            lv_obj_set_style_radius(s_screen.hdd_bars[index], 4, LV_PART_INDICATOR);
-            lv_obj_align(s_screen.hdd_bars[index], LV_ALIGN_TOP_LEFT, x_offset + 50, y_offset);
+            lv_obj_set_style_radius(s_screen.hdd_bars[index], 3, LV_PART_MAIN);
+            lv_obj_set_style_radius(s_screen.hdd_bars[index], 3, LV_PART_INDICATOR);
+            lv_obj_align(s_screen.hdd_bars[index], LV_ALIGN_TOP_LEFT, x_offset + 50, y_offset + 2);
 
             s_screen.hdd_percents[index] = lv_label_create(s_screen.container);
             LV_OBJ_CHECK(s_screen.hdd_percents[index], "hdd_percent");
             lv_label_set_text(s_screen.hdd_percents[index], "0%");
             lv_obj_set_style_text_color(s_screen.hdd_percents[index], COLOR_TEXT, 0);
-            lv_obj_set_style_text_font(s_screen.hdd_percents[index], &lv_font_montserrat_14, 0);
-            lv_obj_align(s_screen.hdd_percents[index], LV_ALIGN_TOP_LEFT, x_offset + 230, y_offset);
+            lv_obj_set_style_text_font(s_screen.hdd_percents[index], &lv_font_montserrat_12, 0);
+            lv_obj_align(s_screen.hdd_percents[index], LV_ALIGN_TOP_LEFT, x_offset + 50 + bar_width + 4, y_offset);
 
             s_screen.hdd_temps[index] = lv_label_create(s_screen.container);
             LV_OBJ_CHECK(s_screen.hdd_temps[index], "hdd_temp");
             lv_label_set_text(s_screen.hdd_temps[index], "--°C");
             lv_obj_set_style_text_color(s_screen.hdd_temps[index], COLOR_TEXT, 0);
-            lv_obj_set_style_text_font(s_screen.hdd_temps[index], &lv_font_montserrat_14, 0);
-            lv_obj_align(s_screen.hdd_temps[index], LV_ALIGN_TOP_LEFT, x_offset + 265, y_offset);
+            lv_obj_set_style_text_font(s_screen.hdd_temps[index], &lv_font_montserrat_12, 0);
+            lv_obj_align(s_screen.hdd_temps[index], LV_ALIGN_TOP_LEFT, x_offset + 50 + bar_width + 30, y_offset);
         }
     }
 }
@@ -174,6 +180,7 @@ void ui_Screen_Storage_screen_init(void)
 
     s_screen.screen = ui_Screen_Storage;
 
+    lv_obj_set_size(ui_Screen_Storage, 640, 172);
     lv_obj_clear_flag(ui_Screen_Storage, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(ui_Screen_Storage, COLOR_BG, 0);
     lv_obj_add_flag(ui_Screen_Storage, LV_OBJ_FLAG_GESTURE_BUBBLE);
@@ -222,11 +229,11 @@ void storage_screen_update_network(int upload_kbps, int download_kbps)
         static char tx_str[16];
         float tx_speed = (float)upload_kbps / 1024.0f;
         if (tx_speed < 0.01f) {
-            snprintf(tx_str, sizeof(tx_str), "▲ 0.00KB/s");
+            snprintf(tx_str, sizeof(tx_str), "▲ 0KB/s");
         } else if (tx_speed < 1.0f) {
-            snprintf(tx_str, sizeof(tx_str), "▲ %.2fKB/s", tx_speed * 1024.0f);
+            snprintf(tx_str, sizeof(tx_str), "▲ %.0fKB/s", tx_speed * 1024.0f);
         } else {
-            snprintf(tx_str, sizeof(tx_str), "▲ %.2fMB/s", tx_speed);
+            snprintf(tx_str, sizeof(tx_str), "▲ %.1fMB/s", tx_speed);
         }
         lv_label_set_text(s_screen.label_up, tx_str);
     }
@@ -234,11 +241,11 @@ void storage_screen_update_network(int upload_kbps, int download_kbps)
         static char rx_str[16];
         float rx_speed = (float)download_kbps / 1024.0f;
         if (rx_speed < 0.01f) {
-            snprintf(rx_str, sizeof(rx_str), "▼ 0.00KB/s");
+            snprintf(rx_str, sizeof(rx_str), "▼ 0KB/s");
         } else if (rx_speed < 1.0f) {
-            snprintf(rx_str, sizeof(rx_str), "▼ %.2fKB/s", rx_speed * 1024.0f);
+            snprintf(rx_str, sizeof(rx_str), "▼ %.0fKB/s", rx_speed * 1024.0f);
         } else {
-            snprintf(rx_str, sizeof(rx_str), "▼ %.2fMB/s", rx_speed);
+            snprintf(rx_str, sizeof(rx_str), "▼ %.1fMB/s", rx_speed);
         }
         lv_label_set_text(s_screen.label_down, rx_str);
     }

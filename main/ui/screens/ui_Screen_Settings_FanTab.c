@@ -301,7 +301,7 @@ void fan_tab_save(lv_event_t *e)
 static void create_top_bar(lv_obj_t *parent)
 {
     lv_obj_t *bar = lv_obj_create(parent);
-    lv_obj_set_size(bar, 620, 28);
+    lv_obj_set_size(bar, 620, 22);
     lv_obj_set_style_bg_color(bar, COLOR_BG, 0);
     lv_obj_set_style_border_width(bar, 0, 0);
     lv_obj_set_style_radius(bar, 0, 0);
@@ -318,7 +318,7 @@ static void create_top_bar(lv_obj_t *parent)
 
     s_mode_dd = lv_dropdown_create(bar);
     lv_dropdown_set_options(s_mode_dd, "AUTO\nMANUAL");
-    lv_obj_set_size(s_mode_dd, 70, 22);
+    lv_obj_set_size(s_mode_dd, 65, 18);
     lv_obj_align(s_mode_dd, LV_ALIGN_LEFT_MID, 38, 0);
     lv_obj_set_style_text_font(s_mode_dd, &lv_font_montserrat_12, 0);
     lv_dropdown_set_selected(s_mode_dd, (uint32_t)s_editing_cfg.mode);
@@ -332,8 +332,8 @@ static void create_top_bar(lv_obj_t *parent)
     lv_obj_align(lbl_src, LV_ALIGN_LEFT_MID, 118, 0);
 
     s_source_dd = lv_dropdown_create(bar);
-    lv_dropdown_set_options(s_source_dd, "MAX CPU/SYS\nAVG CPU/SYS\nCPU ONLY\nSYS ONLY");
-    lv_obj_set_size(s_source_dd, 100, 22);
+    lv_dropdown_set_options(s_source_dd, "MAX\nAVG\nCPU\nSYS");
+    lv_obj_set_size(s_source_dd, 50, 18);
     lv_obj_align(s_source_dd, LV_ALIGN_LEFT_MID, 152, 0);
     lv_obj_set_style_text_font(s_source_dd, &lv_font_montserrat_12, 0);
     lv_dropdown_set_selected(s_source_dd, (uint32_t)s_editing_cfg.temp_source);
@@ -347,8 +347,8 @@ static void create_top_bar(lv_obj_t *parent)
     lv_obj_align(lbl_en, LV_ALIGN_LEFT_MID, 262, 0);
 
     s_enable_sw = lv_switch_create(bar);
-    lv_obj_set_size(s_enable_sw, 36, 18);
-    lv_obj_align(s_enable_sw, LV_ALIGN_LEFT_MID, 288, 0);
+    lv_obj_set_size(s_enable_sw, 32, 16);
+    lv_obj_align(s_enable_sw, LV_ALIGN_LEFT_MID, 260, 0);
     if (s_editing_cfg.enabled) {
         lv_obj_add_state(s_enable_sw, LV_STATE_CHECKED);
     }
@@ -356,7 +356,7 @@ static void create_top_bar(lv_obj_t *parent)
 
     /* Apply 按钮 */
     s_apply_btn = lv_btn_create(bar);
-    lv_obj_set_size(s_apply_btn, 70, 22);
+    lv_obj_set_size(s_apply_btn, 60, 18);
     lv_obj_set_style_bg_color(s_apply_btn, COLOR_INACTIVE, 0);
     lv_obj_set_style_radius(s_apply_btn, 3, 0);
     lv_obj_align(s_apply_btn, LV_ALIGN_RIGHT_MID, -2, 0);
@@ -375,13 +375,13 @@ static void create_top_bar(lv_obj_t *parent)
 static void create_canvas_area(lv_obj_t *parent)
 {
     lv_obj_t *area = lv_obj_create(parent);
-    lv_obj_set_size(area, 620, 90);
+    lv_obj_set_size(area, 620, 85);
     lv_obj_set_style_bg_color(area, COLOR_BG, 0);
     lv_obj_set_style_border_width(area, 0, 0);
     lv_obj_set_style_radius(area, 0, 0);
     lv_obj_set_style_pad_all(area, 0, 0);
     lv_obj_clear_flag(area, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_align(area, LV_ALIGN_TOP_MID, 0, 32);
+    lv_obj_align(area, LV_ALIGN_TOP_MID, 0, 24);
 
     /* 左侧画布 */
     s_canvas = lv_canvas_create(area);
@@ -396,18 +396,13 @@ static void create_canvas_area(lv_obj_t *parent)
 
     /* 右侧点列表 */
     lv_obj_t *points_panel = lv_obj_create(area);
-    lv_obj_set_size(points_panel, 320, 88);
+    lv_obj_set_size(points_panel, 310, 83);
     lv_obj_set_style_bg_color(points_panel, COLOR_PANEL, 0);
     lv_obj_set_style_border_width(points_panel, 0, 0);
     lv_obj_set_style_radius(points_panel, 0, 0);
     lv_obj_set_style_pad_all(points_panel, 2, 0);
     lv_obj_set_flex_flow(points_panel, LV_FLEX_FLOW_COLUMN);
     lv_obj_align(points_panel, LV_ALIGN_RIGHT_MID, 0, 0);
-
-    lv_obj_t *title = lv_label_create(points_panel);
-    lv_label_set_text(title, "Curve Points:");
-    lv_obj_set_style_text_color(title, COLOR_TEXT_DIM, 0);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_12, 0);
 
     for (int i = 0; i < FAN_CURVE_POINTS; i++) {
         s_point_labels[i] = lv_label_create(points_panel);
@@ -425,7 +420,7 @@ static void create_canvas_area(lv_obj_t *parent)
 static void create_params_row(lv_obj_t *parent)
 {
     lv_obj_t *row = lv_obj_create(parent);
-    lv_obj_set_size(row, 620, 24);
+    lv_obj_set_size(row, 620, 20);
     lv_obj_set_style_bg_color(row, COLOR_BG, 0);
     lv_obj_set_style_border_width(row, 0, 0);
     lv_obj_set_style_radius(row, 0, 0);
@@ -433,7 +428,7 @@ static void create_params_row(lv_obj_t *parent)
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_align(row, LV_ALIGN_TOP_MID, 0, 124);
+    lv_obj_align(row, LV_ALIGN_TOP_MID, 0, 110);
 
     /* Hysteresis */
     lv_obj_t *lbl_h = lv_label_create(row);
@@ -442,13 +437,13 @@ static void create_params_row(lv_obj_t *parent)
     lv_obj_set_style_text_font(lbl_h, &lv_font_montserrat_12, 0);
 
     s_hyst_dd = lv_dropdown_create(row);
-    lv_dropdown_set_options(s_hyst_dd, "0\n1\n2\n3\n4\n5\n6\n8\n10");
-    lv_obj_set_size(s_hyst_dd, 40, 20);
+    lv_dropdown_set_options(s_hyst_dd, "0\n1\n2\n3\n4\n5");
+    lv_obj_set_size(s_hyst_dd, 35, 16);
     lv_obj_set_style_text_font(s_hyst_dd, &lv_font_montserrat_12, 0);
     {
-        const int opts[] = {0, 1, 2, 3, 4, 5, 6, 8, 10};
+        const int opts[] = {0, 1, 2, 3, 4, 5};
         int sel = 0;
-        for (int i = 0; i < 9; i++) if (opts[i] == s_editing_cfg.hysteresis) { sel = i; break; }
+        for (int i = 0; i < 6; i++) if (opts[i] == s_editing_cfg.hysteresis) { sel = i; break; }
         lv_dropdown_set_selected(s_hyst_dd, sel);
     }
     lv_obj_add_event_cb(s_hyst_dd, hyst_dd_cb, LV_EVENT_VALUE_CHANGED, NULL);
@@ -460,13 +455,13 @@ static void create_params_row(lv_obj_t *parent)
     lv_obj_set_style_text_font(lbl_m, &lv_font_montserrat_12, 0);
 
     s_minpwm_dd = lv_dropdown_create(row);
-    lv_dropdown_set_options(s_minpwm_dd, "0\n10\n15\n20\n25\n30\n40\n50");
-    lv_obj_set_size(s_minpwm_dd, 40, 20);
+    lv_dropdown_set_options(s_minpwm_dd, "0\n10\n20\n30\n40\n50");
+    lv_obj_set_size(s_minpwm_dd, 35, 16);
     lv_obj_set_style_text_font(s_minpwm_dd, &lv_font_montserrat_12, 0);
     {
-        const int opts[] = {0, 10, 15, 20, 25, 30, 40, 50};
+        const int opts[] = {0, 10, 20, 30, 40, 50};
         int sel = 0;
-        for (int i = 0; i < 8; i++) if (opts[i] == s_editing_cfg.min_pwm_pct) { sel = i; break; }
+        for (int i = 0; i < 6; i++) if (opts[i] == s_editing_cfg.min_pwm_pct) { sel = i; break; }
         lv_dropdown_set_selected(s_minpwm_dd, sel);
     }
     lv_obj_add_event_cb(s_minpwm_dd, minpwm_dd_cb, LV_EVENT_VALUE_CHANGED, NULL);

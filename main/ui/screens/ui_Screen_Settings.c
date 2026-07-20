@@ -92,6 +92,7 @@ void ui_Screen_Settings_screen_init(void)
     init_styles();
 
     ui_Screen_Settings = lv_obj_create(NULL);
+    lv_obj_set_size(ui_Screen_Settings, 640, 172);
     lv_obj_clear_flag(ui_Screen_Settings,
                       LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_ELASTIC | LV_OBJ_FLAG_SCROLL_MOMENTUM |
                       LV_OBJ_FLAG_SCROLL_CHAIN);
@@ -100,9 +101,8 @@ void ui_Screen_Settings_screen_init(void)
     ESP_LOGI(TAG, "Added GESTURE_BUBBLE flag for Settings screen");
 
     ui_Settings_Tabview_ConfigPanel = lv_tabview_create(ui_Screen_Settings, LV_DIR_BOTTOM, 40);
-    lv_obj_set_width(ui_Settings_Tabview_ConfigPanel, lv_pct(100));
-    lv_obj_set_height(ui_Settings_Tabview_ConfigPanel, lv_pct(100));
-    lv_obj_set_align(ui_Settings_Tabview_ConfigPanel, LV_ALIGN_CENTER);
+    lv_obj_set_size(ui_Settings_Tabview_ConfigPanel, 640, 132);
+    lv_obj_align(ui_Settings_Tabview_ConfigPanel, LV_ALIGN_TOP_MID, 0, 40);
     lv_obj_clear_flag(ui_Settings_Tabview_ConfigPanel,
                       LV_OBJ_FLAG_SNAPPABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_ELASTIC |
                       LV_OBJ_FLAG_SCROLL_MOMENTUM | LV_OBJ_FLAG_SCROLL_CHAIN);
@@ -169,7 +169,7 @@ void ui_Screen_Settings_screen_init(void)
 
     ui_Settings_Keyboard_Keyboard1 = lv_keyboard_create(ui_Screen_Settings);
     lv_obj_set_width(ui_Settings_Keyboard_Keyboard1, 350);
-    lv_obj_set_height(ui_Settings_Keyboard_Keyboard1, lv_pct(100));
+    lv_obj_set_height(ui_Settings_Keyboard_Keyboard1, 130);
     lv_obj_set_align(ui_Settings_Keyboard_Keyboard1, LV_ALIGN_TOP_RIGHT);
     lv_obj_add_flag(ui_Settings_Keyboard_Keyboard1, LV_OBJ_FLAG_HIDDEN);
     lv_obj_set_style_bg_color(ui_Settings_Keyboard_Keyboard1, lv_color_hex(0x117200), LV_PART_MAIN | LV_STATE_DEFAULT);
