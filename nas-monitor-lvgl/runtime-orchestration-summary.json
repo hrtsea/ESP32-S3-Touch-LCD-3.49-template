@@ -193,6 +193,7 @@
       "pageIds": [
         "page-page-boot",
         "page-page-overview",
+        "page-page-sd-copy",
         "page-page-storage",
         "page-page-disk-detail",
         "page-page-system-detail-cpu",
@@ -238,6 +239,21 @@
           ],
           "mutableSlots": [],
           "status": "generated",
+          "children": []
+        },
+        {
+          "nodeId": "page-page-sd-copy",
+          "kind": "page-leaf",
+          "pageIds": [
+            "page-page-sd-copy"
+          ],
+          "output": "pages/page-sd-copy.html",
+          "sharedRegions": [],
+          "privateRegions": [
+            "content"
+          ],
+          "mutableSlots": [],
+          "status": "pending",
           "children": []
         },
         {
@@ -530,6 +546,30 @@
         "Top-right close action",
         "Bottom gradient tab bar",
         "Default Wi-Fi tab with SSID dropdown, password input, save/scan buttons and Wi-Fi switch"
+      ],
+      "componentPlan": [],
+      "imagePlan": [],
+      "qualityRisks": [
+        "fixed-frame",
+        "density"
+      ]
+    },
+    {
+      "nodeId": "page-page-sd-copy",
+      "title": "SD Copy",
+      "htmlSrc": "pages/page-sd-copy.html",
+      "pageIndex": 9,
+      "pageType": "information-dense",
+      "visualNorthStar": "SD card file copy progress: same status bar and HDD section as overview, middle section with striped progress bar, percentage, speed, and Copying label per reference image",
+      "compositionPattern": "progress-overlay",
+      "derivationType": "comparison-from-source",
+      "sourcePageId": "page-page-overview",
+      "sourceHtmlSrc": "pages/page-overview.html",
+      "continuityAnchors": [
+        "Status bar pattern from overview",
+        "Bottom HDD LED strip from overview",
+        "Cyan accent for progress bar",
+        "Dark background with white text"
       ],
       "componentPlan": [],
       "imagePlan": [],

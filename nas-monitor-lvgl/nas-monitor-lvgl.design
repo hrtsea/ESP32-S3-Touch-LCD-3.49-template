@@ -52,8 +52,8 @@
           "version": 1,
           "contentHeight": 172,
           "viewportWidth": 640,
-          "sourceHash": "fnv1a-ea767295",
-          "measuredAt": 1785832238490
+          "sourceHash": "fnv1a-0f456fd5",
+          "measuredAt": 1785860165461
         }
       },
       "devMetadata": {
@@ -111,6 +111,28 @@
       }
     },
     {
+      "id": "page-page-sd-copy",
+      "title": "SD Copy",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1759562100000,
+      "canvasData": {
+        "x": 216,
+        "y": 72,
+        "group": 0,
+        "layoutSnapshot": {},
+        "deviceType": "freeSize",
+        "windowSize": {
+          "width": 640,
+          "height": 172
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/page-sd-copy.html",
+        "interactions": []
+      }
+    },
+    {
       "id": "page-page-storage",
       "title": "Storage",
       "type": "page",
@@ -118,7 +140,7 @@
       "createdAt": 1759562100000,
       "canvasData": {
         "x": 0,
-        "y": 240,
+        "y": 239.99999999999997,
         "group": 0,
         "layoutSnapshot": {
           "version": 1,
@@ -179,7 +201,7 @@
       "createdAt": 1759562100000,
       "canvasData": {
         "x": 216,
-        "y": 72,
+        "y": 0,
         "group": 0,
         "layoutSnapshot": {
           "version": 1,
@@ -328,8 +350,8 @@
           "version": 1,
           "contentHeight": 172,
           "viewportWidth": 640,
-          "sourceHash": "fnv1a-settings-0",
-          "measuredAt": 1785834274760
+          "sourceHash": "fnv1a-a003c480",
+          "measuredAt": 1785852641173
         },
         "deviceType": "freeSize",
         "windowSize": {

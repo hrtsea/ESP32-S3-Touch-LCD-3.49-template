@@ -34,6 +34,7 @@ extern "C" {
 #include "screens/ui_Screen_WifiConfig.h"
 #include "screens/ui_Screen_DiskDetail.h"
 #include "screens/ui_Screen_SystemDetail.h"
+#include "screens/ui_Screen_SDCopy.h"
 
 #define N_TILES 4
 

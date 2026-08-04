@@ -9,7 +9,7 @@ extern "C" {
 #define APP_NAME           "ZotLab NAS Monitor"
 #define APP_HOSTNAME       "NAS Monitor"
 #define APP_SERIAL_PREFIX  "<< " APP_NAME " >>"
-#define APP_VERSION        "1.2.0"
+#define APP_VERSION        "1.1.0"
 
 #define NAS_LOGO           "ZotLab"
 #define NAS_TYPE           "Z6"
@@ -38,7 +38,7 @@ extern "C" {
 #define PAGE_DOT_H             8
 #define CONTENT_H              (TFT_HEIGHT - STATUS_BAR_H - PAGE_DOT_H)
 
-#define TOTAL_PAGES            8
+#define TOTAL_PAGES            7
 
 #ifdef __cplusplus
 }

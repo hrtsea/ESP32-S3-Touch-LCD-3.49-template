@@ -138,14 +138,14 @@ static void create_status_bar(lv_obj_t *parent)
 
     /* 上传速度 */
     s_screen.label_up = lv_label_create(status_bar);
-    lv_label_set_text(s_screen.label_up, "^ 0KB/s");
+    lv_label_set_text(s_screen.label_up, "▲ 0KB/s");
     lv_obj_set_style_text_color(s_screen.label_up, COLOR_TEXT, 0);
     lv_obj_set_style_text_font(s_screen.label_up, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.label_up, LV_ALIGN_LEFT_MID, 250, 0);
 
     /* 下载速度 */
     s_screen.label_down = lv_label_create(status_bar);
-    lv_label_set_text(s_screen.label_down, "v 0KB/s");
+    lv_label_set_text(s_screen.label_down, "▼ 0KB/s");
     lv_obj_set_style_text_color(s_screen.label_down, COLOR_TEXT, 0);
     lv_obj_set_style_text_font(s_screen.label_down, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.label_down, LV_ALIGN_LEFT_MID, 330, 0);
@@ -169,7 +169,7 @@ static void create_status_bar(lv_obj_t *parent)
     lv_label_set_text(s_screen.icon_bt, LV_SYMBOL_BLUETOOTH);
     lv_obj_set_style_text_color(s_screen.icon_bt, COLOR_ICON_DIM, 0);
     lv_obj_set_style_text_font(s_screen.icon_bt, &lv_font_montserrat_12, 0);
-    lv_obj_align(s_screen.icon_bt, LV_ALIGN_RIGHT_MID, -5, 0);
+    lv_obj_align(s_screen.icon_bt, LV_ALIGN_LEFT_MID, 614, 0);
 
     lv_obj_t *divider = lv_obj_create(parent);
     lv_obj_set_size(divider, 640, 2);
@@ -465,42 +465,4 @@ void ui_Screen_DiskDetail_update_data(const NasData *data)
     format_speed(disk->write_kbps, spd, sizeof(spd));
     snprintf(buf, sizeof(buf), "W: %s", spd);
     lv_label_set_text(s_screen.label_write, buf);
-}
-
-void ui_Screen_DiskDetail_update_time(const char *time_str)
-{
-    if (s_screen.label_time) {
-        lv_label_set_text(s_screen.label_time, time_str);
-    }
-}
-
-void ui_Screen_DiskDetail_update_network(int upload_kbps, int download_kbps)
-{
-    if (s_screen.label_up) {
-        static char up_str[16];
-        snprintf(up_str, sizeof(up_str), "^ %.2fKB/s", upload_kbps / 1000.0f);
-        lv_label_set_text(s_screen.label_up, up_str);
-    }
-    if (s_screen.label_down) {
-        static char down_str[16];
-        snprintf(down_str, sizeof(down_str), "v %.2fKB/s", download_kbps / 1000.0f);
-        lv_label_set_text(s_screen.label_down, down_str);
-    }
-}
-
-void ui_Screen_DiskDetail_update_ip(const char *ip_str)
-{
-    if (s_screen.label_ip) {
-        static char ip_buf[24];
-        snprintf(ip_buf, sizeof(ip_buf), "IP: %s", ip_str);
-        lv_label_set_text(s_screen.label_ip, ip_buf);
-    }
-}
-
-void ui_Screen_DiskDetail_update_wifi(bool connected)
-{
-    if (s_screen.icon_wifi) {
-        lv_obj_set_style_text_color(s_screen.icon_wifi,
-            connected ? COLOR_OK : COLOR_ICON_DIM, 0);
-    }
 }

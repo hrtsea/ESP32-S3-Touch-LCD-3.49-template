@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Overview page-overview[0]</title>
+    <title>SD Card Copy page-sd-copy[0]</title>
     <style id="theme-vars">
 :root {
   /* LVGL NAS Monitor palette — dark dashboard, cyan accent */
@@ -175,39 +175,39 @@
 <div style="position:absolute;right:5px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--nas-ink-3);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg></div>
 <div style="position:absolute;left:0;top:35px;width:640px;height:2px;background:var(--nas-muted);"></div>
 </div>
-<div data-dom-id="cpu-container" style="position:absolute;left:0;top:37px;width:240px;height:100px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;box-sizing:border-box;">
-  <div data-dom-id="meter-cpu" style="cursor:pointer;"><div style="position:relative;width:90px;height:90px;">
-  <svg width="90" height="90" viewBox="0 0 90 90" style="display:block;">
-    <circle cx="45" cy="45" r="40" fill="none" stroke="var(--nas-muted)" stroke-width="6" stroke-dasharray="188.50 251.33" transform="rotate(135 45 45)" ></circle>
-    <circle cx="45" cy="45" r="40" fill="none" stroke="var(--nas-primary)" stroke-width="6" stroke-dasharray="131.95 251.33" transform="rotate(135 45 45)" ></circle>
-    <line x1="45" y1="45" x2="45" y2="11" stroke="var(--nas-primary)" stroke-width="2" transform="rotate(72.0 45 45)" ></line>
-  </svg>
-  <div style="position:absolute;left:50%;top:55%;transform:translate(-50%,-50%);font-size:12px;font-weight:600;color:var(--nas-foreground);">70%</div>
-</div></div>
-  <div data-dom-id="meter-temp" style="cursor:pointer;"><div style="position:relative;width:90px;height:90px;">
-  <svg width="90" height="90" viewBox="0 0 90 90" style="display:block;">
-    <circle cx="45" cy="45" r="40" fill="none" stroke="var(--nas-muted)" stroke-width="6" stroke-dasharray="188.50 251.33" transform="rotate(135 45 45)" ></circle>
-    <circle cx="45" cy="45" r="40" fill="none" stroke="var(--nas-state-warning)" stroke-width="6" stroke-dasharray="109.33 251.33" transform="rotate(135 45 45)" ></circle>
-    <line x1="45" y1="45" x2="45" y2="11" stroke="var(--nas-state-warning)" stroke-width="2" transform="rotate(82.8 45 45)" ></line>
-  </svg>
-  <div style="position:absolute;left:50%;top:55%;transform:translate(-50%,-50%);font-size:12px;font-weight:600;color:var(--nas-foreground);">58°C</div>
-</div></div>
-</div>
-<div data-dom-id="md-container" style="position:absolute;right:0;top:37px;width:380px;height:100px;display:flex;flex-direction:column;justify-content:space-evenly;padding:0 12px;box-sizing:border-box;">
-<div data-dom-id="mem-container" style="width:100%;height:30%;display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
-  <div style="width:20%;font-size:12px;line-height:1.1;">MEMORY<br>8GB</div>
-  <div style="width:60%;"><div style="width:228px;height:18px;background:var(--nas-muted);border-radius:5px;overflow:hidden;">
-  <div style="width:72%;height:100%;background:var(--nas-primary);border-radius:5px;"></div>
-</div></div>
-  <div style="width:10%;text-align:right;font-size:12px;">72%</div>
-</div>
-<div data-dom-id="disk-container" style="width:100%;height:30%;display:flex;align-items:center;justify-content:space-between;">
-  <div style="width:20%;font-size:12px;line-height:1.1;">DISK<br>2048GB</div>
-  <div style="width:60%;"><div style="width:228px;height:18px;background:var(--nas-muted);border-radius:5px;overflow:hidden;">
-  <div style="width:50%;height:100%;background:var(--nas-primary);border-radius:5px;"></div>
-</div></div>
-  <div style="width:10%;text-align:right;font-size:12px;">50%</div>
-</div>
+<div data-dom-id="sd-copy-container" style="position:absolute;left:0;top:37px;width:640px;height:100px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;box-sizing:border-box;">
+  <div style="display:flex;flex-direction:column;align-items:flex-start;justify-content:center;width:120px;flex-shrink:0;">
+    <div style="font-size:11px;color:var(--nas-ink-2);line-height:1.2;margin-bottom:2px;">复制中</div>
+    <div style="font-size:26px;font-weight:700;color:var(--nas-foreground);line-height:1.2;margin-bottom:2px;font-family:var(--nas-font-mono);">87.87%</div>
+    <div style="font-size:12px;color:var(--nas-ink-2);line-height:1.2;">152.6MB/s</div>
+  </div>
+  <div data-dom-id="sd-copy-bar" style="display:flex;align-items:center;width:496px;height:22px;gap:1px;flex-shrink:0;">
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:1;height:22px;background:linear-gradient(to bottom, rgba(64,224,208,0.95), var(--nas-primary), rgba(64,224,208,0.65));border-radius:1px;box-shadow:0 1px 2px rgba(0,0,0,0.3);"></div>
+    <div style="flex:0 0 8px;height:22px;background:var(--nas-muted);border-radius:1px;opacity:0.5;"></div>
+    <div style="flex:0 0 8px;height:22px;background:var(--nas-muted);border-radius:1px;opacity:0.5;"></div>
+    <div style="flex:0 0 8px;height:22px;background:var(--nas-muted);border-radius:1px;opacity:0.5;"></div>
+  </div>
 </div>
 <div data-dom-id="hdd-container" style="position:absolute;left:0;bottom:2px;width:640px;height:35px;display:flex;">
 <div data-dom-id="hdd-0" style="flex:1;height:35px;background:var(--nas-muted);border-radius:3px;display:flex;align-items:center;justify-content:space-evenly;padding:0 4px;box-sizing:border-box;cursor:pointer;">

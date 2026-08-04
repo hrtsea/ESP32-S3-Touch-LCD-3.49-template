@@ -102,7 +102,7 @@
     "pages/page-system-detail-cpu.html": "509a00770a929e51732b778a2761dd61a5829b40d08cdb8d87a02c2b87337146",
     "pages/page-system-detail-memory.html": "17130caa3da85c96853e7e62753a4a704ff787a5ce89359f92dbcbf50409b133"
   },
-  "designDir": "E:\\zotlabnas-split\\ESP32-S3-Touch-LCD-3.49-template\\nas-monitor-lvgl",
+  "designDir": "f:\\nasmonitor\\ESP32-S3-Touch-LCD-3.49-template\\nas-monitor-lvgl",
   "expectedPages": null,
   "requireInteractions": null,
   "checkedAt": "2026-08-04T03:12:16.725Z"

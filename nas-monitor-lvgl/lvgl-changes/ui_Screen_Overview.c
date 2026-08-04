@@ -118,7 +118,7 @@ static void create_status_bar(lv_obj_t *parent) {
 
     lv_obj_t *label_up = lv_label_create(status_bar);
     static char up_str[16];
-    snprintf(up_str, sizeof(up_str), "^ 0.00KB/s");
+    snprintf(up_str, sizeof(up_str), "▲ 0.00KB/s");
     lv_label_set_text(label_up, up_str);
     lv_obj_set_style_text_color(label_up, COLOR_TEXT, 0);
     lv_obj_set_style_text_font(label_up, &lv_font_montserrat_12, 0);
@@ -127,7 +127,7 @@ static void create_status_bar(lv_obj_t *parent) {
 
     lv_obj_t *label_down = lv_label_create(status_bar);
     static char down_str[16];
-    snprintf(down_str, sizeof(down_str), "v 0.00KB/s");
+    snprintf(down_str, sizeof(down_str), "▼ 0.00KB/s");
     lv_label_set_text(label_down, down_str);
     lv_obj_set_style_text_color(label_down, COLOR_TEXT, 0);
     lv_obj_set_style_text_font(label_down, &lv_font_montserrat_12, 0);
@@ -144,7 +144,7 @@ static void create_status_bar(lv_obj_t *parent) {
     lv_label_set_text(s_screen.icon_bt, LV_SYMBOL_BLUETOOTH);
     lv_obj_set_style_text_color(s_screen.icon_bt, COLOR_ICON_DIM, 0);
     lv_obj_set_style_text_font(s_screen.icon_bt, &lv_font_montserrat_12, 0);
-    lv_obj_align(s_screen.icon_bt, LV_ALIGN_RIGHT_MID, -5, 0);
+    lv_obj_align(s_screen.icon_bt, LV_ALIGN_LEFT_MID, 614, 0);
 
     s_screen.label_ip = lv_label_create(status_bar);
     lv_label_set_text(s_screen.label_ip, "IP: --");
@@ -392,12 +392,12 @@ void overview_screen_update_time(const char *time_str) {
 void overview_screen_update_network(int upload_kbps, int download_kbps) {
     if (s_screen.label_up) {
         static char up_str[16];
-        snprintf(up_str, sizeof(up_str), "^ %.2fKB/s", upload_kbps / 1000.0f);
+        snprintf(up_str, sizeof(up_str), "▲ %.2fKB/s", upload_kbps / 1000.0f);
         lv_label_set_text(s_screen.label_up, up_str);
     }
     if (s_screen.label_down) {
         static char down_str[16];
-        snprintf(down_str, sizeof(down_str), "v %.2fKB/s", download_kbps / 1000.0f);
+        snprintf(down_str, sizeof(down_str), "▼ %.2fKB/s", download_kbps / 1000.0f);
         lv_label_set_text(s_screen.label_down, down_str);
     }
 }

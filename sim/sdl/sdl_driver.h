@@ -22,7 +22,7 @@ extern "C" {
 #define SIM_VER_RES   172
 
 /* 显示窗口缩放系数（鼠标坐标反向除以该值映射回 LVGL 坐标） */
-#define SIM_SCALE     2
+#define SIM_SCALE     1
 
 /* 初始化 SDL 窗口 + LVGL display driver + 鼠标 indev。
  * 成功返回 0，失败返回 -1。 */

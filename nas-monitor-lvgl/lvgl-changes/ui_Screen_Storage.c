@@ -77,7 +77,7 @@ static void create_storage_status_bar(lv_obj_t *parent)
     lv_obj_t *label_up = lv_label_create(status_bar);
     LV_OBJ_CHECK(label_up, "label_up");
     s_screen.label_up = label_up;
-    lv_label_set_text(label_up, "^ 0KB/s");
+    lv_label_set_text(label_up, "▲ 0KB/s");
     lv_obj_set_style_text_color(label_up, COLOR_TEXT, 0);
     lv_obj_set_style_text_font(label_up, &lv_font_montserrat_12, 0);
     lv_obj_align(label_up, LV_ALIGN_LEFT_MID, 250, 0);
@@ -85,7 +85,7 @@ static void create_storage_status_bar(lv_obj_t *parent)
     lv_obj_t *label_down = lv_label_create(status_bar);
     LV_OBJ_CHECK(label_down, "label_down");
     s_screen.label_down = label_down;
-    lv_label_set_text(label_down, "v 0KB/s");
+    lv_label_set_text(label_down, "▼ 0KB/s");
     lv_obj_set_style_text_color(label_down, COLOR_TEXT, 0);
     lv_obj_set_style_text_font(label_down, &lv_font_montserrat_12, 0);
     lv_obj_align(label_down, LV_ALIGN_LEFT_MID, 330, 0);
@@ -102,7 +102,7 @@ static void create_storage_status_bar(lv_obj_t *parent)
     lv_label_set_text(s_screen.icon_bt, LV_SYMBOL_BLUETOOTH);
     lv_obj_set_style_text_color(s_screen.icon_bt, COLOR_ICON_DIM, 0);
     lv_obj_set_style_text_font(s_screen.icon_bt, &lv_font_montserrat_12, 0);
-    lv_obj_align(s_screen.icon_bt, LV_ALIGN_RIGHT_MID, -5, 0);
+    lv_obj_align(s_screen.icon_bt, LV_ALIGN_LEFT_MID, 614, 0);
 
     lv_obj_t *label_ip = lv_label_create(status_bar);
     LV_OBJ_CHECK(label_ip, "label_ip");
@@ -257,11 +257,11 @@ void storage_screen_update_network(int upload_kbps, int download_kbps)
         static char tx_str[16];
         float tx_speed = (float)upload_kbps / 1024.0f;
         if (tx_speed < 0.01f) {
-            snprintf(tx_str, sizeof(tx_str), "^ 0KB/s");
+            snprintf(tx_str, sizeof(tx_str), "▲ 0KB/s");
         } else if (tx_speed < 1.0f) {
-            snprintf(tx_str, sizeof(tx_str), "^ %.0fKB/s", tx_speed * 1024.0f);
+            snprintf(tx_str, sizeof(tx_str), "▲ %.0fKB/s", tx_speed * 1024.0f);
         } else {
-            snprintf(tx_str, sizeof(tx_str), "^ %.1fMB/s", tx_speed);
+            snprintf(tx_str, sizeof(tx_str), "▲ %.1fMB/s", tx_speed);
         }
         lv_label_set_text(s_screen.label_up, tx_str);
     }
@@ -269,11 +269,11 @@ void storage_screen_update_network(int upload_kbps, int download_kbps)
         static char rx_str[16];
         float rx_speed = (float)download_kbps / 1024.0f;
         if (rx_speed < 0.01f) {
-            snprintf(rx_str, sizeof(rx_str), "v 0KB/s");
+            snprintf(rx_str, sizeof(rx_str), "▼ 0KB/s");
         } else if (rx_speed < 1.0f) {
-            snprintf(rx_str, sizeof(rx_str), "v %.0fKB/s", rx_speed * 1024.0f);
+            snprintf(rx_str, sizeof(rx_str), "▼ %.0fKB/s", rx_speed * 1024.0f);
         } else {
-            snprintf(rx_str, sizeof(rx_str), "v %.1fMB/s", rx_speed);
+            snprintf(rx_str, sizeof(rx_str), "▼ %.1fMB/s", rx_speed);
         }
         lv_label_set_text(s_screen.label_down, rx_str);
     }

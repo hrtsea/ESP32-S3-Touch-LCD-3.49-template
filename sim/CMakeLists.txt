@@ -132,6 +132,7 @@ set(UI_SOURCES
     ${MAIN_DIR}/ui/screens/ui_Screen_WifiConfig.c
     ${MAIN_DIR}/ui/screens/ui_Screen_DiskDetail.c
     ${MAIN_DIR}/ui/screens/ui_Screen_SystemDetail.c
+    ${MAIN_DIR}/ui/screens/ui_Screen_SDCopy.c
     # Settings Tab 子模块
     ${MAIN_DIR}/ui/screens/ui_Screen_Settings_WifiTab.c
     ${MAIN_DIR}/ui/screens/ui_Screen_Settings_NasTab.c

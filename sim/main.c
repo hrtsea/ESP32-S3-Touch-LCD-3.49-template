@@ -107,9 +107,13 @@ static void sim_update_screens(const NasData *data)
     /* 详情屏（仅当用户进入时存在） */
     if (ui_Screen_DiskDetail != NULL) {
         ui_Screen_DiskDetail_update_data(data);
+        ui_Screen_DiskDetail_update_network((int)(data->network.tx_bps / 1000),
+                                            (int)(data->network.rx_bps / 1000));
     }
     if (ui_Screen_SystemDetail != NULL) {
         ui_Screen_SystemDetail_update_data(data);
+        ui_Screen_SystemDetail_update_network((int)(data->network.tx_bps / 1000),
+                                              (int)(data->network.rx_bps / 1000));
     }
 
     /* WiFi 状态/IP 显示 */
@@ -117,7 +121,12 @@ static void sim_update_screens(const NasData *data)
     wifi_cfg_get_current_ip(ip_buf, sizeof(ip_buf));
     if (ui_Screen_Overview) overview_screen_update_ip(ip_buf);
     if (ui_Screen_Storage)  storage_screen_update_ip(ip_buf);
+    if (ui_Screen_DiskDetail) ui_Screen_DiskDetail_update_ip(ip_buf);
+    if (ui_Screen_SystemDetail) ui_Screen_SystemDetail_update_ip(ip_buf);
     if (ui_Screen_Overview) overview_screen_update_wifi(wifi_cfg_is_connected());
+    if (ui_Screen_Storage)  storage_screen_update_wifi(wifi_cfg_is_connected());
+    if (ui_Screen_DiskDetail) ui_Screen_DiskDetail_update_wifi(wifi_cfg_is_connected());
+    if (ui_Screen_SystemDetail) ui_Screen_SystemDetail_update_wifi(wifi_cfg_is_connected());
 
     /* 推送温度给风扇控制 */
     fan_control_on_nas_data(data);
@@ -146,8 +155,8 @@ int main(int argc, char **argv)
 
     /* 2. 应用配置（g_cfg，内存版） */
     app_cfg_init();
-    /* 默认开启 FPS 显示方便调试 */
-    g_cfg.show_fps = 1;
+    /* 关闭 FPS 显示 */
+    g_cfg.show_fps = 0;
 
     /* 3. 事件总线（同步版） */
     event_bus_init();

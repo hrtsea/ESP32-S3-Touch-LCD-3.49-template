@@ -108,7 +108,7 @@ static void generate_mock_data(NasData* data)
         data->disks[i].health = HEALTH_OK;
         data->disks[i].read_kbps = 100000 + (s_counter % 50000) + (i * 10000);
         data->disks[i].write_kbps = 80000 + (s_counter % 40000) + (i * 8000);
-        data->disks[i].online = true;
+        data->disks[i].online = (i < 2) ? false : true;  /* 前2个硬盘离线 */
         data->disks[i].slot_index = i;
 
         total_size_gb += data->disks[i].size_gb;

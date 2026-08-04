@@ -20,6 +20,7 @@
 #include "screens/ui_Screen_Boot.h"
 #include "screens/ui_Screen_DiskDetail.h"
 #include "screens/ui_Screen_SystemDetail.h"
+#include "screens/ui_Screen_SDCopy.h"
 #include "../data/fan_control.h"
 
 #define UI_UPDATE(code) do { \
@@ -103,6 +104,9 @@ static void time_update_timer_cb(lv_timer_t *t)
     snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", tm_now->tm_hour, tm_now->tm_min, tm_now->tm_sec);
     overview_screen_update_time(time_str);
     storage_screen_update_time(time_str);
+    sdcopy_screen_update_time(time_str);
+    if (ui_Screen_DiskDetail) ui_Screen_DiskDetail_update_time(time_str);
+    if (ui_Screen_SystemDetail) ui_Screen_SystemDetail_update_time(time_str);
 }
 
 void ui_events_start_time_timer(void)
@@ -155,6 +159,8 @@ static void on_nas_data_update_evt(const NasData *data)
                 const NasDiskInfo *disk = &data->disks[i];
                 overview_screen_update_hdd_led(i, disk->online, disk->health);
                 overview_screen_update_hdd_name(i, disk->name);
+                sdcopy_screen_update_hdd_led(i, disk->online, disk->health);
+                sdcopy_screen_update_hdd_name(i, disk->name);
             }
         }
 
@@ -172,6 +178,9 @@ static void on_nas_data_update_evt(const NasData *data)
             fabs(rx_speed - s_last_rx_speed) >= 0.05f) {
             overview_screen_update_network((int)(data->network.tx_bps / 1000), (int)(data->network.rx_bps / 1000));
             storage_screen_update_network((int)(data->network.tx_bps / 1000), (int)(data->network.rx_bps / 1000));
+            sdcopy_screen_update_network((int)(data->network.tx_bps / 1000), (int)(data->network.rx_bps / 1000));
+            if (ui_Screen_DiskDetail) ui_Screen_DiskDetail_update_network((int)(data->network.tx_bps / 1000), (int)(data->network.rx_bps / 1000));
+            if (ui_Screen_SystemDetail) ui_Screen_SystemDetail_update_network((int)(data->network.tx_bps / 1000), (int)(data->network.rx_bps / 1000));
             s_last_tx_speed = tx_speed;
             s_last_rx_speed = rx_speed;
         }
@@ -196,6 +205,12 @@ static void on_wifi_state_changed(bool connected)
     overview_screen_update_ip(ip_buf);
     storage_screen_update_ip(ip_buf);
     overview_screen_update_wifi(connected);
+    sdcopy_screen_update_ip(ip_buf);
+    sdcopy_screen_update_wifi(connected);
+    if (ui_Screen_DiskDetail) ui_Screen_DiskDetail_update_ip(ip_buf);
+    if (ui_Screen_DiskDetail) ui_Screen_DiskDetail_update_wifi(connected);
+    if (ui_Screen_SystemDetail) ui_Screen_SystemDetail_update_ip(ip_buf);
+    if (ui_Screen_SystemDetail) ui_Screen_SystemDetail_update_wifi(connected);
 }
 
 static void task_ui_event_loop(void *arg)
@@ -270,6 +285,10 @@ static void task_ui_event_loop(void *arg)
                     if (ui_Screen_Storage) {
                         ui_Screen_Storage_screen_destroy();
                         ui_Screen_Storage_screen_init();
+                    }
+                    if (ui_Screen_SDCopy) {
+                        ui_Screen_SDCopy_screen_destroy();
+                        ui_Screen_SDCopy_screen_init();
                     }
                 );
                 break;
@@ -525,6 +544,22 @@ void ui_event_Screen_Storage_gesture(lv_event_t* e)
                 ui_Screen_Overview_screen_init();
             }
             lv_scr_load_anim(ui_Screen_Overview, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0, false);
+        }
+    }
+}
+
+void ui_event_Screen_SDCopy_gesture(lv_event_t* e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if (event_code == LV_EVENT_GESTURE) {
+        lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+
+        if (dir == LV_DIR_RIGHT) {
+            if (ui_Screen_Storage == NULL) {
+                ui_Screen_Storage_screen_init();
+            }
+            lv_scr_load_anim(ui_Screen_Storage, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0, false);
         }
     }
 }
