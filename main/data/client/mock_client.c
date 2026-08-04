@@ -75,9 +75,6 @@ static void generate_mock_data(NasData* data)
     data->disk_count = total_slots;
     data->disk_slot_count = total_slots;
 
-    ESP_LOGI(TAG, "[mock disk] sata=%u m2=%u total_slots=%u disk_count=%u",
-             sata_count, m2_count, total_slots, data->disk_count);
-
     uint64_t total_size_gb = 0;
     uint64_t total_used_gb = 0;
 
@@ -117,7 +114,7 @@ static void generate_mock_data(NasData* data)
         total_size_gb += data->disks[i].size_gb;
         total_used_gb += data->disks[i].used_gb;
 
-        ESP_LOGI(TAG, "[mock disk] slot[%u] name='%s' type='%s' model='%s' online=%d used_pct=%u temp=%d",
+        ESP_LOGD(TAG, "[mock disk] slot[%u] name='%s' type='%s' model='%s' online=%d used_pct=%u temp=%d",
                  i, data->disks[i].name, data->disks[i].disk_type, data->disks[i].model_name,
                  data->disks[i].online, data->disks[i].used_pct, data->disks[i].temp);
     }
@@ -202,18 +199,18 @@ static void mock_disconnect(DataSource* self)
 
 static bool mock_poll(DataSource* self)
 {
-    uint32_t now = (uint32_t)(esp_log_timestamp() / 1000);
-    uint32_t poll_interval = g_config.poll_sec * 1000UL;
+    uint32_t now_ms = esp_log_timestamp();
+    uint32_t poll_interval_ms = g_config.poll_sec * 1000UL;
 
-    if (self->last_poll_ms > 0 && (now - self->last_poll_ms) < poll_interval) {
+    if (self->last_poll_ms > 0 && (now_ms - self->last_poll_ms) < poll_interval_ms) {
         return false;
     }
 
     generate_mock_data(&self->data);
     self->data.is_online = true;
-    self->data.last_update_ms = now;
+    self->data.last_update_ms = now_ms;
     self->data.has_update = true;
-    self->last_poll_ms = now;
+    self->last_poll_ms = now_ms;
     return true;
 }
 

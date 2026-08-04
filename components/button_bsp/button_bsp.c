@@ -4,6 +4,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "driver/gpio.h"
+#include "usb_hid_bsp.h"
 
 EventGroupHandle_t boot_groups;
 EventGroupHandle_t pwr_groups;
@@ -72,11 +73,14 @@ void button_Init(void)
   boot_groups = xEventGroupCreate();
   pwr_groups = xEventGroupCreate();
   gpio_init();
+  
+  // 初始化 USB HID
+  usb_hid_init();
 
   button_init(&button1, read_button_GPIO, button1_active , button1_id);       // 初始化 初始化对象 回调函数 触发电平 按键ID
   button_attach(&button1,BTN_SINGLE_CLICK,on_boot_single_click);           //单击事件
   button_attach(&button1,BTN_LONG_PRESS_START,on_boot_long_press_start);   //长按
-  button_attach(&button1,BTN_PRESS_REPEAT,on_boot_double_click);           //双击 
+  button_attach(&button1,BTN_PRESS_REPEAT,on_boot_double_click);           //双击
   button_attach(&button1,BTN_PRESS_UP,on_boot_press_up);                   //弹起               
 
   button_init(&button2, read_button_GPIO, button2_active , button2_id);       // 初始化 初始化对象 回调函数 触发电平 按键ID
@@ -112,6 +116,9 @@ static void on_button2_press_repeat(Button* btn_handle)
 static void on_button2_single_click(Button* btn_handle)
 {
   xEventGroupSetBits(pwr_groups,set_bit_button(0));
+  
+  // 发送 F15 键到 USB HID
+  usb_hid_click_key(HID_KEY_F15, 50);
 }
 /*双击*/
 static void on_button2_double_click(Button* btn_handle)
@@ -122,6 +129,9 @@ static void on_button2_double_click(Button* btn_handle)
 static void on_button2_long_press_start(Button* btn_handle)
 {
   xEventGroupSetBits(pwr_groups,set_bit_button(1));
+  
+  // 发送 F16 键到 USB HID（长按）
+  usb_hid_click_key(HID_KEY_F16, 50);
 }
 /*长按保持*/
 static void on_button2_long_press_hold(Button* btn_handle)
@@ -145,6 +155,9 @@ static void on_button2_press_up(Button* btn_handle)
 static void on_boot_single_click(Button* btn_handle)
 {
   xEventGroupSetBits(boot_groups,set_bit_button(0));
+  
+  // 发送 F13 键到 USB HID
+  usb_hid_click_key(HID_KEY_F13, 50);
 }
 
 /*双击*/
@@ -157,6 +170,9 @@ static void on_boot_double_click(Button* btn_handle)
 static void on_boot_long_press_start(Button* btn_handle)
 {
   xEventGroupSetBits(boot_groups,set_bit_button(2));
+  
+  // 发送 F14 键到 USB HID（长按）
+  usb_hid_click_key(HID_KEY_F14, 50);
 }
 
 /*弹起*/

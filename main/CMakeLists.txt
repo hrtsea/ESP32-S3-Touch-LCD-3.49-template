@@ -37,6 +37,7 @@ idf_component_register(
         "utils/http_timer.c"
         "utils/wifi_adapter.c"
         "utils/wifi_bridge.c"
+        "utils/rgb_nas_monitor.c"
         "config/config.c"
         "data/data_source.c"
         "data/fan_control.c"
@@ -89,6 +90,8 @@ idf_component_register(
         recorder
         radio
         webui
+        usb_hid_bsp
+        rgb_led
 
 )
 

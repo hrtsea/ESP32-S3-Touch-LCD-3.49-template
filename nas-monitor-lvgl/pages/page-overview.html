@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overview page-overview[0]</title>
+    <style id="theme-vars">
+:root {
+  /* LVGL NAS Monitor palette — dark dashboard, cyan accent */
+  --nas-background: #000000;
+  --nas-foreground: #ffffff;
+  --nas-card: #0f0f11;
+  --nas-card-foreground: #ffffff;
+  --nas-popover: #141419;
+  --nas-popover-foreground: #ffffff;
+  --nas-primary: #40e0d0;
+  --nas-primary-foreground: #000000;
+  --nas-muted: #333333;
+  --nas-muted-foreground: #a0a0a0;
+  --nas-border: #333333;
+  --nas-input: #333333;
+  --nas-ring: #40e0d0;
+  --nas-radius-small: 2px;
+  --nas-radius-medium: 4px;
+  --nas-radius-large: 8px;
+
+  /* Status / state colors */
+  --nas-state-success: #00ff00;
+  --nas-state-warning: #ffa500;
+  --nas-state-error: #ff0000;
+  --nas-state-info: #40e0d0;
+
+  /* Extended dashboard surface tokens */
+  --nas-surface: #141419;
+  --nas-surface-2: #1c1c22;
+  --nas-ink: #ffffff;
+  --nas-ink-2: #a0a0a0;
+  --nas-ink-3: #666666;
+  --nas-line: #333333;
+  --nas-state-warning: #ff8c00;
+
+  /* Typography */
+  --nas-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --nas-font-mono: "JetBrains Mono", "SF Mono", "Fira Code", ui-monospace, monospace;
+}
+
+@theme inline {
+  --color-background: var(--nas-background);
+  --color-foreground: var(--nas-foreground);
+  --color-card: var(--nas-card);
+  --color-card-foreground: var(--nas-card-foreground);
+  --color-popover: var(--nas-popover);
+  --color-popover-foreground: var(--nas-popover-foreground);
+  --color-primary: var(--nas-primary);
+  --color-primary-foreground: var(--nas-primary-foreground);
+  --color-muted: var(--nas-muted);
+  --color-muted-foreground: var(--nas-muted-foreground);
+  --color-border: var(--nas-border);
+  --color-input: var(--nas-input);
+  --color-ring: var(--nas-ring);
+  --radius-sm: var(--nas-radius-small);
+  --radius-md: var(--nas-radius-medium);
+  --radius-lg: var(--nas-radius-large);
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--nas-background);
+    --color-foreground: var(--nas-foreground);
+    --color-card: var(--nas-card);
+    --color-card-foreground: var(--nas-card-foreground);
+    --color-popover: var(--nas-popover);
+    --color-popover-foreground: var(--nas-popover-foreground);
+    --color-primary: var(--nas-primary);
+    --color-primary-foreground: var(--nas-primary-foreground);
+    --color-muted: var(--nas-muted);
+    --color-muted-foreground: var(--nas-muted-foreground);
+    --color-border: var(--nas-border);
+    --color-input: var(--nas-input);
+    --color-ring: var(--nas-ring);
+    --radius-sm: var(--nas-radius-small);
+    --radius-md: var(--nas-radius-medium);
+    --radius-lg: var(--nas-radius-large);
+  }
+  @layer base {
+    body { background: var(--nas-background); color: var(--nas-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--nas-background); }
+      .text-background { color: var(--nas-background); }
+      .border-background { border-color: var(--nas-background); }
+      .ring-background { --tw-ring-color: var(--nas-background); }
+      .bg-foreground { background-color: var(--nas-foreground); }
+      .text-foreground { color: var(--nas-foreground); }
+      .border-foreground { border-color: var(--nas-foreground); }
+      .ring-foreground { --tw-ring-color: var(--nas-foreground); }
+      .bg-card { background-color: var(--nas-card); }
+      .text-card { color: var(--nas-card); }
+      .border-card { border-color: var(--nas-card); }
+      .ring-card { --tw-ring-color: var(--nas-card); }
+      .bg-card-foreground { background-color: var(--nas-card-foreground); }
+      .text-card-foreground { color: var(--nas-card-foreground); }
+      .border-card-foreground { border-color: var(--nas-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--nas-card-foreground); }
+      .bg-popover { background-color: var(--nas-popover); }
+      .text-popover { color: var(--nas-popover); }
+      .border-popover { border-color: var(--nas-popover); }
+      .ring-popover { --tw-ring-color: var(--nas-popover); }
+      .bg-popover-foreground { background-color: var(--nas-popover-foreground); }
+      .text-popover-foreground { color: var(--nas-popover-foreground); }
+      .border-popover-foreground { border-color: var(--nas-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--nas-popover-foreground); }
+      .bg-primary { background-color: var(--nas-primary); }
+      .text-primary { color: var(--nas-primary); }
+      .border-primary { border-color: var(--nas-primary); }
+      .ring-primary { --tw-ring-color: var(--nas-primary); }
+      .bg-primary-foreground { background-color: var(--nas-primary-foreground); }
+      .text-primary-foreground { color: var(--nas-primary-foreground); }
+      .border-primary-foreground { border-color: var(--nas-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--nas-primary-foreground); }
+      .bg-muted { background-color: var(--nas-muted); }
+      .text-muted { color: var(--nas-muted); }
+      .border-muted { border-color: var(--nas-muted); }
+      .ring-muted { --tw-ring-color: var(--nas-muted); }
+      .bg-muted-foreground { background-color: var(--nas-muted-foreground); }
+      .text-muted-foreground { color: var(--nas-muted-foreground); }
+      .border-muted-foreground { border-color: var(--nas-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--nas-muted-foreground); }
+      .bg-border { background-color: var(--nas-border); }
+      .text-border { color: var(--nas-border); }
+      .border-border { border-color: var(--nas-border); }
+      .ring-border { --tw-ring-color: var(--nas-border); }
+      .bg-input { background-color: var(--nas-input); }
+      .text-input { color: var(--nas-input); }
+      .border-input { border-color: var(--nas-input); }
+      .ring-input { --tw-ring-color: var(--nas-input); }
+      .bg-ring { background-color: var(--nas-ring); }
+      .text-ring { color: var(--nas-ring); }
+      .border-ring { border-color: var(--nas-ring); }
+      .ring-ring { --tw-ring-color: var(--nas-ring); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main>
+<div id="nas-screen" data-dom-id="screen-frame" style="position:relative;width:640px;height:172px;background:var(--nas-background);color:var(--nas-foreground);overflow:hidden;font-family:var(--nas-font-sans);font-size:12px;">
+<div data-dom-id="status-bar" style="position:absolute;left:0;top:0;width:640px;height:35px;">
+<div style="position:absolute;left:5px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--nas-foreground);">NAS Monitor</div>
+<div style="position:absolute;left:110px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--nas-foreground);font-family:var(--nas-font-mono);">14:32:10</div>
+<div style="position:absolute;left:250px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--nas-foreground);">▲ 0.00KB/s</div>
+<div style="position:absolute;left:330px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--nas-foreground);">▼ 0.00KB/s</div>
+<div style="position:absolute;left:445px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--nas-foreground);">IP: 192.168.1.128</div>
+<div style="position:absolute;left:594px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--nas-ink-3);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.86a10 10 0 0 1 14 0"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/></svg></div>
+<div style="position:absolute;left:614px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--nas-ink-3);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg></div>
+<div style="position:absolute;left:0;top:35px;width:640px;height:2px;background:var(--nas-muted);"></div>
+</div>
+<div data-dom-id="meter-panel" style="position:absolute;left:0;top:35px;width:240px;height:100px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;box-sizing:border-box;">
+  <div data-dom-id="meter-cpu" style="cursor:pointer;"><div style="position:relative;width:90px;height:90px;">
+  <svg width="90" height="90" viewBox="0 0 90 90" style="display:block;">
+    <circle cx="45" cy="45" r="40" fill="none" stroke="var(--nas-muted)" stroke-width="6" stroke-dasharray="188.50 251.33" transform="rotate(135 45 45)" ></circle>
+    <circle cx="45" cy="45" r="40" fill="none" stroke="var(--nas-primary)" stroke-width="6" stroke-dasharray="131.95 251.33" transform="rotate(135 45 45)" ></circle>
+    <line x1="45" y1="45" x2="45" y2="11" stroke="var(--nas-primary)" stroke-width="2" transform="rotate(72.0 45 45)" ></line>
+  </svg>
+  <div style="position:absolute;left:50%;top:55%;transform:translate(-50%,-50%);font-size:12px;font-weight:600;color:var(--nas-foreground);">70%</div>
+</div></div>
+  <div data-dom-id="meter-temp" style="cursor:pointer;"><div style="position:relative;width:90px;height:90px;">
+  <svg width="90" height="90" viewBox="0 0 90 90" style="display:block;">
+    <circle cx="45" cy="45" r="40" fill="none" stroke="var(--nas-muted)" stroke-width="6" stroke-dasharray="188.50 251.33" transform="rotate(135 45 45)" ></circle>
+    <circle cx="45" cy="45" r="40" fill="none" stroke="var(--nas-state-warning)" stroke-width="6" stroke-dasharray="109.33 251.33" transform="rotate(135 45 45)" ></circle>
+    <line x1="45" y1="45" x2="45" y2="11" stroke="var(--nas-state-warning)" stroke-width="2" transform="rotate(82.8 45 45)" ></line>
+  </svg>
+  <div style="position:absolute;left:50%;top:55%;transform:translate(-50%,-50%);font-size:12px;font-weight:600;color:var(--nas-foreground);">58°C</div>
+</div></div>
+</div>
+<div data-dom-id="metrics-bar" style="position:absolute;right:0;top:35px;width:380px;height:100px;display:flex;flex-direction:column;justify-content:space-evenly;padding:0 12px;box-sizing:border-box;">
+<div data-dom-id="mem-container" style="width:100%;height:30%;display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+  <div style="width:20%;font-size:12px;line-height:1.1;">MEMORY<br>8GB</div>
+  <div style="width:60%;"><div style="width:228px;height:18px;background:var(--nas-muted);border-radius:5px;overflow:hidden;">
+  <div style="width:72%;height:100%;background:var(--nas-primary);border-radius:5px;"></div>
+</div></div>
+  <div style="width:10%;text-align:right;font-size:12px;">72%</div>
+</div>
+<div data-dom-id="disk-container" style="width:100%;height:30%;display:flex;align-items:center;justify-content:space-between;">
+  <div style="width:20%;font-size:12px;line-height:1.1;">DISK<br>2048GB</div>
+  <div style="width:60%;"><div style="width:228px;height:18px;background:var(--nas-muted);border-radius:5px;overflow:hidden;">
+  <div style="width:50%;height:100%;background:var(--nas-primary);border-radius:5px;"></div>
+</div></div>
+  <div style="width:10%;text-align:right;font-size:12px;">50%</div>
+</div>
+</div>
+<div data-dom-id="disk-strip" style="position:absolute;left:0;bottom:2px;width:640px;height:35px;display:flex;">
+<div data-dom-id="hdd-0" style="flex:1;height:35px;background:var(--nas-muted);border-radius:3px;display:flex;align-items:center;justify-content:space-evenly;padding:0 4px;box-sizing:border-box;cursor:pointer;">
+  <span style="font-size:12px;color:var(--nas-foreground);">HDD1</span>
+  <div style="width:14px;height:14px;background:var(--nas-state-success);border-radius:50%;flex-shrink:0;"></div>
+</div>
+<div data-dom-id="hdd-1" style="flex:1;height:35px;background:var(--nas-muted);border-radius:3px;display:flex;align-items:center;justify-content:space-evenly;padding:0 4px;box-sizing:border-box;cursor:pointer;">
+  <span style="font-size:12px;color:var(--nas-foreground);">HDD2</span>
+  <div style="width:14px;height:14px;background:var(--nas-state-success);border-radius:50%;flex-shrink:0;"></div>
+</div>
+<div data-dom-id="hdd-2" style="flex:1;height:35px;background:var(--nas-muted);border-radius:3px;display:flex;align-items:center;justify-content:space-evenly;padding:0 4px;box-sizing:border-box;cursor:pointer;">
+  <span style="font-size:12px;color:var(--nas-foreground);">HDD3</span>
+  <div style="width:14px;height:14px;background:var(--nas-state-warning);border-radius:50%;flex-shrink:0;"></div>
+</div>
+<div data-dom-id="hdd-3" style="flex:1;height:35px;background:var(--nas-muted);border-radius:3px;display:flex;align-items:center;justify-content:space-evenly;padding:0 4px;box-sizing:border-box;cursor:pointer;">
+  <span style="font-size:12px;color:var(--nas-foreground);">HDD4</span>
+  <div style="width:14px;height:14px;background:var(--nas-state-success);border-radius:50%;flex-shrink:0;"></div>
+</div>
+<div data-dom-id="hdd-4" style="flex:1;height:35px;background:var(--nas-muted);border-radius:3px;display:flex;align-items:center;justify-content:space-evenly;padding:0 4px;box-sizing:border-box;cursor:pointer;">
+  <span style="font-size:12px;color:var(--nas-foreground);">HDD5</span>
+  <div style="width:14px;height:14px;background:var(--nas-state-success);border-radius:50%;flex-shrink:0;"></div>
+</div>
+<div data-dom-id="hdd-5" style="flex:1;height:35px;background:var(--nas-muted);border-radius:3px;display:flex;align-items:center;justify-content:space-evenly;padding:0 4px;box-sizing:border-box;cursor:pointer;">
+  <span style="font-size:12px;color:var(--nas-foreground);">HDD6</span>
+  <div style="width:14px;height:14px;background:var(--nas-state-success);border-radius:50%;flex-shrink:0;"></div>
+</div>
+<div data-dom-id="hdd-6" style="flex:1;height:35px;background:var(--nas-muted);border-radius:3px;display:flex;align-items:center;justify-content:space-evenly;padding:0 4px;box-sizing:border-box;cursor:pointer;">
+  <span style="font-size:12px;color:var(--nas-foreground);">M.21</span>
+  <div style="width:14px;height:14px;background:var(--nas-state-success);border-radius:50%;flex-shrink:0;"></div>
+</div>
+<div data-dom-id="hdd-7" style="flex:1;height:35px;background:transparent;border:1px dashed var(--nas-ink-3);border-radius:3px;display:flex;align-items:center;justify-content:space-evenly;padding:0 4px;box-sizing:border-box;cursor:pointer;">
+  <span style="font-size:12px;color:var(--nas-ink-3);">M.22</span>
+  <div style="width:14px;height:14px;background:var(--nas-ink-3);border-radius:50%;flex-shrink:0;"></div>
+</div>
+<div data-dom-id="hdd-8" style="flex:1;height:35px;background:transparent;border:1px dashed var(--nas-ink-3);border-radius:3px;display:flex;align-items:center;justify-content:space-evenly;padding:0 4px;box-sizing:border-box;cursor:pointer;">
+  <span style="font-size:12px;color:var(--nas-ink-3);">M.23</span>
+  <div style="width:14px;height:14px;background:var(--nas-ink-3);border-radius:50%;flex-shrink:0;"></div>
+</div>
+</div>
+</div>
+</main>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

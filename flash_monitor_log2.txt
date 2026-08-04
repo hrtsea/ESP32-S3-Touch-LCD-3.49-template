@@ -1,0 +1,428 @@
+Executing action: all (aliases: build)
+Running ninja in directory E:\zotlabnas-split\ESP32-S3-Touch-LCD-3.49-template\build
+Executing "ninja all"...
+[1/4] C:\Windows\system32\cmd.exe /C "cd /D E:\zotlabnas-split\ESP32-S3-Touch-LCD-3.49-template\build\esp-idf\esptool_py && C:\Users\steven\.espressif\python_env\idf5.5_py3.13_env\Scripts\python.exe C:/esp/v5.5.4/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/build/partition_table/partition-table.bin E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/build/12_HelloWorld_Skeleton.bin"
+
+12_HelloWorld_Skeleton.bin binary size 0x2b5d20 bytes. Smallest app partition is 0x800000 bytes. 0x54a2e0 bytes (66%) free.
+
+
+[2/4] Performing build step for 'bootloader'
+
+[1/1] C:\Windows\system32\cmd.exe /C "cd /D E:\zotlabnas-split\ESP32-S3-Touch-LCD-3.49-template\build\bootloader\esp-idf\esptool_py && C:\Users\steven\.espressif\python_env\idf5.5_py3.13_env\Scripts\python.exe C:/esp/v5.5.4/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x0 E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/build/bootloader/bootloader.bin"
+
+
+Bootloader binary size 0x4c50 bytes. 0x33b0 bytes (40%) free.
+
+
+
+[3/4] No install step for 'bootloader'
+
+[4/4] Completed 'bootloader'
+
+Executing action: flash
+Serial port COM5
+Connecting...
+Detecting chip type... ESP32-S3
+Running ninja in directory E:\zotlabnas-split\ESP32-S3-Touch-LCD-3.49-template\build
+Executing "ninja flash"...
+[1/5] C:\Windows\system32\cmd.exe /C "cd /D E:\zotlabnas-split\ESP32-S3-Touch-LCD-3.49-template\build\esp-idf\esptool_py && C:\Users\steven\.espressif\python_env\idf5.5_py3.13_env\Scripts\python.exe C:/esp/v5.5.4/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/build/partition_table/partition-table.bin E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/build/12_HelloWorld_Skeleton.bin"
+
+12_HelloWorld_Skeleton.bin binary size 0x2b5d20 bytes. Smallest app partition is 0x800000 bytes. 0x54a2e0 bytes (66%) free.
+
+
+[2/5] Performing build step for 'bootloader'
+
+[1/1] C:\Windows\system32\cmd.exe /C "cd /D E:\zotlabnas-split\ESP32-S3-Touch-LCD-3.49-template\build\bootloader\esp-idf\esptool_py && C:\Users\steven\.espressif\python_env\idf5.5_py3.13_env\Scripts\python.exe C:/esp/v5.5.4/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x0 E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/build/bootloader/bootloader.bin"
+
+
+Bootloader binary size 0x4c50 bytes. 0x33b0 bytes (40%) free.
+
+
+
+[3/5] No install step for 'bootloader'
+
+[4/5] Completed 'bootloader'
+
+[4/5] C:\Windows\system32\cmd.exe /C "cd /D C:\esp\v5.5.4\esp-idf\components\esptool_py && C:\Users\steven\.espressif\tools\cmake\3.30.2\bin\cmake.exe -D IDF_PATH=C:/esp/v5.5.4/esp-idf -D SERIAL_TOOL=C:/Users/steven/.espressif/python_env/idf5.5_py3.13_env/Scripts/python.exe;;C:/esp/v5.5.4/esp-idf/components/esptool_py/esptool/esptool.py;--chip;esp32s3 -D SERIAL_TOOL_ARGS=--before=default_reset;--after=hard_reset;write_flash;@flash_args -D WORKING_DIRECTORY=E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/build -P C:/esp/v5.5.4/esp-idf/components/esptool_py/run_serial_tool.cmake"
+
+esptool.py --chip esp32s3 -p COM5 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 80m --flash_size 16MB 0x0 bootloader/bootloader.bin 0x10000 12_HelloWorld_Skeleton.bin 0x8000 partition_table/partition-table.bin
+
+esptool.py v4.12.dev3
+
+Serial port COM5
+
+Connecting...
+
+Chip is ESP32-S3 (QFN56) (revision v0.2)
+
+Features: WiFi, BLE, Embedded PSRAM 8MB (AP_3v3)
+
+Crystal is 40MHz
+
+USB mode: USB-Serial/JTAG
+
+MAC: 1c:db:d4:48:f7:60
+
+Uploading stub...
+
+Running stub...
+
+Stub running...
+
+Changing baud rate to 460800
+
+Changed.
+
+Configuring flash size...
+
+Flash will be erased from 0x00000000 to 0x00004fff...
+
+Flash will be erased from 0x00010000 to 0x002c5fff...
+
+Flash will be erased from 0x00008000 to 0x00008fff...
+
+SHA digest in image updated
+
+Compressed 19536 bytes to 12647...
+
+Writing at 0x00000000... (100 %)
+
+Wrote 19536 bytes (12647 compressed) at 0x00000000 in 0.4 seconds (effective 433.7 kbit/s)...
+
+Hash of data verified.
+
+Compressed 2841888 bytes to 1551645...
+
+Writing at 0x00010000... (1 %)
+
+Writing at 0x00019e75... (2 %)
+
+Writing at 0x000272fe... (3 %)
+
+Writing at 0x00030035... (4 %)
+
+Writing at 0x000423b1... (5 %)
+
+Writing at 0x00058c50... (6 %)
+
+Writing at 0x0006f5f1... (7 %)
+
+Writing at 0x000860a2... (8 %)
+
+Writing at 0x0009f8f1... (9 %)
+
+Writing at 0x000b2d3a... (10 %)
+
+Writing at 0x000b80de... (11 %)
+
+Writing at 0x000bd187... (12 %)
+
+Writing at 0x000c21c3... (13 %)
+
+Writing at 0x000c6fe9... (14 %)
+
+Writing at 0x000cbfdb... (15 %)
+
+Writing at 0x000d0f08... (16 %)
+
+Writing at 0x000d5e0f... (17 %)
+
+Writing at 0x000da9d0... (18 %)
+
+Writing at 0x000df98b... (20 %)
+
+Writing at 0x000e43b8... (21 %)
+
+Writing at 0x000e9211... (22 %)
+
+Writing at 0x000edd1b... (23 %)
+
+Writing at 0x000f2a02... (24 %)
+
+Writing at 0x000f7438... (25 %)
+
+Writing at 0x000fcbdd... (26 %)
+
+Writing at 0x0010160a... (27 %)
+
+Writing at 0x00106078... (28 %)
+
+Writing at 0x0010abc2... (29 %)
+
+Writing at 0x0010f5e2... (30 %)
+
+Writing at 0x001141ea... (31 %)
+
+Writing at 0x001189af... (32 %)
+
+Writing at 0x0011d26b... (33 %)
+
+Writing at 0x00123eda... (34 %)
+
+Writing at 0x0012ea3d... (35 %)
+
+Writing at 0x00138c07... (36 %)
+
+Writing at 0x00142556... (37 %)
+
+Writing at 0x0014c523... (38 %)
+
+Writing at 0x001544db... (40 %)
+
+Writing at 0x0015d8c9... (41 %)
+
+Writing at 0x0016badc... (42 %)
+
+Writing at 0x001735f5... (43 %)
+
+Writing at 0x0017c381... (44 %)
+
+Writing at 0x00186917... (45 %)
+
+Writing at 0x0019442a... (46 %)
+
+Writing at 0x001a6e24... (47 %)
+
+Writing at 0x001ad14a... (48 %)
+
+Writing at 0x001b2987... (49 %)
+
+Writing at 0x001bd53f... (50 %)
+
+Writing at 0x001c2ede... (51 %)
+
+Writing at 0x001c86c7... (52 %)
+
+Writing at 0x001ce083... (53 %)
+
+Writing at 0x001d3d2d... (54 %)
+
+Writing at 0x001d997e... (55 %)
+
+Writing at 0x001df174... (56 %)
+
+Writing at 0x001e44fa... (57 %)
+
+Writing at 0x001e9e7f... (58 %)
+
+Writing at 0x001ef02d... (60 %)
+
+Writing at 0x001f43ee... (61 %)
+
+Writing at 0x001f9ce1... (62 %)
+
+Writing at 0x001ff6c9... (63 %)
+
+Writing at 0x00205409... (64 %)
+
+Writing at 0x0020b08c... (65 %)
+
+Writing at 0x0021081b... (66 %)
+
+Writing at 0x002167cb... (67 %)
+
+Writing at 0x0021beb8... (68 %)
+
+Writing at 0x002211a1... (69 %)
+
+Writing at 0x0022671d... (70 %)
+
+Writing at 0x0022ba6e... (71 %)
+
+Writing at 0x0023144b... (72 %)
+
+Writing at 0x0023713a... (73 %)
+
+Writing at 0x0023c631... (74 %)
+
+Writing at 0x002416ec... (75 %)
+
+Writing at 0x00246ce9... (76 %)
+
+Writing at 0x0024c323... (77 %)
+
+Writing at 0x00251418... (78 %)
+
+Writing at 0x002565f0... (80 %)
+
+Writing at 0x0025bb42... (81 %)
+
+Writing at 0x002613a8... (82 %)
+
+Writing at 0x002668e1... (83 %)
+
+Writing at 0x0026bc31... (84 %)
+
+Writing at 0x0027127a... (85 %)
+
+Writing at 0x00276f58... (86 %)
+
+Writing at 0x0027c4d9... (87 %)
+
+Writing at 0x0028156d... (88 %)
+
+Writing at 0x002868ff... (89 %)
+
+Writing at 0x0028c040... (90 %)
+
+Writing at 0x00291574... (91 %)
+
+Writing at 0x00297bc8... (92 %)
+
+Writing at 0x0029d8b0... (93 %)
+
+Writing at 0x002a4887... (94 %)
+
+Writing at 0x002aa509... (95 %)
+
+Writing at 0x002b01ad... (96 %)
+
+Writing at 0x002b6068... (97 %)
+
+Writing at 0x002bc404... (98 %)
+
+Writing at 0x002c1b65... (100 %)
+
+Wrote 2841888 bytes (1551645 compressed) at 0x00010000 in 22.1 seconds (effective 1027.7 kbit/s)...
+
+Hash of data verified.
+
+Compressed 3072 bytes to 105...
+
+Writing at 0x00008000... (100 %)
+
+Wrote 3072 bytes (105 compressed) at 0x00008000 in 0.1 seconds (effective 395.1 kbit/s)...
+
+Hash of data verified.
+
+
+
+Leaving...
+
+Hard resetting via RTS pin...
+
+--- Warning: GDB cannot open serial ports accessed as COMx
+
+--- Using \\.\COM5 instead...
+
+--- esp-idf-monitor 1.9.0 on \\.\COM5 115200
+
+--- Quit: Ctrl+] | Menu: Ctrl+T | Help: Ctrl+T followed by Ctrl+H
+Executing action: monitor
+Running idf_monitor in directory E:\zotlabnas-split\ESP32-S3-Touch-LCD-3.49-template
+Executing "C:\Users\steven\.espressif\python_env\idf5.5_py3.13_env\Scripts\python.exe C:\esp\v5.5.4\esp-idf\tools/idf_monitor.py -p COM5 -b 115200 --toolchain-prefix xtensa-esp32s3-elf- --target esp32s3 --revision 0 E:\zotlabnas-split\ESP32-S3-Touch-LCD-3.49-template\build\12_HelloWorld_Skeleton.elf E:\zotlabnas-split\ESP32-S3-Touch-LCD-3.49-template\build\bootloader\bootloader.elf --force-color -m 'C:\Users\steven\.espressif\python_env\idf5.5_py3.13_env\Scripts\python.exe' 'C:\esp\v5.5.4\esp-idf\tools\idf.py'"...
+I (334) esp_image: segment 1: paddr=001b7634 vaddr=3fc9e700 sizeESP-ROM:esp32s3-20210327
+
+Build:Mar 27 2021
+
+rst:0x15 (USB_UART_CHIP_RESET),boot:0x8 (SPI_FAST_FLASH_BOOT)
+
+Saved PC:0x40056f6f
+
+--- 0x40056f6f: memcpy in ROM
+SPIWP:0xee
+
+mode:DIO, clock div:1
+
+load:0x3fce2820,len:0x1198
+
+load:0x403c8700,len:0xca0
+
+--- 0x403c8700: _stext at ??:?
+load:0x403cb700,len:0x2db8
+
+entry 0x403c8908
+
+--- 0x403c8908: call_start_cpu0 at C:/esp/v5.5.4/esp-idf/components/bootloader/subproject/main/bootloader_start.c:27
+I (24) boot: ESP-IDF v5.5.4 2nd stage bootloader
+
+I (24) boot: compile time Jul 18 2026 07:39:10
+
+I (25) boot: Multicore bootloader
+
+I (25) boot: chip revision: v0.2
+
+I (25) boot: efuse block revision: v1.3
+
+I (25) boot.esp32s3: Boot SPI Speed : 80MHz
+
+I (25) boot.esp32s3: SPI Mode       : DIO
+
+I (26) boot.esp32s3: SPI Flash Size : 16MB
+
+I (26) boot: Enabling RNG early entropy source...
+
+I (26) boot: Partition Table:
+
+I (26) boot: ## Label            Usage          Type ST Offset   Length
+
+I (26) boot:  0 nvs              WiFi data        01 02 00009000 00006000
+
+I (27) boot:  1 phy_init         RF data          01 01 0000f000 00001000
+
+I (27) boot:  2 factory          factory app      00 00 00010000 00800000
+
+I (28) boot: End of partition table
+
+I (28) esp_image: segment 0: paddr=00010020 vaddr=3c0f0020 size=1a760ch (1734156) map
+
+I (334) esp_image: segment 1: paddr=001b7634 vaddr=3fc9e700 size=0492ch ( 18732) load
+
+I (338) esp_image: segment 2: paddr=001bbf68 vaddr=40374000 size=040b0h ( 16560) load
+
+I (342) esp_image: segment 3: paddr=001c0020 vaddr=42000020 size=ef73ch (980796) map
+
+I (515) esp_image: segment 4: paddr=002af764 vaddr=403780b0 size=16564h ( 91492) load
+
+I (535) esp_image: segment 5: paddr=002c5cd0 vaddr=50000000 size=00020h (    32) load
+
+I (546) boot: Loaded app from partition at offset 0x10000
+
+I (546) boot: Disabling RNG early entropy source...
+
+W (978) pcnt(legacy): legacy driver is deprecated, please migrate to `driver/pulse_cnt.h`
+
+W (2376) disp_driver: fb in internal RAM failed; falling back to SPIRAM
+
+E (2803) audio_min: no play_dev available; exiting MIDI task
+
+E (2804) ledc: ledc_set_timer_div(693): timer clock conflict, already is 9 but attempt to 4
+
+E (2833) sdmmc_common: sdmmc_init_ocr: send_op_cond (1) returned 0x107
+
+HINT: Please reboot the board and then try again
+E (2834) vfs_fat_sdmmc: sdmmc_card_init failed (0x107).
+
+HINT: Please verify if there is an SD card inserted into the SD slot. Then, try rebooting the board.
+E (2834) _sdcard: mount failed: ESP_ERR_TIMEOUT
+
+W (2903) httpd_uri: httpd_register_uri_handler: handler / with method 1 already registered
+
+W (2905) nas_event_loop: No NAS type configured, using mock
+
+[5n
+
+
+Type 'help' to get the list of commands.
+
+
+Use UP/DOWN arrows to navigate through command history.
+
+
+Press TAB when typing command name to auto-complete.
+
+
+
+
+
+Your terminal application does not support escape sequences.
+
+
+
+Line editing and history features are disabled.
+
+
+
+On Windows, try using Windows Terminal or Putty instead.
+
+

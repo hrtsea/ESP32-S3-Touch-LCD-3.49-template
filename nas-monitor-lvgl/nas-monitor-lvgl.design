@@ -1,0 +1,358 @@
+{
+  "data": [
+    {
+      "id": "page-page-boot",
+      "title": "Boot Screen",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1759562100000,
+      "canvasData": {
+        "x": 0,
+        "y": 0,
+        "group": 0,
+        "deviceType": "freeSize",
+        "windowSize": {
+          "width": 640,
+          "height": 172
+        },
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 172,
+          "viewportWidth": 640,
+          "sourceHash": "fnv1a-0a5c4a2f",
+          "measuredAt": 1785832238490
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/page-boot.html",
+        "interactions": [
+          {
+            "domId": "boot-screen",
+            "targetPageId": "page-page-overview"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-page-overview",
+      "title": "Overview",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1759562100000,
+      "canvasData": {
+        "x": 0,
+        "y": 72,
+        "group": 0,
+        "deviceType": "freeSize",
+        "windowSize": {
+          "width": 640,
+          "height": 172
+        },
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 172,
+          "viewportWidth": 640,
+          "sourceHash": "fnv1a-ea767295",
+          "measuredAt": 1785832238490
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/page-overview.html",
+        "interactions": [
+          {
+            "domId": "meter-cpu",
+            "targetPageId": "page-page-system-detail-cpu"
+          },
+          {
+            "domId": "meter-temp",
+            "targetPageId": "page-page-system-detail-cpu"
+          },
+          {
+            "domId": "mem-container",
+            "targetPageId": "page-page-system-detail-memory"
+          },
+          {
+            "domId": "hdd-0",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-1",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-2",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-3",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-4",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-5",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-6",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-7",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-8",
+            "targetPageId": "page-page-disk-detail"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-page-storage",
+      "title": "Storage",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1759562100000,
+      "canvasData": {
+        "x": 0,
+        "y": 240,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 172,
+          "viewportWidth": 640,
+          "sourceHash": "fnv1a-831b9add",
+          "measuredAt": 1785834274760
+        },
+        "deviceType": "freeSize",
+        "windowSize": {
+          "width": 640,
+          "height": 172
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/page-storage.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-page-disk-detail",
+      "title": "Disk Detail",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1759562100000,
+      "canvasData": {
+        "x": 216,
+        "y": 239.99999999999997,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 172,
+          "viewportWidth": 640,
+          "sourceHash": "fnv1a-9be49597",
+          "measuredAt": 1785834274760
+        },
+        "deviceType": "freeSize",
+        "windowSize": {
+          "width": 640,
+          "height": 172
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/page-disk-detail.html",
+        "interactions": [
+          {
+            "domId": "btn-back",
+            "targetPageId": "page-page-overview"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-page-system-detail-cpu",
+      "title": "System Detail — CPU",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1759562100000,
+      "canvasData": {
+        "x": 216,
+        "y": 72,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 172,
+          "viewportWidth": 640,
+          "sourceHash": "fnv1a-a785f7b4",
+          "measuredAt": 1785834274760
+        },
+        "deviceType": "freeSize",
+        "windowSize": {
+          "width": 640,
+          "height": 172
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/page-system-detail-cpu.html",
+        "interactions": [
+          {
+            "domId": "btn-back",
+            "targetPageId": "page-page-overview"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-page-system-detail-memory",
+      "title": "System Detail — Memory",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1759562100000,
+      "canvasData": {
+        "x": 216,
+        "y": 164,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 172,
+          "viewportWidth": 640,
+          "sourceHash": "fnv1a-9d40306b",
+          "measuredAt": 1785834274760
+        },
+        "deviceType": "freeSize",
+        "windowSize": {
+          "width": 640,
+          "height": 172
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/page-system-detail-memory.html",
+        "interactions": [
+          {
+            "domId": "btn-back",
+            "targetPageId": "page-page-overview"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-page-overview-enhanced",
+      "title": "Overview Enhanced",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1759562100000,
+      "canvasData": {
+        "x": 0,
+        "y": 164,
+        "group": 1,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 172,
+          "viewportWidth": 640,
+          "sourceHash": "fnv1a-ee2bd482",
+          "measuredAt": 1785832238490
+        },
+        "deviceType": "freeSize",
+        "windowSize": {
+          "width": 640,
+          "height": 172
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/page-overview-enhanced.html",
+        "interactions": [
+          {
+            "domId": "meter-cpu",
+            "targetPageId": "page-page-system-detail-cpu"
+          },
+          {
+            "domId": "meter-temp",
+            "targetPageId": "page-page-system-detail-cpu"
+          },
+          {
+            "domId": "mem-container",
+            "targetPageId": "page-page-system-detail-memory"
+          },
+          {
+            "domId": "hdd-0",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-1",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-2",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-3",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-4",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-5",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-6",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-7",
+            "targetPageId": "page-page-disk-detail"
+          },
+          {
+            "domId": "hdd-8",
+            "targetPageId": "page-page-disk-detail"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-page-settings",
+      "title": "Settings",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1759562100000,
+      "canvasData": {
+        "x": 0,
+        "y": 312,
+        "group": 0,
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 172,
+          "viewportWidth": 640,
+          "sourceHash": "fnv1a-settings-0",
+          "measuredAt": 1785834274760
+        },
+        "deviceType": "freeSize",
+        "windowSize": {
+          "width": 640,
+          "height": 172
+        }
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/page-settings.html",
+        "interactions": [
+          {
+            "domId": "btn-close",
+            "targetPageId": "page-page-overview"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": false,
+    "deviceType": "freeSize",
+    "projectName": "NAS 监控屏 LVGL 复刻与重设计",
+    "visualEditorEnabled": false,
+    "showEdge": false
+  }
+}

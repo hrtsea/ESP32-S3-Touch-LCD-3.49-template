@@ -67,6 +67,14 @@ typedef struct {
 } OverviewScreen;
 
 static OverviewScreen s_screen = {0};
+
+/* 将 hdd_health 初始化为 -1，确保首次数据到达时必定触发颜色更新
+ * （HEALTH_OK=0, HEALTH_WARNING=1, HEALTH_CRITICAL=2，均与 -1 不同） */
+static void overview_screen_init_last_values(void) {
+    for (int i = 0; i < MAX_DISKS; i++) {
+        s_screen.last_values.hdd_health[i] = -1;
+    }
+}
 lv_obj_t *ui_Screen_Overview = NULL;
 
 static void refresh_btn_cb(lv_event_t *e);
@@ -367,6 +375,7 @@ void ui_Screen_Overview_screen_init(void) {
     }
 
     memset(&s_screen, 0, sizeof(s_screen));
+    overview_screen_init_last_values();
 
     ui_Screen_Overview = lv_obj_create(NULL);
     s_screen.screen = ui_Screen_Overview;

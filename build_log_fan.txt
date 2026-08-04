@@ -1,0 +1,248 @@
+Executing action: all (aliases: build)
+Running ninja in directory E:\zotlabnas-split\ESP32-S3-Touch-LCD-3.49-template\build
+Executing "ninja all"...
+[1/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/ui_helpers.c.obj
+
+[2/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/ui.c.obj
+
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.h:20,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.c:1:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+
+      |  ^~~~~~~
+
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.c:8:20: warning: 'TAG' defined but not used [-Wunused-variable]
+
+    8 | static const char *TAG = "ui";
+
+      |                    ^~~
+
+[3/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/screens/ui_Screen_Settings_ScreenTab.c.obj
+
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.h:20,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Settings_ScreenTab.c:1:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+
+      |  ^~~~~~~
+
+[4/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/screens/ui_Screen_Settings_StationTab.c.obj
+
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.h:20,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Settings_StationTab.c:1:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+
+      |  ^~~~~~~
+
+[5/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/screens/ui_Screen_Settings_WifiTab.c.obj
+
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.h:20,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Settings_WifiTab.c:1:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+
+      |  ^~~~~~~
+
+[6/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/ui_events.c.obj
+
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/data_source.h:7,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui_events.c:15:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+
+      |  ^~~~~~~
+
+[7/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/screens/ui_Screen_Settings_NasTab.c.obj
+
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.h:20,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Settings_NasTab.c:1:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+
+      |  ^~~~~~~
+
+[8/46] Building CXX object esp-idf/main/CMakeFiles/__idf_main.dir/main.cpp.obj
+
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.h:20,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:44:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+      |  ^~~~~~~
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/lvgl/src/core/lv_obj.h:140,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/lvgl/lvgl.h:35,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/utils/i18n.h:3,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:33:
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/lvgl/src/core/lv_obj_style.h: In function 'void lv_obj_remove_style_all(_lv_obj_t*)':
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/lvgl/src/core/lv_obj_style.h:94:48: warning: bitwise operation between different enumeration types '<unnamed enum>' and '<unnamed enum>' is deprecated [-Wdeprecated-enum-enum-conversion]
+   94 |     lv_obj_remove_style(obj, NULL, LV_PART_ANY | LV_STATE_ANY);
+      |                                    ~~~~~~~~~~~~^~~~~~~~~~~~~~
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp: In function 'void network_init()':
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_config_t::default_vars' [-Wmissing-field-initializers]
+   92 |     };
+      |     ^
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_config_t::default_var_count' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_config_t::auto_reconnect' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_config_t::provisioning_teardown_delay_ms' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_ap_config_t::channel' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_ap_config_t::max_connections' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_ap_config_t::hidden' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_ap_config_t::ip' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_ap_config_t::netmask' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_ap_config_t::gateway' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_ap_config_t::dhcp_start' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_ap_config_t::dhcp_end' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_config_t::always_use_ap_defaults' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_config_t::on_before_var_set' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_config_t::var_validator_ctx' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_http_config_t::httpd' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_http_config_t::pre_request_hook' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_http_config_t::hook_ctx' [-Wmissing-field-initializers]
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_config_t::improv' [-Wmissing-field-initializers]
+
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/main.cpp:92:5: warning: missing initializer for member 'wifi_cfg_config_t::prov_ble' [-Wmissing-field-initializers]
+
+[9/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/screens/ui_Screen_Settings_RegionTab.c.obj
+
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.h:20,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Settings_RegionTab.c:1:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+
+      |  ^~~~~~~
+
+[10/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/screens/ui_Screen_Overview.c.obj
+
+FAILED: esp-idf/main/CMakeFiles/__idf_main.dir/ui/screens/ui_Screen_Overview.c.obj 
+
+ccache C:\Users\steven\.espressif\tools\xtensa-esp-elf\esp-14.2.0_20260121\xtensa-esp-elf\bin\xtensa-esp32s3-elf-gcc.exe -DBUILD_EPOCH_UTC=1784331513 -DESP_PLATFORM -DIDF_VER=\"v5.5.4\" -DLV_ATTRIBUTE_FAST_MEM=IRAM_ATTR -DLV_CONF_INCLUDE_SIMPLE -DMBEDTLS_CONFIG_FILE=\"mbedtls/esp_config.h\" -DNDEBUG -DSOC_MMU_PAGE_SIZE=CONFIG_MMU_PAGE_SIZE -DSOC_XTAL_FREQ_MHZ=CONFIG_XTAL_FREQ -D_GLIBCXX_HAVE_POSIX_SEMAPHORE -D_GLIBCXX_USE_POSIX_SEMAPHORE -D_GNU_SOURCE -D_POSIX_READER_WRITER_LOCKS -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/build/config -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/drivers -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/network -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/utils -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data -IC:/esp/v5.5.4/esp-idf/components/newlib/platform_include -IC:/esp/v5.5.4/esp-idf/components/freertos/config/include -IC:/esp/v5.5.4/esp-idf/components/freertos/config/include/freertos -IC:/esp/v5.5.4/esp-idf/components/freertos/config/xtensa/include -IC:/esp/v5.5.4/esp-idf/components/freertos/FreeRTOS-Kernel/include -IC:/esp/v5.5.4/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/include -IC:/esp/v5.5.4/esp-idf/components/freertos/FreeRTOS-Kernel/portable/xtensa/include/freertos -IC:/esp/v5.5.4/esp-idf/components/freertos/esp_additions/include -IC:/esp/v5.5.4/esp-idf/components/esp_hw_support/include -IC:/esp/v5.5.4/esp-idf/components/esp_hw_support/include/soc -IC:/esp/v5.5.4/esp-idf/components/esp_hw_support/include/soc/esp32s3 -IC:/esp/v5.5.4/esp-idf/components/esp_hw_support/dma/include -IC:/esp/v5.5.4/esp-idf/components/esp_hw_support/ldo/include -IC:/esp/v5.5.4/esp-idf/components/esp_hw_support/debug_probe/include -IC:/esp/v5.5.4/esp-idf/components/esp_hw_support/mspi_timing_tuning/include -IC:/esp/v5.5.4/esp-idf/components/esp_hw_support/mspi_timing_tuning/tuning_scheme_impl/include -IC:/esp/v5.5.4/esp-idf/components/esp_hw_support/power_supply/include -IC:/esp/v5.5.4/esp-idf/components/esp_hw_support/port/esp32s3/. -IC:/esp/v5.5.4/esp-idf/components/esp_hw_support/port/esp32s3/include -IC:/esp/v5.5.4/esp-idf/components/esp_hw_support/mspi_timing_tuning/port/esp32s3/. -IC:/esp/v5.5.4/esp-idf/components/esp_hw_support/mspi_timing_tuning/port/esp32s3/include -IC:/esp/v5.5.4/esp-idf/components/heap/include -IC:/esp/v5.5.4/esp-idf/components/heap/tlsf -IC:/esp/v5.5.4/esp-idf/components/log/include -IC:/esp/v5.5.4/esp-idf/components/soc/include -IC:/esp/v5.5.4/esp-idf/components/soc/esp32s3 -IC:/esp/v5.5.4/esp-idf/components/soc/esp32s3/include -IC:/esp/v5.5.4/esp-idf/components/soc/esp32s3/register -IC:/esp/v5.5.4/esp-idf/components/hal/platform_port/include -IC:/esp/v5.5.4/esp-idf/components/hal/esp32s3/include -IC:/esp/v5.5.4/esp-idf/components/hal/include -IC:/esp/v5.5.4/esp-idf/components/esp_rom/include -IC:/esp/v5.5.4/esp-idf/components/esp_rom/esp32s3/include -IC:/esp/v5.5.4/esp-idf/components/esp_rom/esp32s3/include/esp32s3 -IC:/esp/v5.5.4/esp-idf/components/esp_rom/esp32s3 -IC:/esp/v5.5.4/esp-idf/components/esp_common/include -IC:/esp/v5.5.4/esp-idf/components/esp_system/include -IC:/esp/v5.5.4/esp-idf/components/esp_system/port/soc -IC:/esp/v5.5.4/esp-idf/components/esp_system/port/include/private -IC:/esp/v5.5.4/esp-idf/components/xtensa/esp32s3/include -IC:/esp/v5.5.4/esp-idf/components/xtensa/include -IC:/esp/v5.5.4/esp-idf/components/xtensa/deprecated_include -IC:/esp/v5.5.4/esp-idf/components/lwip/include -IC:/esp/v5.5.4/esp-idf/components/lwip/include/apps -IC:/esp/v5.5.4/esp-idf/components/lwip/include/apps/sntp -IC:/esp/v5.5.4/esp-idf/components/lwip/lwip/src/include -IC:/esp/v5.5.4/esp-idf/components/lwip/port/include -IC:/esp/v5.5.4/esp-idf/components/lwip/port/freertos/include -IC:/esp/v5.5.4/esp-idf/components/lwip/port/esp32xx/include -IC:/esp/v5.5.4/esp-idf/components/lwip/port/esp32xx/include/arch -IC:/esp/v5.5.4/esp-idf/components/lwip/port/esp32xx/include/sys -IC:/esp/v5.5.4/esp-idf/components/json/cJSON -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/thorrak__esp_wifi_config/include -IC:/esp/v5.5.4/esp-idf/components/esp_wifi/include -IC:/esp/v5.5.4/esp-idf/components/esp_wifi/include/local -IC:/esp/v5.5.4/esp-idf/components/esp_wifi/wifi_apps/include -IC:/esp/v5.5.4/esp-idf/components/esp_wifi/wifi_apps/nan_app/include -IC:/esp/v5.5.4/esp-idf/components/esp_event/include -IC:/esp/v5.5.4/esp-idf/components/esp_phy/include -IC:/esp/v5.5.4/esp-idf/components/esp_phy/esp32s3/include -IC:/esp/v5.5.4/esp-idf/components/esp_netif/include -IC:/esp/v5.5.4/esp-idf/components/nvs_flash/include -IC:/esp/v5.5.4/esp-idf/components/esp_partition/include -IC:/esp/v5.5.4/esp-idf/components/esp_http_server/include -IC:/esp/v5.5.4/esp-idf/components/http_parser -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/thorrak__esp_bus/include -IC:/esp/v5.5.4/esp-idf/components/driver/deprecated -IC:/esp/v5.5.4/esp-idf/components/driver/i2c/include -IC:/esp/v5.5.4/esp-idf/components/driver/touch_sensor/include -IC:/esp/v5.5.4/esp-idf/components/driver/twai/include -IC:/esp/v5.5.4/esp-idf/components/driver/touch_sensor/esp32s3/include -IC:/esp/v5.5.4/esp-idf/components/esp_pm/include -IC:/esp/v5.5.4/esp-idf/components/esp_ringbuf/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_gpio/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_pcnt/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_gptimer/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_spi/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_mcpwm/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_ana_cmpr/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_i2s/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_sdmmc/include -IC:/esp/v5.5.4/esp-idf/components/sdmmc/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_sdspi/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_sdio/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_dac/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_rmt/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_tsens/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_sdm/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_i2c/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_uart/include -IC:/esp/v5.5.4/esp-idf/components/vfs/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_ledc/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_parlio/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_usb_serial_jtag/include -IC:/esp/v5.5.4/esp-idf/components/esp_driver_twai/include -IC:/esp/v5.5.4/esp-idf/components/esp_timer/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/lvgl -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/lvgl/src -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/lvgl/examples -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/lvgl/demos -IC:/esp/v5.5.4/esp-idf/components/esp_lcd/include -IC:/esp/v5.5.4/esp-idf/components/esp_lcd/interface -IC:/esp/v5.5.4/esp-idf/components/esp_lcd/rgb/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_io_expander_tca9554/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_io_expander/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_audio_simple_player/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__gmf_audio/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_asrc/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_audio_effects/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__gmf_fft/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_audio_codec/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_audio_codec/include/decoder -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_audio_codec/include/decoder/impl -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_audio_codec/include/encoder -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_audio_codec/include/encoder/impl -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_audio_codec/include/simple_dec -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_muxer/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_muxer/include/impl -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__gmf_core/oal/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__gmf_core/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__gmf_core/data_bus/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__gmf_core/helpers/include -IC:/esp/v5.5.4/esp-idf/components/esp_mm/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__gmf_io/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__gmf_io/codec_dev_io -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__gmf_io/http_lib/gzip -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__gmf_io/http_lib/gzip/include -IC:/esp/v5.5.4/esp-idf/components/esp_http_client/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_codec_dev/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_codec_dev/interface -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_codec_dev/device/include -IC:/esp/v5.5.4/esp-idf/components/console -IC:/esp/v5.5.4/esp-idf/components/esp_vfs_console/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/i2c_bsp -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/i2c_equipment -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/sdcard_bsp -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/button_bsp -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/adc_bsp -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/lcd_bl_pwm_bsp -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/audio_min -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/radio -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/recorder -IC:/esp/v5.5.4/esp-idf/components/fatfs/diskio -IC:/esp/v5.5.4/esp-idf/components/fatfs/src -IC:/esp/v5.5.4/esp-idf/components/fatfs/vfs -IC:/esp/v5.5.4/esp-idf/components/wear_levelling/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/components/webui -IC:/esp/v5.5.4/esp-idf/components/mbedtls/port/include -IC:/esp/v5.5.4/esp-idf/components/mbedtls/mbedtls/include -IC:/esp/v5.5.4/esp-idf/components/mbedtls/mbedtls/library -IC:/esp/v5.5.4/esp-idf/components/mbedtls/esp_crt_bundle/include -IC:/esp/v5.5.4/esp-idf/components/mbedtls/mbedtls/3rdparty/everest/include -IC:/esp/v5.5.4/esp-idf/components/mbedtls/mbedtls/3rdparty/p256-m -IC:/esp/v5.5.4/esp-idf/components/mbedtls/mbedtls/3rdparty/p256-m/p256-m -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_lcd_axs15231b/include -IE:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/managed_components/espressif__esp_lcd_touch/include @"E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/build/toolchain/cflags" -fdiagnostics-color=always -fdiagnostics-color=always -ffunction-sections -fdata-sections -Wall -Werror=all -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-but-set-variable -Wno-error=deprecated-declarations -Wextra -Wno-error=extra -Wno-unused-parameter -Wno-sign-compare -Wno-enum-conversion -gdwarf-4 -ggdb -Wno-error=stringop-truncation -Os -freorder-blocks -fmacro-prefix-map=E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template=. -fmacro-prefix-map=C:/esp/v5.5.4/esp-idf=/IDF -fstrict-volatile-bitfields -fno-jump-tables -fno-tree-switch-conversion -std=gnu17 -Wno-old-style-declaration -DESP_LCD_AXS15231B_VER_MAJOR=1 -DESP_LCD_AXS15231B_VER_MINOR=0 -DESP_LCD_AXS15231B_VER_PATCH=1 -MD -MT esp-idf/main/CMakeFiles/__idf_main.dir/ui/screens/ui_Screen_Overview.c.obj -MF esp-idf\main\CMakeFiles\__idf_main.dir\ui\screens\ui_Screen_Overview.c.obj.d -o esp-idf/main/CMakeFiles/__idf_main.dir/ui/screens/ui_Screen_Overview.c.obj -c E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Overview.c
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.h:20,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Overview.c:1:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+      |  ^~~~~~~
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Overview.c: In function 'create_cpu_module':
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Overview.c:234:45: error: 'ui_event_Screen_Overview_cpu_clicked' undeclared (first use in this function); did you mean 'ui_event_Screen_Overview_hdd_clicked'?
+  234 |     lv_obj_add_event_cb(s_screen.meter_cpu, ui_event_Screen_Overview_cpu_clicked, LV_EVENT_CLICKED, NULL);
+      |                                             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                             ui_event_Screen_Overview_hdd_clicked
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Overview.c:234:45: note: each undeclared identifier is reported only once for each function it appears in
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Overview.c: In function 'create_mem_disk_module':
+E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Overview.c:255:40: error: 'ui_event_Screen_Overview_mem_clicked' undeclared (first use in this function); did you mean 'ui_event_Screen_Overview_hdd_clicked'?
+  255 |     lv_obj_add_event_cb(mem_container, ui_event_Screen_Overview_mem_clicked, LV_EVENT_CLICKED, NULL);
+      |                                        ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      |                                        ui_event_Screen_Overview_hdd_clicked
+
+[11/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/screens/ui_Screen_Settings_MusicTab.c.obj
+
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.h:20,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Settings_MusicTab.c:1:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+
+      |  ^~~~~~~
+
+[12/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/screens/ui_Screen_Boot.c.obj
+
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.h:20,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Boot.c:1:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+
+      |  ^~~~~~~
+
+[13/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/screens/ui_Screen_Settings_GuideTab.c.obj
+
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.h:20,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Settings_GuideTab.c:1:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+
+      |  ^~~~~~~
+
+[14/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/screens/ui_Screen_WifiConfig.c.obj
+
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.h:20,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_WifiConfig.c:1:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+
+      |  ^~~~~~~
+
+[15/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/screens/ui_Screen_Settings.c.obj
+
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.h:20,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Settings.c:1:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+
+      |  ^~~~~~~
+
+[16/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/screens/ui_Screen_Storage.c.obj
+
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.h:20,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/screens/ui_Screen_Storage.c:1:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+
+      |  ^~~~~~~
+
+[17/46] Building C object esp-idf/main/CMakeFiles/__idf_main.dir/ui/fonts/ui_font_NotoSanThai16.c.obj
+
+In file included from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/data/fan_control.h:6,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/config/config.h:5,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/ui.h:20,
+                 from E:/zotlabnas-split/ESP32-S3-Touch-LCD-3.49-template/main/ui/fonts/ui_font_NotoSanThai16.c:7:
+C:/esp/v5.5.4/esp-idf/components/driver/deprecated/driver/pcnt.h:15:2: warning: #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h" [-Wcpp]
+
+   15 | #warning "legacy pcnt driver is deprecated, please migrate to use driver/pulse_cnt.h"
+
+      |  ^~~~~~~
+
+ninja: build stopped: subcommand failed.
+
+ninja failed with exit code 1, output of the command is in the E:\zotlabnas-split\ESP32-S3-Touch-LCD-3.49-template\build\log\idf_py_stderr_output_25996 and E:\zotlabnas-split\ESP32-S3-Touch-LCD-3.49-template\build\log\idf_py_stdout_output_25996

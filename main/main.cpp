@@ -45,6 +45,7 @@
 #include "nas_event_loop.h"
 #include "http_timer.h"
 #include "event_bus.h"
+#include "rgb_nas_monitor.h"
 
 static const char *TAG = "skeleton";
 
@@ -131,6 +132,10 @@ extern "C" void app_main(void)
     http_timer_start();
 
     ui_init();
+
+    // 初始化 RGB LED NAS 监控
+    rgb_nas_monitor_init();
+    rgb_nas_monitor_start();
 
     cli_start();
 

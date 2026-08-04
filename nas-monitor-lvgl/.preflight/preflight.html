@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preflight</title>
+    <style id="theme-vars">
+:root {
+  /* LVGL NAS Monitor palette — dark dashboard, cyan accent */
+  --nas-background: #000000;
+  --nas-foreground: #ffffff;
+  --nas-card: #0f0f11;
+  --nas-card-foreground: #ffffff;
+  --nas-popover: #141419;
+  --nas-popover-foreground: #ffffff;
+  --nas-primary: #40e0d0;
+  --nas-primary-foreground: #000000;
+  --nas-muted: #333333;
+  --nas-muted-foreground: #a0a0a0;
+  --nas-border: #333333;
+  --nas-input: #333333;
+  --nas-ring: #40e0d0;
+  --nas-radius-small: 2px;
+  --nas-radius-medium: 4px;
+  --nas-radius-large: 8px;
+
+  /* Status / state colors */
+  --nas-state-success: #00ff00;
+  --nas-state-warning: #ffa500;
+  --nas-state-error: #ff0000;
+  --nas-state-info: #40e0d0;
+
+  /* Extended dashboard surface tokens */
+  --nas-surface: #141419;
+  --nas-surface-2: #1c1c22;
+  --nas-ink: #ffffff;
+  --nas-ink-2: #a0a0a0;
+  --nas-ink-3: #666666;
+  --nas-line: #333333;
+  --nas-accent-temp: #ff8c00;
+
+  /* Typography */
+  --nas-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --nas-font-mono: "JetBrains Mono", "SF Mono", "Fira Code", ui-monospace, monospace;
+}
+
+@theme inline {
+  --color-background: var(--nas-background);
+  --color-foreground: var(--nas-foreground);
+  --color-card: var(--nas-card);
+  --color-card-foreground: var(--nas-card-foreground);
+  --color-popover: var(--nas-popover);
+  --color-popover-foreground: var(--nas-popover-foreground);
+  --color-primary: var(--nas-primary);
+  --color-primary-foreground: var(--nas-primary-foreground);
+  --color-muted: var(--nas-muted);
+  --color-muted-foreground: var(--nas-muted-foreground);
+  --color-border: var(--nas-border);
+  --color-input: var(--nas-input);
+  --color-ring: var(--nas-ring);
+  --radius-sm: var(--nas-radius-small);
+  --radius-md: var(--nas-radius-medium);
+  --radius-lg: var(--nas-radius-large);
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--nas-background);
+    --color-foreground: var(--nas-foreground);
+    --color-card: var(--nas-card);
+    --color-card-foreground: var(--nas-card-foreground);
+    --color-popover: var(--nas-popover);
+    --color-popover-foreground: var(--nas-popover-foreground);
+    --color-primary: var(--nas-primary);
+    --color-primary-foreground: var(--nas-primary-foreground);
+    --color-muted: var(--nas-muted);
+    --color-muted-foreground: var(--nas-muted-foreground);
+    --color-border: var(--nas-border);
+    --color-input: var(--nas-input);
+    --color-ring: var(--nas-ring);
+    --radius-sm: var(--nas-radius-small);
+    --radius-md: var(--nas-radius-medium);
+    --radius-lg: var(--nas-radius-large);
+  }
+  @layer base {
+    body { background: var(--nas-background); color: var(--nas-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--nas-background); }
+      .text-background { color: var(--nas-background); }
+      .border-background { border-color: var(--nas-background); }
+      .ring-background { --tw-ring-color: var(--nas-background); }
+      .bg-foreground { background-color: var(--nas-foreground); }
+      .text-foreground { color: var(--nas-foreground); }
+      .border-foreground { border-color: var(--nas-foreground); }
+      .ring-foreground { --tw-ring-color: var(--nas-foreground); }
+      .bg-card { background-color: var(--nas-card); }
+      .text-card { color: var(--nas-card); }
+      .border-card { border-color: var(--nas-card); }
+      .ring-card { --tw-ring-color: var(--nas-card); }
+      .bg-card-foreground { background-color: var(--nas-card-foreground); }
+      .text-card-foreground { color: var(--nas-card-foreground); }
+      .border-card-foreground { border-color: var(--nas-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--nas-card-foreground); }
+      .bg-popover { background-color: var(--nas-popover); }
+      .text-popover { color: var(--nas-popover); }
+      .border-popover { border-color: var(--nas-popover); }
+      .ring-popover { --tw-ring-color: var(--nas-popover); }
+      .bg-popover-foreground { background-color: var(--nas-popover-foreground); }
+      .text-popover-foreground { color: var(--nas-popover-foreground); }
+      .border-popover-foreground { border-color: var(--nas-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--nas-popover-foreground); }
+      .bg-primary { background-color: var(--nas-primary); }
+      .text-primary { color: var(--nas-primary); }
+      .border-primary { border-color: var(--nas-primary); }
+      .ring-primary { --tw-ring-color: var(--nas-primary); }
+      .bg-primary-foreground { background-color: var(--nas-primary-foreground); }
+      .text-primary-foreground { color: var(--nas-primary-foreground); }
+      .border-primary-foreground { border-color: var(--nas-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--nas-primary-foreground); }
+      .bg-muted { background-color: var(--nas-muted); }
+      .text-muted { color: var(--nas-muted); }
+      .border-muted { border-color: var(--nas-muted); }
+      .ring-muted { --tw-ring-color: var(--nas-muted); }
+      .bg-muted-foreground { background-color: var(--nas-muted-foreground); }
+      .text-muted-foreground { color: var(--nas-muted-foreground); }
+      .border-muted-foreground { border-color: var(--nas-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--nas-muted-foreground); }
+      .bg-border { background-color: var(--nas-border); }
+      .text-border { color: var(--nas-border); }
+      .border-border { border-color: var(--nas-border); }
+      .ring-border { --tw-ring-color: var(--nas-border); }
+      .bg-input { background-color: var(--nas-input); }
+      .text-input { color: var(--nas-input); }
+      .border-input { border-color: var(--nas-input); }
+      .ring-input { --tw-ring-color: var(--nas-input); }
+      .bg-ring { background-color: var(--nas-ring); }
+      .text-ring { color: var(--nas-ring); }
+      .border-ring { border-color: var(--nas-ring); }
+      .ring-ring { --tw-ring-color: var(--nas-ring); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main>
+    </main>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

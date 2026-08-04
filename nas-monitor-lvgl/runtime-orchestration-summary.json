@@ -1,0 +1,544 @@
+{
+  "schemaVersion": "2026.07.22.0",
+  "skillProvenance": {
+    "name": "solo-design",
+    "version": "2026.07.22.00.00.00",
+    "version_source": "skill-release-manifest.json",
+    "read_status": "ok"
+  },
+  "project": {
+    "operation": "create",
+    "resolvedLane": "complex_html_page",
+    "intentProfile": {
+      "caseFamily": "free_exploration",
+      "sourceType": "code-specification",
+      "replicationMode": "lvgl-code-derived",
+      "deviceTarget": "embedded-lcd-640x172",
+      "dashboardMode": true
+    },
+    "selectedIntentWorkflowRead": true,
+    "contextRequirementsLoaded": [
+      {
+        "path": "shared-runtime/runtime-boundaries/lane-runtime-contracts.md",
+        "readStatus": "loaded",
+        "bodyRead": true
+      },
+      {
+        "path": "shared-runtime/agent-dispatch-runtime/lane-dispatch-index.md",
+        "readStatus": "loaded",
+        "bodyRead": true
+      },
+      {
+        "path": "shared-runtime/agent-dispatch-runtime/shared-page-rendering-kernel.md",
+        "readStatus": "loaded",
+        "bodyRead": true
+      },
+      {
+        "path": "delivery-quality/page-rendering-quality-gate.md",
+        "readStatus": "loaded",
+        "bodyRead": true
+      },
+      {
+        "path": "delivery-quality/design-artifact-validation.md",
+        "readStatus": "loaded",
+        "bodyRead": true
+      },
+      {
+        "path": "delivery-quality/delivery-evidence-contract.md",
+        "readStatus": "loaded",
+        "bodyRead": true
+      },
+      {
+        "path": "visual-experience/visual-experience-guidelines.md",
+        "readStatus": "loaded",
+        "bodyRead": true
+      },
+      {
+        "path": "visual-experience/visual-checkpoint-protocol.md",
+        "readStatus": "loaded",
+        "bodyRead": true
+      }
+    ],
+    "contextReadScope": "complex_html_page lane + shared kernel + quality gates + visual experience",
+    "readScopeLedger": [],
+    "designRead": "嵌入式 NAS 监控仪表盘 / 技术爱好者与运维场景 / 工具感、紧凑、数据可读 / 高密度 / 避免多色混乱与圆角过大",
+    "designDials": {
+      "layoutVariance": 2,
+      "motionIntensity": 2,
+      "visualDensity": 5
+    },
+    "projectName": "NAS 监控屏 LVGL 复刻与重设计",
+    "deviceType": "freeSize",
+    "dashboardMode": false,
+    "sharedProjectShellContract": {
+      "viewportMode": "fixed-frame",
+      "frameSize": {
+        "width": 640,
+        "height": 172
+      },
+      "surfaceDepthModel": "border-led-static-surfaces",
+      "radiusScale": {
+        "sm": "2px",
+        "md": "4px",
+        "lg": "8px"
+      },
+      "radiusMax": 8,
+      "staticShadowAlphaMax": 0.05,
+      "typographySystem": "Inter + Noto Sans SC / JetBrains Mono for digits",
+      "navigationShell": "none",
+      "continuityAnchors": [
+        "Black (#000000) page background across all screens",
+        "Cyan (#40E0D0) primary accent for active data / bars / arcs",
+        "Montserrat-derived Inter numeric rendering for meters and stats",
+        "Top status bar with title / time / network / IP / refresh on data screens",
+        "1px #333333 divider separating status bar from content",
+        "State colors: success #00FF00 / warning #FFA500 / error #FF0000"
+      ]
+    },
+    "cssPreflightEvidence": {
+      "command": "node apply-html-head-contract.mjs colors_and_type.css .preflight/preflight.html --title=\"Preflight\" --lang=zh-CN --prefix=nas --theme=dark",
+      "status": "passed",
+      "prefix": "nas",
+      "theme": "dark"
+    },
+    "visualQualityCheckpoints": [
+      {
+        "checkpointId": "vq-anchor",
+        "dimension": "visual-anchor",
+        "expected": "Fixed 640x172 dark dashboard frame with cyan-accented meters and status LEDs",
+        "evidenceTarget": "all pages #screen-frame"
+      },
+      {
+        "checkpointId": "vq-hierarchy",
+        "dimension": "information-hierarchy",
+        "expected": "Status bar > primary metrics > secondary bars > disk/service indicators",
+        "evidenceTarget": "overview/storage/detail pages"
+      },
+      {
+        "checkpointId": "vq-structure",
+        "dimension": "composition-structure",
+        "expected": "Pixel-level alignment to LVGL coordinates; dense but readable 8-12px spacing",
+        "evidenceTarget": "all pages #layout-grid"
+      },
+      {
+        "checkpointId": "vq-implementation",
+        "dimension": "implementation-strategy",
+        "expected": "CSS-only fixed-size mockups using semantic tokens; no external images",
+        "evidenceTarget": "pages/*.html"
+      }
+    ],
+    "dispatchPreflightManifest": [],
+    "expectedDispatches": [],
+    "validationRunDiscipline": {
+      "maxFullValidationRuns": 2,
+      "softWarningsTriggerRepair": false,
+      "blockingRepairMode": "targeted-once",
+      "forbiddenRepairTriggers": [
+        "soft-warning-only",
+        "provenance-warning-only",
+        "style-warning-only"
+      ]
+    },
+    "validationHistory": [
+      {
+        "reportPath": "validation-report.json",
+        "reportHash": "1a515105b201893a970e27007a4774ebbd5f578629c1ab9b1bf05fb3855b8910",
+        "checkedAt": "2026-08-04T03:01:22.591Z",
+        "success": false,
+        "exitCode": 1,
+        "renderBlockingErrorCount": 1,
+        "repairPlanHints": [],
+        "errorSignatures": [
+          {
+            "errorClass": "artifact-readiness",
+            "normalized": "[device-type-consistency] orchestration-summary project.deviceType=\"desktop\" does not match .design config.deviceType=\"freeSize\". Fix .design config before final delivery.",
+            "signature": "9b30f064040be45cad9d279618104543a296bba8df0ae52a75298a849524b060"
+          }
+        ],
+        "terminalState": null
+      }
+    ],
+    "validationRepairLedger": [
+      {
+        "failedReportPath": "validation-report.json",
+        "failedReportHash": "1a515105b201893a970e27007a4774ebbd5f578629c1ab9b1bf05fb3855b8910",
+        "repairWorkflowReadPath": "intent-workflows/intent-project-mutation/main-agent-repair-workflow.md",
+        "repairStartedAt": "2026-08-04T03:04:16.472Z",
+        "repairEntryStatus": "started-awaiting-owner-batch-repair",
+        "ownerTriage": [
+          {
+            "owner": "main-agent",
+            "errorClass": "artifact-readiness",
+            "affectedFiles": [],
+            "repairScope": "repair_design_registration_or_file_reference_only",
+            "strategy": "read .design and affected file metadata only"
+          }
+        ],
+        "repairPlanHints": [],
+        "repairActions": [],
+        "revalidationReportPath": null,
+        "revalidationReportHash": null,
+        "revalidationSuccess": null,
+        "blockedReason": null
+      }
+    ],
+    "validationSnapshot": {},
+    "artifactReadinessEvidence": {},
+    "lowValueCallWatchdog": {
+      "noProgressNextAction": "proceed to page dispatch or report blocked summary"
+    },
+    "generationTree": {
+      "nodeId": "gen-project-shell",
+      "kind": "project-shell",
+      "pageIds": [
+        "page-page-boot",
+        "page-page-overview",
+        "page-page-storage",
+        "page-page-disk-detail",
+        "page-page-system-detail-cpu",
+        "page-page-system-detail-memory",
+        "page-page-overview-enhanced",
+        "page-page-settings"
+      ],
+      "output": "partials/project-shell.html",
+      "sharedRegions": [
+        "screen-frame"
+      ],
+      "privateRegions": [],
+      "mutableSlots": [
+        "content"
+      ],
+      "status": "generated",
+      "children": [
+        {
+          "nodeId": "page-page-boot",
+          "kind": "page-leaf",
+          "pageIds": [
+            "page-page-boot"
+          ],
+          "output": "pages/page-boot.html",
+          "sharedRegions": [],
+          "privateRegions": [
+            "content"
+          ],
+          "mutableSlots": [],
+          "status": "generated",
+          "children": []
+        },
+        {
+          "nodeId": "page-page-overview",
+          "kind": "page-leaf",
+          "pageIds": [
+            "page-page-overview"
+          ],
+          "output": "pages/page-overview.html",
+          "sharedRegions": [],
+          "privateRegions": [
+            "content"
+          ],
+          "mutableSlots": [],
+          "status": "generated",
+          "children": []
+        },
+        {
+          "nodeId": "page-page-storage",
+          "kind": "page-leaf",
+          "pageIds": [
+            "page-page-storage"
+          ],
+          "output": "pages/page-storage.html",
+          "sharedRegions": [],
+          "privateRegions": [
+            "content"
+          ],
+          "mutableSlots": [],
+          "status": "generated",
+          "children": []
+        },
+        {
+          "nodeId": "page-page-disk-detail",
+          "kind": "page-leaf",
+          "pageIds": [
+            "page-page-disk-detail"
+          ],
+          "output": "pages/page-disk-detail.html",
+          "sharedRegions": [],
+          "privateRegions": [
+            "content"
+          ],
+          "mutableSlots": [],
+          "status": "generated",
+          "children": []
+        },
+        {
+          "nodeId": "page-page-system-detail-cpu",
+          "kind": "page-leaf",
+          "pageIds": [
+            "page-page-system-detail-cpu"
+          ],
+          "output": "pages/page-system-detail-cpu.html",
+          "sharedRegions": [],
+          "privateRegions": [
+            "content"
+          ],
+          "mutableSlots": [],
+          "status": "generated",
+          "children": []
+        },
+        {
+          "nodeId": "page-page-system-detail-memory",
+          "kind": "page-leaf",
+          "pageIds": [
+            "page-page-system-detail-memory"
+          ],
+          "output": "pages/page-system-detail-memory.html",
+          "sharedRegions": [],
+          "privateRegions": [
+            "content"
+          ],
+          "mutableSlots": [],
+          "status": "generated",
+          "children": []
+        },
+        {
+          "nodeId": "page-page-overview-enhanced",
+          "kind": "page-leaf",
+          "pageIds": [
+            "page-page-overview-enhanced"
+          ],
+          "output": "pages/page-overview-enhanced.html",
+          "sharedRegions": [],
+          "privateRegions": [
+            "content"
+          ],
+          "mutableSlots": [],
+          "status": "generated",
+          "children": []
+        },
+        {
+          "nodeId": "page-page-settings",
+          "kind": "page-leaf",
+          "pageIds": [
+            "page-page-settings"
+          ],
+          "output": "pages/page-settings.html",
+          "sharedRegions": [],
+          "privateRegions": [
+            "content"
+          ],
+          "mutableSlots": [],
+          "status": "generated",
+          "children": []
+        }
+      ]
+    },
+    "repairEntryEvidence": [
+      {
+        "failedReportPath": "validation-report.json",
+        "failedReportHash": "1a515105b201893a970e27007a4774ebbd5f578629c1ab9b1bf05fb3855b8910",
+        "repairWorkflowReadPath": "intent-workflows/intent-project-mutation/main-agent-repair-workflow.md",
+        "repairStartedAt": "2026-08-04T03:04:16.472Z",
+        "ledgerIndex": 0,
+        "ownerTriageCount": 1,
+        "repairActionCount": 0,
+        "revalidationReportPath": null,
+        "revalidationReportHash": null,
+        "revalidationSuccess": null
+      }
+    ]
+  },
+  "designSource": {
+    "operatingMode": "free-explore",
+    "cssFilePath": "colors_and_type.css",
+    "brandPrefix": "nas",
+    "referenceSource": {
+      "type": "lvgl-code-specification",
+      "paths": [
+        "main/ui/screens/ui_Screen_Boot.c",
+        "main/ui/screens/ui_Screen_Overview.c",
+        "main/ui/screens/ui_Screen_Storage.c",
+        "main/ui/screens/ui_Screen_DiskDetail.c",
+        "main/ui/screens/ui_Screen_SystemDetail.c",
+        "main/config/app_info.h"
+      ],
+      "display": {
+        "width": 640,
+        "height": 172
+      },
+      "palette": {
+        "bg": "#000000",
+        "primary": "#40E0D0",
+        "text": "#FFFFFF",
+        "inactive": "#333333",
+        "warning": "#FFA500",
+        "critical": "#FF0000",
+        "ok": "#00FF00"
+      }
+    }
+  },
+  "pages": [
+    {
+      "nodeId": "page-page-boot",
+      "title": "Boot Screen",
+      "htmlSrc": "pages/page-boot.html",
+      "pageIndex": 1,
+      "pageType": "information-dense",
+      "visualNorthStar": "1:1 LVGL boot screen: centered ZotLab Z6 logo, version label, green progress bar, status text",
+      "compositionPattern": "centered-loader",
+      "continuityAnchors": [
+        "Black background",
+        "Green (#00E676) progress indicator",
+        "Centered typography"
+      ],
+      "componentPlan": [],
+      "imagePlan": [],
+      "qualityRisks": [
+        "fixed-frame"
+      ]
+    },
+    {
+      "nodeId": "page-page-overview",
+      "title": "Overview",
+      "htmlSrc": "pages/page-overview.html",
+      "pageIndex": 2,
+      "pageType": "information-dense",
+      "visualNorthStar": "1:1 LVGL overview: 35px status bar, CPU/temp meters, memory/disk bars, HDD/M.2 LED buttons",
+      "compositionPattern": "split-meter-plus-bar-row",
+      "continuityAnchors": [
+        "Status bar pattern",
+        "Cyan meter arcs",
+        "Bottom disk LED strip"
+      ],
+      "componentPlan": [],
+      "imagePlan": [],
+      "qualityRisks": [
+        "fixed-frame",
+        "density"
+      ]
+    },
+    {
+      "nodeId": "page-page-storage",
+      "title": "Storage",
+      "htmlSrc": "pages/page-storage.html",
+      "pageIndex": 3,
+      "pageType": "information-dense",
+      "visualNorthStar": "1:1 LVGL storage screen: 30px status bar, multi-column disk usage bars with temperature",
+      "compositionPattern": "multi-column-data-list",
+      "continuityAnchors": [
+        "Status bar pattern",
+        "Cyan progress bars",
+        "HDD/M.2 naming convention"
+      ],
+      "componentPlan": [],
+      "imagePlan": [],
+      "qualityRisks": [
+        "fixed-frame",
+        "density"
+      ]
+    },
+    {
+      "nodeId": "page-page-disk-detail",
+      "title": "Disk Detail",
+      "htmlSrc": "pages/page-disk-detail.html",
+      "pageIndex": 4,
+      "pageType": "information-dense",
+      "visualNorthStar": "1:1 LVGL disk detail: back/refresh buttons, disk metadata grid, usage bar, read/write speeds",
+      "compositionPattern": "detail-data-sheet",
+      "continuityAnchors": [
+        "Status bar with back action",
+        "Cyan usage bar",
+        "Health status colors"
+      ],
+      "componentPlan": [],
+      "imagePlan": [],
+      "qualityRisks": [
+        "fixed-frame",
+        "density"
+      ]
+    },
+    {
+      "nodeId": "page-page-system-detail-cpu",
+      "title": "System Detail — CPU",
+      "htmlSrc": "pages/page-system-detail-cpu.html",
+      "pageIndex": 5,
+      "pageType": "information-dense",
+      "visualNorthStar": "1:1 LVGL system detail CPU mode: total CPU, load average, per-core bars, temps, uptime, hostname",
+      "compositionPattern": "detail-data-sheet",
+      "continuityAnchors": [
+        "Status bar with back action",
+        "Core bars in flex row",
+        "Metadata grid"
+      ],
+      "componentPlan": [],
+      "imagePlan": [],
+      "qualityRisks": [
+        "fixed-frame",
+        "density"
+      ]
+    },
+    {
+      "nodeId": "page-page-system-detail-memory",
+      "title": "System Detail — Memory",
+      "htmlSrc": "pages/page-system-detail-memory.html",
+      "pageIndex": 6,
+      "pageType": "information-dense",
+      "visualNorthStar": "1:1 LVGL system detail memory mode: RAM, swap, disk usage bars with percentages and free/cached labels",
+      "compositionPattern": "detail-data-sheet",
+      "continuityAnchors": [
+        "Status bar with back action",
+        "Three horizontal bars",
+        "Host metadata footer"
+      ],
+      "componentPlan": [],
+      "imagePlan": [],
+      "qualityRisks": [
+        "fixed-frame",
+        "density"
+      ]
+    },
+    {
+      "nodeId": "page-page-overview-enhanced",
+      "title": "Overview Enhanced",
+      "htmlSrc": "pages/page-overview-enhanced.html",
+      "pageIndex": 7,
+      "pageType": "information-dense",
+      "visualNorthStar": "Further designed NAS dashboard: keeps overview layout, adds network sparkline, volume health, service indicators, fan status",
+      "compositionPattern": "enhanced-dashboard-strip",
+      "continuityAnchors": [
+        "Same 640x172 frame",
+        "Same cyan accent",
+        "Same status bar structure",
+        "Bottom device status strip"
+      ],
+      "componentPlan": [],
+      "imagePlan": [],
+      "qualityRisks": [
+        "fixed-frame",
+        "density"
+      ]
+    },
+    {
+      "nodeId": "page-page-settings",
+      "title": "Settings",
+      "htmlSrc": "pages/page-settings.html",
+      "pageIndex": 8,
+      "pageType": "information-dense",
+      "visualNorthStar": "1:1 LVGL settings screen: unified status bar, close button, bottom tab bar with Wi-Fi/NAS/Screen/Station/Music/Region/Guide/Fan tabs, default Wi-Fi tab content",
+      "compositionPattern": "tabbed-config-panel",
+      "continuityAnchors": [
+        "Status bar pattern",
+        "Top-right close action",
+        "Bottom gradient tab bar",
+        "Default Wi-Fi tab with SSID dropdown, password input, save/scan buttons and Wi-Fi switch"
+      ],
+      "componentPlan": [],
+      "imagePlan": [],
+      "qualityRisks": [
+        "fixed-frame",
+        "density"
+      ]
+    }
+  ],
+  "wiringPlan": [],
+  "hiddenInteractionPlan": []
+}

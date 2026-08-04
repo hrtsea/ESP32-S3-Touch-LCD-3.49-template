@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings page-settings[0]</title>
+    <style id="theme-vars">
+:root {
+  /* LVGL NAS Monitor palette — dark dashboard, cyan accent */
+  --nas-background: #000000;
+  --nas-foreground: #ffffff;
+  --nas-card: #0f0f11;
+  --nas-card-foreground: #ffffff;
+  --nas-popover: #141419;
+  --nas-popover-foreground: #ffffff;
+  --nas-primary: #40e0d0;
+  --nas-primary-foreground: #000000;
+  --nas-muted: #333333;
+  --nas-muted-foreground: #a0a0a0;
+  --nas-border: #333333;
+  --nas-input: #333333;
+  --nas-ring: #40e0d0;
+  --nas-radius-small: 2px;
+  --nas-radius-medium: 4px;
+  --nas-radius-large: 8px;
+
+  /* Status / state colors */
+  --nas-state-success: #00ff00;
+  --nas-state-warning: #ff8c00;
+  --nas-state-error: #ff0000;
+  --nas-state-info: #40e0d0;
+
+  /* Extended dashboard surface tokens */
+  --nas-surface: #141419;
+  --nas-surface-2: #1c1c22;
+  --nas-ink: #ffffff;
+  --nas-ink-2: #a0a0a0;
+  --nas-ink-3: #666666;
+  --nas-line: #333333;
+
+  /* Typography */
+  --nas-font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --nas-font-mono: "JetBrains Mono", "SF Mono", "Fira Code", ui-monospace, monospace;
+}
+
+@theme inline {
+  --color-background: var(--nas-background);
+  --color-foreground: var(--nas-foreground);
+  --color-card: var(--nas-card);
+  --color-card-foreground: var(--nas-card-foreground);
+  --color-popover: var(--nas-popover);
+  --color-popover-foreground: var(--nas-popover-foreground);
+  --color-primary: var(--nas-primary);
+  --color-primary-foreground: var(--nas-primary-foreground);
+  --color-muted: var(--nas-muted);
+  --color-muted-foreground: var(--nas-muted-foreground);
+  --color-border: var(--nas-border);
+  --color-input: var(--nas-input);
+  --color-ring: var(--nas-ring);
+  --radius-sm: var(--nas-radius-small);
+  --radius-md: var(--nas-radius-medium);
+  --radius-lg: var(--nas-radius-large);
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--nas-background);
+    --color-foreground: var(--nas-foreground);
+    --color-card: var(--nas-card);
+    --color-card-foreground: var(--nas-card-foreground);
+    --color-popover: var(--nas-popover);
+    --color-popover-foreground: var(--nas-popover-foreground);
+    --color-primary: var(--nas-primary);
+    --color-primary-foreground: var(--nas-primary-foreground);
+    --color-muted: var(--nas-muted);
+    --color-muted-foreground: var(--nas-muted-foreground);
+    --color-border: var(--nas-border);
+    --color-input: var(--nas-input);
+    --color-ring: var(--nas-ring);
+    --radius-sm: var(--nas-radius-small);
+    --radius-md: var(--nas-radius-medium);
+    --radius-lg: var(--nas-radius-large);
+  }
+  @layer base {
+    body { background: var(--nas-background); color: var(--nas-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--nas-background); }
+      .text-background { color: var(--nas-background); }
+      .border-background { border-color: var(--nas-background); }
+      .ring-background { --tw-ring-color: var(--nas-background); }
+      .bg-foreground { background-color: var(--nas-foreground); }
+      .text-foreground { color: var(--nas-foreground); }
+      .border-foreground { border-color: var(--nas-foreground); }
+      .ring-foreground { --tw-ring-color: var(--nas-foreground); }
+      .bg-card { background-color: var(--nas-card); }
+      .text-card { color: var(--nas-card); }
+      .border-card { border-color: var(--nas-card); }
+      .ring-card { --tw-ring-color: var(--nas-card); }
+      .bg-card-foreground { background-color: var(--nas-card-foreground); }
+      .text-card-foreground { color: var(--nas-card-foreground); }
+      .border-card-foreground { border-color: var(--nas-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--nas-card-foreground); }
+      .bg-popover { background-color: var(--nas-popover); }
+      .text-popover { color: var(--nas-popover); }
+      .border-popover { border-color: var(--nas-popover); }
+      .ring-popover { --tw-ring-color: var(--nas-popover); }
+      .bg-popover-foreground { background-color: var(--nas-popover-foreground); }
+      .text-popover-foreground { color: var(--nas-popover-foreground); }
+      .border-popover-foreground { border-color: var(--nas-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--nas-popover-foreground); }
+      .bg-primary { background-color: var(--nas-primary); }
+      .text-primary { color: var(--nas-primary); }
+      .border-primary { border-color: var(--nas-primary); }
+      .ring-primary { --tw-ring-color: var(--nas-primary); }
+      .bg-primary-foreground { background-color: var(--nas-primary-foreground); }
+      .text-primary-foreground { color: var(--nas-primary-foreground); }
+      .border-primary-foreground { border-color: var(--nas-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--nas-primary-foreground); }
+      .bg-muted { background-color: var(--nas-muted); }
+      .text-muted { color: var(--nas-muted); }
+      .border-muted { border-color: var(--nas-muted); }
+      .ring-muted { --tw-ring-color: var(--nas-muted); }
+      .bg-muted-foreground { background-color: var(--nas-muted-foreground); }
+      .text-muted-foreground { color: var(--nas-muted-foreground); }
+      .border-muted-foreground { border-color: var(--nas-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--nas-muted-foreground); }
+      .bg-border { background-color: var(--nas-border); }
+      .text-border { color: var(--nas-border); }
+      .border-border { border-color: var(--nas-border); }
+      .ring-border { --tw-ring-color: var(--nas-border); }
+      .bg-input { background-color: var(--nas-input); }
+      .text-input { color: var(--nas-input); }
+      .border-input { border-color: var(--nas-input); }
+      .ring-input { --tw-ring-color: var(--nas-input); }
+      .bg-ring { background-color: var(--nas-ring); }
+      .text-ring { color: var(--nas-ring); }
+      .border-ring { border-color: var(--nas-ring); }
+      .ring-ring { --tw-ring-color: var(--nas-ring); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main>
+<div id="nas-screen" data-dom-id="screen-frame" style="position:relative;width:640px;height:172px;background:var(--nas-background);color:var(--nas-foreground);overflow:hidden;font-family:var(--nas-font-sans);font-size:12px;">
+<div data-dom-id="status-bar" style="position:absolute;left:0;top:0;width:640px;height:35px;">
+<div style="position:absolute;left:5px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--nas-foreground);">Settings</div>
+<div style="position:absolute;left:110px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--nas-foreground);font-family:var(--nas-font-mono);">14:32:10</div>
+<div style="position:absolute;left:250px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--nas-foreground);">▲ 0.00KB/s</div>
+<div style="position:absolute;left:330px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--nas-foreground);">▼ 0.00KB/s</div>
+<div style="position:absolute;left:445px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--nas-foreground);">IP: 192.168.1.128</div>
+<div style="position:absolute;left:594px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--nas-ink-3);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.86a10 10 0 0 1 14 0"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/></svg></div>
+<div style="position:absolute;left:614px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--nas-ink-3);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg></div>
+<div style="position:absolute;left:0;top:35px;width:640px;height:2px;background:var(--nas-muted);"></div>
+</div>
+<div data-dom-id="btn-close" style="position:absolute;right:0;top:0;width:50px;height:50px;display:flex;align-items:center;justify-content:center;border:3px solid var(--nas-foreground);box-sizing:border-box;cursor:pointer;z-index:10;">
+  <span style="font-size:20px;font-weight:700;color:var(--nas-foreground);">X</span>
+</div>
+<div data-dom-id="tabview-panel" style="position:absolute;left:0;top:37px;width:640px;height:95px;background:rgba(0,0,0,0.78);">
+  <div data-dom-id="tab-content-wifi" style="position:absolute;left:0;top:0;width:640px;height:95px;">
+    <div data-dom-id="wifi-ssid-label" style="position:absolute;left:10px;top:14px;font-size:12px;color:var(--nas-foreground);">SSID:</div>
+    <div data-dom-id="wifi-ssid-dropdown" style="position:absolute;left:50px;top:8px;width:260px;height:26px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:3px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;box-sizing:border-box;cursor:pointer;">
+      <span style="font-size:12px;color:var(--nas-foreground);">Select network...</span>
+      <span style="font-size:10px;color:var(--nas-ink-2);">▼</span>
+    </div>
+    <div data-dom-id="wifi-pass-label" style="position:absolute;left:10px;top:46px;font-size:12px;color:var(--nas-foreground);">Pass:</div>
+    <div data-dom-id="wifi-password-input" style="position:absolute;left:50px;top:40px;width:260px;height:26px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:3px;display:flex;align-items:center;padding:0 8px;box-sizing:border-box;">
+      <span style="font-size:12px;color:var(--nas-ink-2);">Wi-Fi Password</span>
+    </div>
+    <div data-dom-id="wifi-status" style="position:absolute;left:60px;bottom:8px;font-size:12px;color:var(--nas-state-error);">Disconnected</div>
+    <div data-dom-id="wifi-btn-save" style="position:absolute;left:380px;top:8px;width:150px;height:36px;background:transparent;border:3px solid var(--nas-foreground);border-radius:3px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+      <span style="font-size:12px;font-weight:600;color:var(--nas-foreground);">Save</span>
+    </div>
+    <div data-dom-id="wifi-btn-scan" style="position:absolute;left:380px;top:52px;width:150px;height:36px;background:transparent;border:3px solid var(--nas-foreground);border-radius:3px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+      <span style="font-size:12px;font-weight:600;color:var(--nas-foreground);">Scan</span>
+    </div>
+    <div data-dom-id="wifi-switch" style="position:absolute;right:10px;top:58px;width:60px;height:29px;background:var(--nas-ink-3);border-radius:14px;cursor:pointer;">
+      <div style="position:absolute;right:2px;top:2px;width:25px;height:25px;background:#0845FA;border-radius:50%;"></div>
+    </div>
+  </div>
+  <div data-dom-id="tab-content-fan" style="position:absolute;left:0;top:0;width:640px;height:95px;display:none;">
+    <div data-dom-id="fan-top-bar" style="position:absolute;left:5px;top:2px;width:630px;height:16px;display:flex;align-items:center;gap:6px;">
+      <span style="font-size:12px;color:var(--nas-foreground);white-space:nowrap;">Mode:</span>
+      <div data-dom-id="fan-mode-dd" style="width:60px;height:16px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:2px;display:flex;align-items:center;justify-content:space-between;padding:0 4px;box-sizing:border-box;cursor:pointer;">
+        <span style="font-size:12px;color:var(--nas-foreground);">AUTO</span>
+        <span style="font-size:9px;color:var(--nas-ink-2);">▼</span>
+      </div>
+      <span style="font-size:12px;color:var(--nas-foreground);white-space:nowrap;">Src:</span>
+      <div data-dom-id="fan-source-dd" style="width:45px;height:16px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:2px;display:flex;align-items:center;justify-content:space-between;padding:0 4px;box-sizing:border-box;cursor:pointer;">
+        <span style="font-size:12px;color:var(--nas-foreground);">MAX</span>
+        <span style="font-size:9px;color:var(--nas-ink-2);">▼</span>
+      </div>
+      <span style="font-size:12px;color:var(--nas-foreground);white-space:nowrap;">On:</span>
+      <div data-dom-id="fan-enable-sw" style="width:28px;height:14px;background:var(--nas-primary);border-radius:7px;cursor:pointer;position:relative;">
+        <div style="position:absolute;right:1px;top:1px;width:12px;height:12px;background:var(--nas-foreground);border-radius:50%;"></div>
+      </div>
+      <div data-dom-id="fan-apply-btn" style="margin-left:auto;width:50px;height:16px;background:var(--nas-muted);border-radius:2px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+        <span style="font-size:12px;color:var(--nas-foreground);">Apply</span>
+      </div>
+    </div>
+    <div data-dom-id="fan-canvas-area" style="position:absolute;left:5px;top:20px;width:630px;height:57px;display:flex;gap:4px;">
+      <div data-dom-id="fan-curve-chart" style="width:280px;height:57px;background:var(--nas-surface);border:1px solid var(--nas-line);border-radius:2px;position:relative;overflow:hidden;">
+        <svg width="280" height="57" viewBox="0 0 280 57" style="display:block;">
+          <line x1="25" y1="0" x2="276" y2="0" stroke="var(--nas-line)" stroke-width="0.5"/>
+          <line x1="25" y1="11" x2="276" y2="11" stroke="var(--nas-line)" stroke-width="0.5"/>
+          <line x1="25" y1="22" x2="276" y2="22" stroke="var(--nas-line)" stroke-width="0.5"/>
+          <line x1="25" y1="34" x2="276" y2="34" stroke="var(--nas-line)" stroke-width="0.5"/>
+          <line x1="25" y1="45" x2="276" y2="45" stroke="var(--nas-line)" stroke-width="0.5"/>
+          <line x1="25" y1="0" x2="25" y2="45" stroke="var(--nas-line)" stroke-width="0.5"/>
+          <line x1="109" y1="0" x2="109" y2="45" stroke="var(--nas-line)" stroke-width="0.5"/>
+          <line x1="192" y1="0" x2="192" y2="45" stroke="var(--nas-line)" stroke-width="0.5"/>
+          <line x1="276" y1="0" x2="276" y2="45" stroke="var(--nas-line)" stroke-width="0.5"/>
+          <text x="22" y="48" text-anchor="end" font-size="9" fill="var(--nas-ink-2)" font-family="var(--nas-font-mono)">0</text>
+          <text x="22" y="25" text-anchor="end" font-size="9" fill="var(--nas-ink-2)" font-family="var(--nas-font-mono)">50</text>
+          <text x="22" y="4" text-anchor="end" font-size="9" fill="var(--nas-ink-2)" font-family="var(--nas-font-mono)">100</text>
+          <text x="109" y="55" text-anchor="middle" font-size="9" fill="var(--nas-ink-2)" font-family="var(--nas-font-mono)">30</text>
+          <text x="192" y="55" text-anchor="middle" font-size="9" fill="var(--nas-ink-2)" font-family="var(--nas-font-mono)">60</text>
+          <text x="276" y="55" text-anchor="middle" font-size="9" fill="var(--nas-ink-2)" font-family="var(--nas-font-mono)">90</text>
+          <polyline points="109,31.5 137,27 165,20.25 206,9 234,0" fill="none" stroke="var(--nas-primary)" stroke-width="1.5"/>
+          <circle cx="109" cy="31.5" r="3" fill="var(--nas-foreground)"/>
+          <circle cx="137" cy="27" r="3" fill="var(--nas-foreground)"/>
+          <circle cx="165" cy="20.25" r="3" fill="var(--nas-foreground)"/>
+          <circle cx="206" cy="9" r="3" fill="var(--nas-foreground)"/>
+          <circle cx="234" cy="0" r="3" fill="var(--nas-foreground)"/>
+        </svg>
+      </div>
+      <div data-dom-id="fan-points-panel" style="flex:1;height:57px;background:var(--nas-surface);border:1px solid var(--nas-line);border-radius:2px;padding:2px 4px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-evenly;">
+        <div data-dom-id="fan-point-1" style="font-size:12px;color:var(--nas-foreground);font-family:var(--nas-font-mono);">P1: 30°C / 30%</div>
+        <div data-dom-id="fan-point-2" style="font-size:12px;color:var(--nas-foreground);font-family:var(--nas-font-mono);">P2: 40°C / 40%</div>
+        <div data-dom-id="fan-point-3" style="font-size:12px;color:var(--nas-foreground);font-family:var(--nas-font-mono);">P3: 50°C / 55%</div>
+        <div data-dom-id="fan-point-4" style="font-size:12px;color:var(--nas-foreground);font-family:var(--nas-font-mono);">P4: 65°C / 80%</div>
+        <div data-dom-id="fan-point-5" style="font-size:12px;color:var(--nas-foreground);font-family:var(--nas-font-mono);">P5: 75°C / 100%</div>
+      </div>
+    </div>
+    <div data-dom-id="fan-params-row" style="position:absolute;left:5px;top:79px;width:630px;height:14px;display:flex;align-items:center;gap:8px;">
+      <span style="font-size:12px;color:var(--nas-foreground);white-space:nowrap;">Hyst:</span>
+      <div data-dom-id="fan-hyst-dd" style="width:30px;height:14px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:2px;display:flex;align-items:center;justify-content:space-between;padding:0 3px;box-sizing:border-box;cursor:pointer;">
+        <span style="font-size:12px;color:var(--nas-foreground);">2</span>
+        <span style="font-size:8px;color:var(--nas-ink-2);">▼</span>
+      </div>
+      <span style="font-size:12px;color:var(--nas-foreground);white-space:nowrap;">Min:</span>
+      <div data-dom-id="fan-minpwm-dd" style="width:30px;height:14px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:2px;display:flex;align-items:center;justify-content:space-between;padding:0 3px;box-sizing:border-box;cursor:pointer;">
+        <span style="font-size:12px;color:var(--nas-foreground);">30</span>
+        <span style="font-size:8px;color:var(--nas-ink-2);">▼</span>
+      </div>
+      <span style="font-size:12px;color:var(--nas-foreground);white-space:nowrap;">Emerg:</span>
+      <div data-dom-id="fan-emerg-dd" style="width:35px;height:14px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:2px;display:flex;align-items:center;justify-content:space-between;padding:0 3px;box-sizing:border-box;cursor:pointer;">
+        <span style="font-size:12px;color:var(--nas-foreground);">75</span>
+        <span style="font-size:8px;color:var(--nas-ink-2);">▼</span>
+      </div>
+      <span style="font-size:12px;color:var(--nas-ink-2);white-space:nowrap;">°C  Drag points to edit</span>
+    </div>
+  </div>
+</div>
+<div data-dom-id="tab-bar" style="position:absolute;left:0;bottom:0;width:640px;height:40px;display:flex;overflow:hidden;background:linear-gradient(to bottom,#00ADFF,#025074);">
+  <div data-dom-id="tab-wifi" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--nas-background);box-sizing:border-box;background:linear-gradient(to bottom,#FFFFFF,#9D9C9C);cursor:pointer;">
+    <span style="font-size:12px;font-weight:600;color:var(--nas-background);">Wi-Fi</span>
+  </div>
+  <div data-dom-id="tab-nas" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--nas-background);border-left:none;box-sizing:border-box;background:linear-gradient(to bottom,#FFFFFF,#9D9C9C);cursor:pointer;">
+    <span style="font-size:12px;font-weight:600;color:var(--nas-background);">NAS</span>
+  </div>
+  <div data-dom-id="tab-screen" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--nas-background);border-left:none;box-sizing:border-box;background:linear-gradient(to bottom,#FFFFFF,#9D9C9C);cursor:pointer;">
+    <span style="font-size:12px;font-weight:600;color:var(--nas-background);">Screen</span>
+  </div>
+  <div data-dom-id="tab-station" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--nas-background);border-left:none;box-sizing:border-box;background:linear-gradient(to bottom,#FFFFFF,#9D9C9C);cursor:pointer;">
+    <span style="font-size:12px;font-weight:600;color:var(--nas-background);">Station</span>
+  </div>
+  <div data-dom-id="tab-music" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--nas-background);border-left:none;box-sizing:border-box;background:linear-gradient(to bottom,#FFFFFF,#9D9C9C);cursor:pointer;">
+    <span style="font-size:12px;font-weight:600;color:var(--nas-background);">Music</span>
+  </div>
+  <div data-dom-id="tab-region" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--nas-background);border-left:none;box-sizing:border-box;background:linear-gradient(to bottom,#FFFFFF,#9D9C9C);cursor:pointer;">
+    <span style="font-size:12px;font-weight:600;color:var(--nas-background);">Region</span>
+  </div>
+  <div data-dom-id="tab-guide" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--nas-background);border-left:none;box-sizing:border-box;background:linear-gradient(to bottom,#FFFFFF,#9D9C9C);cursor:pointer;">
+    <span style="font-size:12px;font-weight:600;color:var(--nas-background);">Guide</span>
+  </div>
+  <div data-dom-id="tab-fan" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--nas-background);border-left:none;box-sizing:border-box;background:linear-gradient(to bottom,#FFFFFF,#9D9C9C);cursor:pointer;">
+    <span style="font-size:12px;font-weight:600;color:var(--nas-background);">Fan</span>
+  </div>
+</div>
+</div>
+</main>
+    <script>
+      lucide.createIcons();
+      (function() {
+        var tabs = document.querySelectorAll('[data-dom-id^="tab-"]:not([data-dom-id^="tab-content"])');
+        var contents = {
+          'tab-wifi': document.querySelector('[data-dom-id="tab-content-wifi"]'),
+          'tab-fan': document.querySelector('[data-dom-id="tab-content-fan"]')
+        };
+        function switchTab(activeId) {
+          tabs.forEach(function(t) { t.style.opacity = '0.55'; });
+          var activeTab = document.querySelector('[data-dom-id="' + activeId + '"]');
+          if (activeTab) activeTab.style.opacity = '1';
+          Object.keys(contents).forEach(function(key) {
+            if (contents[key]) contents[key].style.display = 'none';
+          });
+          if (contents[activeId]) contents[activeId].style.display = 'block';
+        }
+        tabs.forEach(function(tab) {
+          tab.addEventListener('click', function() {
+            switchTab(tab.getAttribute('data-dom-id'));
+          });
+        });
+        switchTab('tab-wifi');
+      })();
+    </script>
+</body>
+</html>
