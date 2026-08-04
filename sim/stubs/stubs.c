@@ -293,3 +293,4 @@ DataSource *truenas_client_create(void) { return NULL; }
 DataSource *qnap_client_create(void) { return NULL; }
 DataSource *serial_client_create(void) { return NULL; }
 DataSource *snmp_client_create(void) { return NULL; }
+DataSource *unraid_client_create(void) { return NULL; }

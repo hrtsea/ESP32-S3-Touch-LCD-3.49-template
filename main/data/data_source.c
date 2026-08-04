@@ -7,6 +7,7 @@
 #include "client/qnap_client.h"
 #include "client/serial_client.h"
 #include "client/snmp_client.h"
+#include "client/unraid_client.h"
 #include "esp_log.h"
 #include "event_bus.h"
 #include <string.h>
@@ -35,7 +36,7 @@ static const NasTypeConfig s_nas_type_configs[] = {
     {NAS_QNAP,         "192.168.1.100", 8080,   "admin", true,  true,  false, false},
     {NAS_TRUENAS,      "192.168.1.100", 80,     "root",  true,  true,  false, false},
     {NAS_FNOS,         "192.168.1.100", 3000,   "",      false, true,  false, false},
-    {NAS_UNRAID,       "192.168.1.100", 80,     "root",  true,  false, false, false},
+    {NAS_UNRAID,       "192.168.1.100", 80,     "",      true,  false, false, false},
     {NET_LINUX_HTTP,   "192.168.1.100", 8099,   "",      false, false, false, false},
     {NET_LINUX_SERIAL, "/dev/ttyUSB0",  115200, "",      false, false, false, true},
     {NET_NETDATA,      "192.168.1.100", 19999,  "",      false, true,  false, false},
@@ -135,7 +136,7 @@ DataSource* data_source_create(const char* nas_type_id)
         return mock_client_create_with_type(NAS_FNOS, "FNOS", "wifi");
     }
     if (strcmp(nas_type_id, "unraid") == 0) {
-        return mock_client_create_with_type(NAS_UNRAID, "Unraid", "wifi");
+        return unraid_client_create();
     }
     if (strcmp(nas_type_id, "linux_serial") == 0) {
         return serial_client_create();

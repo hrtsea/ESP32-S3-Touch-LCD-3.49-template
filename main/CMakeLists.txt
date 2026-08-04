@@ -51,6 +51,7 @@ idf_component_register(
         "data/client/qnap_client.c"
         "data/client/serial_client.c"
         "data/client/snmp_client.c"
+        "data/client/unraid_client.c"
         "ui/fonts/font_jbmono_24.c"
         "ui/fonts/font_jbmono_48.c"
         "ui/fonts/font_jbmono_64.c"
