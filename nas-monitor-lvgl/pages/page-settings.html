@@ -304,12 +304,14 @@
     <script>
       lucide.createIcons();
       (function() {
+        var tabBar = document.querySelector('[data-dom-id="tab-bar"]');
         var tabs = document.querySelectorAll('[data-dom-id^="tab-"]:not([data-dom-id^="tab-content"])');
         var contents = {
           'tab-wifi': document.querySelector('[data-dom-id="tab-content-wifi"]'),
           'tab-fan': document.querySelector('[data-dom-id="tab-content-fan"]')
         };
         function switchTab(activeId) {
+          if (!activeId) return;
           tabs.forEach(function(t) { t.style.opacity = '0.55'; });
           var activeTab = document.querySelector('[data-dom-id="' + activeId + '"]');
           if (activeTab) activeTab.style.opacity = '1';
@@ -318,11 +320,19 @@
           });
           if (contents[activeId]) contents[activeId].style.display = 'block';
         }
-        tabs.forEach(function(tab) {
-          tab.addEventListener('click', function() {
-            switchTab(tab.getAttribute('data-dom-id'));
+        if (tabBar) {
+          tabBar.addEventListener('click', function(e) {
+            var target = e.target;
+            while (target && target !== tabBar) {
+              var domId = target.getAttribute('data-dom-id');
+              if (domId && domId.indexOf('tab-') === 0 && domId.indexOf('tab-content') !== 0) {
+                switchTab(domId);
+                break;
+              }
+              target = target.parentElement;
+            }
           });
-        });
+        }
         switchTab('tab-wifi');
       })();
     </script>
