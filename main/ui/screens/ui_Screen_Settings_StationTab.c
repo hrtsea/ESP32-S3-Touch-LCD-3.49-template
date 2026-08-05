@@ -1,5 +1,6 @@
 #include "../ui.h"
 #include "ui_Screen_Settings_StationTab.h"
+#include "../../utils/theme.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_16);
 LV_FONT_DECLARE(lv_font_montserrat_32);
@@ -44,10 +45,10 @@ void ui_Screen_Settings_StationTab_init(lv_obj_t *parent)
     lv_obj_align(ui_Settings_Textarea_stationList, LV_ALIGN_CENTER, -12, -16);
     lv_textarea_set_placeholder_text(ui_Settings_Textarea_stationList, "Station URL List");
     lv_obj_set_scroll_dir(ui_Settings_Textarea_stationList, LV_DIR_VER);
-    lv_obj_set_style_text_color(ui_Settings_Textarea_stationList, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui_Settings_Textarea_stationList, theme_get().text, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_Settings_Textarea_stationList, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_Settings_Textarea_stationList, &ui_font_NotoSanThai16, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(ui_Settings_Textarea_stationList, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_Settings_Textarea_stationList, theme_get().bg, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_Settings_Textarea_stationList, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_Settings_Label_stationHint = lv_label_create(ui_Settings_Tabpage_station);

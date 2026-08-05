@@ -1,4 +1,5 @@
 #include "../ui.h"
+#include "theme.h"
 #include "ui_Screen_Settings_NasTab.h"
 #include "esp_log.h"
 #include "data_source.h"
@@ -284,6 +285,8 @@ static void create_dialog_fields(void) {
 
     ESP_LOGI(TAG, "Creating config fields");
 
+    theme_palette_t theme = theme_get();
+
     if (dialog_scroll_container) {
         lv_obj_del(dialog_scroll_container);
     }
@@ -292,7 +295,7 @@ static void create_dialog_fields(void) {
     lv_obj_set_size(dialog_scroll_container, lv_pct(100), 120);
     lv_obj_set_style_bg_opa(dialog_scroll_container, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(dialog_scroll_container, 1, 0);
-    lv_obj_set_style_border_color(dialog_scroll_container, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_border_color(dialog_scroll_container, theme.text, 0);
     lv_obj_set_style_radius(dialog_scroll_container, 4, 0);
     lv_obj_set_style_pad_all(dialog_scroll_container, 4, 0);
     lv_obj_set_flex_flow(dialog_scroll_container, LV_FLEX_FLOW_COLUMN);
@@ -315,7 +318,7 @@ static void create_dialog_fields(void) {
     dialog_ip_input = lv_textarea_create(dialog_ip_row);
     lv_obj_set_size(dialog_ip_input, 0, 24);
     lv_obj_set_flex_grow(dialog_ip_input, 1);
-    lv_obj_set_style_bg_color(dialog_ip_input, lv_color_hex(0x222222), 0);
+    lv_obj_set_style_bg_color(dialog_ip_input, theme.card_bg, 0);
     lv_obj_set_style_text_font(dialog_ip_input, &lv_font_montserrat_12, 0);
     lv_textarea_set_one_line(dialog_ip_input, true);
     lv_textarea_set_max_length(dialog_ip_input, 39);
@@ -329,7 +332,7 @@ static void create_dialog_fields(void) {
 
     dialog_port_input = lv_textarea_create(dialog_ip_row);
     lv_obj_set_size(dialog_port_input, 50, 24);
-    lv_obj_set_style_bg_color(dialog_port_input, lv_color_hex(0x222222), 0);
+    lv_obj_set_style_bg_color(dialog_port_input, theme.card_bg, 0);
     lv_obj_set_style_text_font(dialog_port_input, &lv_font_montserrat_12, 0);
     lv_textarea_set_one_line(dialog_port_input, true);
     lv_textarea_set_max_length(dialog_port_input, 5);
@@ -355,7 +358,7 @@ static void create_dialog_fields(void) {
     dialog_username_input = lv_textarea_create(dialog_auth_row);
     lv_obj_set_size(dialog_username_input, 0, 24);
     lv_obj_set_flex_grow(dialog_username_input, 1);
-    lv_obj_set_style_bg_color(dialog_username_input, lv_color_hex(0x222222), 0);
+    lv_obj_set_style_bg_color(dialog_username_input, theme.card_bg, 0);
     lv_obj_set_style_text_font(dialog_username_input, &lv_font_montserrat_12, 0);
     lv_textarea_set_one_line(dialog_username_input, true);
     lv_textarea_set_max_length(dialog_username_input, 32);
@@ -369,7 +372,7 @@ static void create_dialog_fields(void) {
     dialog_password_input = lv_textarea_create(dialog_auth_row);
     lv_obj_set_size(dialog_password_input, 0, 24);
     lv_obj_set_flex_grow(dialog_password_input, 1);
-    lv_obj_set_style_bg_color(dialog_password_input, lv_color_hex(0x222222), 0);
+    lv_obj_set_style_bg_color(dialog_password_input, theme.card_bg, 0);
     lv_obj_set_style_text_font(dialog_password_input, &lv_font_montserrat_12, 0);
     lv_textarea_set_one_line(dialog_password_input, true);
     lv_textarea_set_password_mode(dialog_password_input, true);
@@ -383,7 +386,7 @@ static void create_dialog_fields(void) {
 
     dialog_apiurl_input = lv_textarea_create(dialog_scroll_container);
     lv_obj_set_size(dialog_apiurl_input, lv_pct(100), 24);
-    lv_obj_set_style_bg_color(dialog_apiurl_input, lv_color_hex(0x222222), 0);
+    lv_obj_set_style_bg_color(dialog_apiurl_input, theme.card_bg, 0);
     lv_obj_set_style_text_font(dialog_apiurl_input, &lv_font_montserrat_12, 0);
     lv_textarea_set_one_line(dialog_apiurl_input, true);
     lv_textarea_set_max_length(dialog_apiurl_input, 128);
@@ -396,7 +399,7 @@ static void create_dialog_fields(void) {
 
     dialog_snmp_community_input = lv_textarea_create(dialog_scroll_container);
     lv_obj_set_size(dialog_snmp_community_input, lv_pct(100), 24);
-    lv_obj_set_style_bg_color(dialog_snmp_community_input, lv_color_hex(0x222222), 0);
+    lv_obj_set_style_bg_color(dialog_snmp_community_input, theme.card_bg, 0);
     lv_obj_set_style_text_font(dialog_snmp_community_input, &lv_font_montserrat_12, 0);
     lv_textarea_set_one_line(dialog_snmp_community_input, true);
     lv_textarea_set_max_length(dialog_snmp_community_input, 32);
@@ -410,7 +413,7 @@ static void create_dialog_fields(void) {
 
     dialog_snmp_version_input = lv_textarea_create(dialog_scroll_container);
     lv_obj_set_size(dialog_snmp_version_input, lv_pct(100), 24);
-    lv_obj_set_style_bg_color(dialog_snmp_version_input, lv_color_hex(0x222222), 0);
+    lv_obj_set_style_bg_color(dialog_snmp_version_input, theme.card_bg, 0);
     lv_obj_set_style_text_font(dialog_snmp_version_input, &lv_font_montserrat_12, 0);
     lv_textarea_set_one_line(dialog_snmp_version_input, true);
     lv_textarea_set_max_length(dialog_snmp_version_input, 3);
@@ -424,7 +427,7 @@ static void create_dialog_fields(void) {
 
     dialog_serial_device_input = lv_textarea_create(dialog_scroll_container);
     lv_obj_set_size(dialog_serial_device_input, lv_pct(100), 24);
-    lv_obj_set_style_bg_color(dialog_serial_device_input, lv_color_hex(0x222222), 0);
+    lv_obj_set_style_bg_color(dialog_serial_device_input, theme.card_bg, 0);
     lv_obj_set_style_text_font(dialog_serial_device_input, &lv_font_montserrat_12, 0);
     lv_textarea_set_one_line(dialog_serial_device_input, true);
     lv_textarea_set_max_length(dialog_serial_device_input, 32);
@@ -438,7 +441,7 @@ static void create_dialog_fields(void) {
 
     dialog_serial_baud_input = lv_textarea_create(dialog_scroll_container);
     lv_obj_set_size(dialog_serial_baud_input, lv_pct(100), 24);
-    lv_obj_set_style_bg_color(dialog_serial_baud_input, lv_color_hex(0x222222), 0);
+    lv_obj_set_style_bg_color(dialog_serial_baud_input, theme.card_bg, 0);
     lv_obj_set_style_text_font(dialog_serial_baud_input, &lv_font_montserrat_12, 0);
     lv_textarea_set_one_line(dialog_serial_baud_input, true);
     lv_textarea_set_max_length(dialog_serial_baud_input, 7);
@@ -651,6 +654,8 @@ static void create_nas_config_dialog(void) {
         return;
     }
 
+    theme_palette_t theme = theme_get();
+
     nas_config_dialog = lv_obj_create(current_screen);
     if (nas_config_dialog == NULL) {
         ESP_LOGI(TAG, "Failed to create dialog object");
@@ -659,8 +664,8 @@ static void create_nas_config_dialog(void) {
 
     lv_obj_set_size(nas_config_dialog, 280, 220);
     lv_obj_align(nas_config_dialog, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_set_style_bg_color(nas_config_dialog, lv_color_hex(0x1a1a1a), 0);
-    lv_obj_set_style_border_color(nas_config_dialog, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_bg_color(nas_config_dialog, theme.card_bg, 0);
+    lv_obj_set_style_border_color(nas_config_dialog, theme.text, 0);
     lv_obj_set_style_border_width(nas_config_dialog, 2, 0);
     lv_obj_set_style_radius(nas_config_dialog, 8, 0);
     lv_obj_set_style_pad_all(nas_config_dialog, 8, 0);
@@ -702,13 +707,11 @@ static void create_nas_config_dialog(void) {
 
     lv_obj_t* btn_row = lv_obj_create(nas_config_dialog);
     lv_obj_set_size(btn_row, lv_pct(100), 28);
-    lv_obj_set_style_bg_color(btn_row, lv_color_hex(0x1a1a1a), 0);
+    lv_obj_set_style_bg_color(btn_row, theme.card_bg, 0);
     lv_obj_set_style_border_width(btn_row, 0, 0);
     lv_obj_set_style_pad_all(btn_row, 2, 0);
     lv_obj_set_flex_flow(btn_row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(btn_row, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-
-    theme_palette_t theme = theme_get();
 
     lv_obj_t* save_btn = lv_btn_create(btn_row);
     lv_obj_set_size(save_btn, 80, 24);
@@ -768,9 +771,11 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
 
     ESP_LOGI(TAG, "Initializing NAS tab, current type=%s, idx=%d", g_config.nas_type, selected_nas_type_idx);
 
+    theme_palette_t theme = theme_get();
+
     lv_obj_t* nas_type_row = lv_obj_create(ui_Settings_Tabpage_nas);
     lv_obj_set_size(nas_type_row, lv_pct(100), 36);
-    lv_obj_set_style_bg_color(nas_type_row, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_color(nas_type_row, theme.bg, 0);
     lv_obj_set_style_border_width(nas_type_row, 0, 0);
     lv_obj_set_style_pad_all(nas_type_row, 0, 0);
     lv_obj_set_flex_flow(nas_type_row, LV_FLEX_FLOW_ROW);
@@ -785,9 +790,9 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
     nas_type_btn = lv_btn_create(nas_type_row);
     lv_obj_set_size(nas_type_btn, 0, 36);
     lv_obj_set_flex_grow(nas_type_btn, 1);
-    lv_obj_set_style_bg_color(nas_type_btn, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_color(nas_type_btn, theme.bg, 0);
     lv_obj_set_style_border_width(nas_type_btn, 1, 0);
-    lv_obj_set_style_border_color(nas_type_btn, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_border_color(nas_type_btn, theme.text, 0);
     lv_obj_set_style_radius(nas_type_btn, 4, 0);
     lv_obj_add_event_cb(nas_type_btn, nas_type_btn_cb, LV_EVENT_CLICKED, NULL);
 
@@ -798,7 +803,7 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
         lv_label_set_text(nas_type_btn_label, "Unknown");
     }
     lv_obj_set_style_text_font(nas_type_btn_label, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(nas_type_btn_label, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(nas_type_btn_label, theme.text, 0);
     lv_obj_center(nas_type_btn_label);
 
     lv_obj_t* disk_label = lv_label_create(ui_Settings_Tabpage_nas);
@@ -807,7 +812,7 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
 
     lv_obj_t* disk_count_row = lv_obj_create(ui_Settings_Tabpage_nas);
     lv_obj_set_size(disk_count_row, lv_pct(100), 36);
-    lv_obj_set_style_bg_color(disk_count_row, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_color(disk_count_row, theme.bg, 0);
     lv_obj_set_style_border_width(disk_count_row, 0, 0);
     lv_obj_set_style_pad_all(disk_count_row, 0, 0);
     lv_obj_set_flex_flow(disk_count_row, LV_FLEX_FLOW_ROW);
@@ -863,15 +868,13 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
     snprintf(disk_buf, sizeof(disk_buf), "Total: %d/16", total_disks);
     lv_label_set_text(disk_total_label, disk_buf);
     lv_obj_set_style_text_font(disk_total_label, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(disk_total_label, lv_color_hex(0x00FF00), 0);
+    lv_obj_set_style_text_color(disk_total_label, theme.ok, 0);
 
     lv_obj_t* spacer = lv_obj_create(ui_Settings_Tabpage_nas);
     lv_obj_set_flex_grow(spacer, 1);
     lv_obj_set_style_bg_opa(spacer, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(spacer, 0, 0);
     lv_obj_set_style_pad_all(spacer, 0, 0);
-
-    theme_palette_t theme = theme_get();
 
     lv_obj_t* save_btn = lv_btn_create(ui_Settings_Tabpage_nas);
     lv_obj_set_size(save_btn, lv_pct(100), 40);

@@ -10,6 +10,7 @@
 #include "esp_wifi_config.h"
 #include "wifi_adapter.h"
 #include "app_cfg.h"
+#include "utils/theme.h"
 #include "ui_helpers.h"
 #include "../data/nas_data.h"
 #include "../data/data_source.h"
@@ -21,6 +22,7 @@
 #include "screens/ui_Screen_DiskDetail.h"
 #include "screens/ui_Screen_SystemDetail.h"
 #include "screens/ui_Screen_SDCopy.h"
+#include "screens/ui_Screen_NetDetail.h"
 #include "../data/fan_control.h"
 
 #define UI_UPDATE(code) do { \
@@ -45,9 +47,9 @@ static void ip_label_ensure(void)
     if (s_ip_label) return;
     s_ip_label = lv_label_create(lv_layer_top());
     lv_label_set_text(s_ip_label, "");
-    lv_obj_set_style_text_color(s_ip_label, lv_color_make(0xa0, 0xa0, 0xa0), 0);
+    lv_obj_set_style_text_color(s_ip_label, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_ip_label, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_bg_color(s_ip_label, lv_color_make(0x00, 0x00, 0x00), 0);
+    lv_obj_set_style_bg_color(s_ip_label, theme_get().bg, 0);
     lv_obj_set_style_bg_opa(s_ip_label, LV_OPA_50, 0);
     lv_obj_set_style_pad_left(s_ip_label, 4, 0);
     lv_obj_set_style_pad_right(s_ip_label, 4, 0);
@@ -107,6 +109,7 @@ static void time_update_timer_cb(lv_timer_t *t)
     sdcopy_screen_update_time(time_str);
     if (ui_Screen_DiskDetail) ui_Screen_DiskDetail_update_time(time_str);
     if (ui_Screen_SystemDetail) ui_Screen_SystemDetail_update_time(time_str);
+    if (ui_Screen_NetDetail) netdetail_screen_update_time(time_str);
 }
 
 void ui_events_start_time_timer(void)
@@ -181,8 +184,14 @@ static void on_nas_data_update_evt(const NasData *data)
             sdcopy_screen_update_network((int)(data->network.tx_bps / 1000), (int)(data->network.rx_bps / 1000));
             if (ui_Screen_DiskDetail) ui_Screen_DiskDetail_update_network((int)(data->network.tx_bps / 1000), (int)(data->network.rx_bps / 1000));
             if (ui_Screen_SystemDetail) ui_Screen_SystemDetail_update_network((int)(data->network.tx_bps / 1000), (int)(data->network.rx_bps / 1000));
+            if (ui_Screen_NetDetail) netdetail_screen_update_network(data->network.tx_bps, data->network.rx_bps);
             s_last_tx_speed = tx_speed;
             s_last_rx_speed = rx_speed;
+        }
+
+        /* 更新 NetDetail 网口详情卡片（每次数据更新都刷新，不依赖速率变化） */
+        if (ui_Screen_NetDetail) {
+            netdetail_screen_update_interfaces(data->interfaces, data->interface_count);
         }
     }
 
@@ -211,6 +220,8 @@ static void on_wifi_state_changed(bool connected)
     if (ui_Screen_DiskDetail) ui_Screen_DiskDetail_update_wifi(connected);
     if (ui_Screen_SystemDetail) ui_Screen_SystemDetail_update_ip(ip_buf);
     if (ui_Screen_SystemDetail) ui_Screen_SystemDetail_update_wifi(connected);
+    if (ui_Screen_NetDetail) netdetail_screen_update_ip(ip_buf);
+    if (ui_Screen_NetDetail) netdetail_screen_update_wifi(connected);
 }
 
 static void task_ui_event_loop(void *arg)
@@ -492,6 +503,19 @@ void ui_event_Screen_Overview_mem_clicked(lv_event_t* e)
     lv_scr_load_anim(ui_Screen_SystemDetail, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300, 0, false);
 }
 
+void ui_event_Screen_Overview_net_clicked(lv_event_t* e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+    ESP_LOGW("ui", "[net_clicked] entering NetDetail");
+    if (ui_Screen_NetDetail == NULL) {
+        ui_Screen_NetDetail_screen_init();
+    } else {
+        ui_Screen_NetDetail_screen_destroy();
+        ui_Screen_NetDetail_screen_init();
+    }
+    lv_scr_load_anim(ui_Screen_NetDetail, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300, 0, false);
+}
+
 void ui_event_Screen_Overview_gesture(lv_event_t* e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
@@ -537,13 +561,21 @@ void ui_event_Screen_Storage_gesture(lv_event_t* e)
     lv_event_code_t event_code = lv_event_get_code(e);
 
     if (event_code == LV_EVENT_GESTURE) {
-        lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+        lv_indev_t *indev = lv_indev_get_act();
+        if (!indev) return;
+
+        lv_dir_t dir = lv_indev_get_gesture_dir(indev);
 
         if (dir == LV_DIR_RIGHT) {
             if (ui_Screen_Overview == NULL) {
                 ui_Screen_Overview_screen_init();
             }
             lv_scr_load_anim(ui_Screen_Overview, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0, false);
+        } else if (dir == LV_DIR_LEFT) {
+            if (ui_Screen_SDCopy == NULL) {
+                ui_Screen_SDCopy_screen_init();
+            }
+            lv_scr_load_anim(ui_Screen_SDCopy, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300, 0, false);
         }
     }
 }
@@ -560,6 +592,25 @@ void ui_event_Screen_SDCopy_gesture(lv_event_t* e)
                 ui_Screen_Storage_screen_init();
             }
             lv_scr_load_anim(ui_Screen_Storage, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0, false);
+        }
+    }
+}
+
+void ui_event_Screen_NetDetail_gesture(lv_event_t* e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if (event_code == LV_EVENT_GESTURE) {
+        lv_indev_t *indev = lv_indev_get_act();
+        if (!indev) return;
+        lv_dir_t dir = lv_indev_get_gesture_dir(indev);
+
+        /* 右滑返回 Overview */
+        if (dir == LV_DIR_RIGHT) {
+            if (ui_Screen_Overview == NULL) {
+                ui_Screen_Overview_screen_init();
+            }
+            lv_scr_load_anim(ui_Screen_Overview, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0, false);
         }
     }
 }

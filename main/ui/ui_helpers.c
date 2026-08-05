@@ -1,9 +1,11 @@
 #include "ui_helpers.h"
+#include "ui_widgets.h"
 
 #include <string.h>
 #include "lcd_bl_pwm_bsp.h"
 #include "event_bus.h"
 #include "app_cfg.h"
+#include "utils/theme.h"
 
 static lv_obj_t *s_tileview = NULL;
 static char s_status_text[256] = {0};
@@ -266,6 +268,36 @@ void _ui_anim_callback_set_image_zoom(lv_anim_t * a, int32_t v)
 {
     ui_anim_user_data_t * usr = (ui_anim_user_data_t *)a->user_data;
     lv_img_set_zoom(usr->target, v);
+}
+
+/* 页面指示器圆点 */
+void ui_helpers_create_page_dots(lv_obj_t *parent, int total, int current)
+{
+    if (total <= 1 || !parent) return;
+
+    /* 容器：底部居中，无背景无边框 */
+    lv_obj_t *dots = lv_obj_create(parent);
+    lv_obj_set_size(dots, total * 12 - 4, 6);
+    lv_obj_set_style_bg_opa(dots, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(dots, 0, 0);
+    lv_obj_set_style_pad_all(dots, 0, 0);
+    lv_obj_set_style_radius(dots, 0, 0);
+    lv_obj_clear_flag(dots, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(dots, LV_OBJ_FLAG_GESTURE_BUBBLE);
+    lv_obj_align(dots, LV_ALIGN_BOTTOM_MID, 0, -1);
+
+    for (int i = 0; i < total; i++) {
+        lv_obj_t *dot = lv_obj_create(dots);
+        lv_obj_set_size(dot, 4, 4);
+        lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_pad_all(dot, 0, 0);
+        lv_obj_set_style_border_width(dot, 0, 0);
+        lv_obj_clear_flag(dot, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(dot, LV_OBJ_FLAG_GESTURE_BUBBLE);
+        lv_obj_set_style_bg_color(dot, (i == current) ? page_accent_color(current) : theme_get().inactive, 0);
+        lv_obj_set_style_bg_opa(dot, LV_OPA_COVER, 0);
+        lv_obj_align(dot, LV_ALIGN_LEFT_MID, i * 12, 0);
+    }
 }
 
 void _ui_anim_callback_set_image_angle(lv_anim_t * a, int32_t v)

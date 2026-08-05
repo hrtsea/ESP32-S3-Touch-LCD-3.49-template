@@ -2,19 +2,11 @@
 #include "../ui.h"
 #include "esp_log.h"
 #include "../config/app_info.h"
+#include "theme.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_12);
 
 static const char *TAG = "SysDetail";
-
-#define COLOR_BG        lv_color_hex(0x000000)
-#define COLOR_TEXT      lv_color_hex(0xFFFFFF)
-#define COLOR_TEXT_DIM  lv_color_hex(0xA0A0A0)
-#define COLOR_PRIMARY   lv_color_hex(0x40E0D0)
-#define COLOR_INACTIVE  lv_color_hex(0x333333)
-#define COLOR_WARN      lv_color_hex(0xFFA500)
-#define COLOR_CRIT      lv_color_hex(0xFF0000)
-#define COLOR_ICON_DIM  lv_color_hex(0x666666)
 
 typedef struct {
     lv_obj_t *screen;
@@ -92,7 +84,7 @@ static void create_status_bar(lv_obj_t *parent, const char *title)
 {
     lv_obj_t *status_bar = lv_obj_create(parent);
     lv_obj_set_size(status_bar, 640, 35);
-    lv_obj_set_style_bg_color(status_bar, COLOR_BG, 0);
+    lv_obj_set_style_bg_color(status_bar, theme_get().bg, 0);
     lv_obj_set_style_border_width(status_bar, 0, 0);
     lv_obj_set_style_radius(status_bar, 0, 0);
     lv_obj_set_style_pad_all(status_bar, 0, 0);
@@ -101,68 +93,68 @@ static void create_status_bar(lv_obj_t *parent, const char *title)
 
     s_screen.btn_back = lv_btn_create(status_bar);
     lv_obj_set_size(s_screen.btn_back, 50, 24);
-    lv_obj_set_style_bg_color(s_screen.btn_back, COLOR_INACTIVE, 0);
+    lv_obj_set_style_bg_color(s_screen.btn_back, theme_get().inactive, 0);
     lv_obj_set_style_radius(s_screen.btn_back, 3, 0);
     lv_obj_align(s_screen.btn_back, LV_ALIGN_LEFT_MID, 2, 0);
     lv_obj_add_event_cb(s_screen.btn_back, back_btn_cb, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *lbl_back = lv_label_create(s_screen.btn_back);
     lv_label_set_text(lbl_back, "<");
-    lv_obj_set_style_text_color(lbl_back, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(lbl_back, theme_get().text, 0);
     lv_obj_set_style_text_font(lbl_back, &lv_font_montserrat_12, 0);
     lv_obj_center(lbl_back);
 
     s_screen.label_title = lv_label_create(status_bar);
     lv_label_set_text(s_screen.label_title, title);
-    lv_obj_set_style_text_color(s_screen.label_title, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_title, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_title, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.label_title, LV_ALIGN_LEFT_MID, 55, 0);
 
     /* 时间 */
     s_screen.label_time = lv_label_create(status_bar);
     lv_label_set_text(s_screen.label_time, "--:--");
-    lv_obj_set_style_text_color(s_screen.label_time, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_time, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_time, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.label_time, LV_ALIGN_LEFT_MID, 160, 0);
 
     /* 上传速度 */
     s_screen.label_up = lv_label_create(status_bar);
     lv_label_set_text(s_screen.label_up, "^ 0KB/s");
-    lv_obj_set_style_text_color(s_screen.label_up, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_up, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_up, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.label_up, LV_ALIGN_LEFT_MID, 250, 0);
 
     /* 下载速度 */
     s_screen.label_down = lv_label_create(status_bar);
     lv_label_set_text(s_screen.label_down, "v 0KB/s");
-    lv_obj_set_style_text_color(s_screen.label_down, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_down, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_down, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.label_down, LV_ALIGN_LEFT_MID, 330, 0);
 
     /* IP 地址 */
     s_screen.label_ip = lv_label_create(status_bar);
     lv_label_set_text(s_screen.label_ip, "IP: --");
-    lv_obj_set_style_text_color(s_screen.label_ip, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_ip, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_ip, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.label_ip, LV_ALIGN_LEFT_MID, 445, 0);
 
     /* WiFi 图标 */
     s_screen.icon_wifi = lv_label_create(status_bar);
     lv_label_set_text(s_screen.icon_wifi, LV_SYMBOL_WIFI);
-    lv_obj_set_style_text_color(s_screen.icon_wifi, COLOR_ICON_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.icon_wifi, theme_get().dim, 0);
     lv_obj_set_style_text_font(s_screen.icon_wifi, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.icon_wifi, LV_ALIGN_LEFT_MID, 594, 0);
 
     /* 蓝牙图标 */
     s_screen.icon_bt = lv_label_create(status_bar);
     lv_label_set_text(s_screen.icon_bt, LV_SYMBOL_BLUETOOTH);
-    lv_obj_set_style_text_color(s_screen.icon_bt, COLOR_ICON_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.icon_bt, theme_get().dim, 0);
     lv_obj_set_style_text_font(s_screen.icon_bt, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.icon_bt, LV_ALIGN_RIGHT_MID, -5, 0);
 
     lv_obj_t *divider = lv_obj_create(parent);
     lv_obj_set_size(divider, 640, 2);
-    lv_obj_set_style_bg_color(divider, COLOR_INACTIVE, 0);
+    lv_obj_set_style_bg_color(divider, theme_get().inactive, 0);
     lv_obj_set_style_border_width(divider, 0, 0);
     lv_obj_set_style_radius(divider, 0, 0);
     lv_obj_clear_flag(divider, LV_OBJ_FLAG_SCROLLABLE);
@@ -173,7 +165,7 @@ static void create_cpu_mode(lv_obj_t *parent)
 {
     lv_obj_t *content = lv_obj_create(parent);
     lv_obj_set_size(content, 640, 140);
-    lv_obj_set_style_bg_color(content, COLOR_BG, 0);
+    lv_obj_set_style_bg_color(content, theme_get().bg, 0);
     lv_obj_set_style_border_width(content, 0, 0);
     lv_obj_set_style_radius(content, 0, 0);
     lv_obj_set_style_pad_all(content, 2, 0);
@@ -184,13 +176,13 @@ static void create_cpu_mode(lv_obj_t *parent)
     const int line_h = 20;
 
     s_screen.label_cpu_total = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_cpu_total, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_cpu_total, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_cpu_total, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_cpu_total, "CPU: --");
     lv_obj_align(s_screen.label_cpu_total, LV_ALIGN_TOP_LEFT, 4, line_y);
 
     s_screen.label_load_avg = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_load_avg, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.label_load_avg, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.label_load_avg, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_load_avg, "Load: --");
     lv_obj_align(s_screen.label_load_avg, LV_ALIGN_TOP_LEFT, 150, line_y);
@@ -198,7 +190,7 @@ static void create_cpu_mode(lv_obj_t *parent)
 
     s_screen.core_container = lv_obj_create(content);
     lv_obj_set_size(s_screen.core_container, 632, 36);
-    lv_obj_set_style_bg_color(s_screen.core_container, COLOR_BG, 0);
+    lv_obj_set_style_bg_color(s_screen.core_container, theme_get().bg, 0);
     lv_obj_set_style_border_width(s_screen.core_container, 0, 0);
     lv_obj_set_style_radius(s_screen.core_container, 0, 0);
     lv_obj_set_style_pad_all(s_screen.core_container, 2, 0);
@@ -209,32 +201,32 @@ static void create_cpu_mode(lv_obj_t *parent)
     line_y += 40;
 
     s_screen.label_cpu_temp = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_cpu_temp, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_cpu_temp, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_cpu_temp, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_cpu_temp, "--°C");
     lv_obj_align(s_screen.label_cpu_temp, LV_ALIGN_TOP_LEFT, 4, line_y);
 
     s_screen.label_sys_temp = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_sys_temp, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_sys_temp, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_sys_temp, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_sys_temp, "--°C");
     lv_obj_align(s_screen.label_sys_temp, LV_ALIGN_TOP_LEFT, 80, line_y);
 
     s_screen.label_uptime = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_uptime, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.label_uptime, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.label_uptime, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_uptime, "--");
     lv_obj_align(s_screen.label_uptime, LV_ALIGN_TOP_LEFT, 180, line_y);
     line_y += line_h;
 
     s_screen.label_hostname = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_hostname, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.label_hostname, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.label_hostname, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_hostname, "--");
     lv_obj_align(s_screen.label_hostname, LV_ALIGN_TOP_LEFT, 4, line_y);
 
     s_screen.label_model = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_model, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.label_model, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.label_model, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_model, "--");
     lv_obj_align(s_screen.label_model, LV_ALIGN_TOP_LEFT, 250, line_y);
@@ -244,7 +236,7 @@ static void create_mem_mode(lv_obj_t *parent)
 {
     lv_obj_t *content = lv_obj_create(parent);
     lv_obj_set_size(content, 640, 140);
-    lv_obj_set_style_bg_color(content, COLOR_BG, 0);
+    lv_obj_set_style_bg_color(content, theme_get().bg, 0);
     lv_obj_set_style_border_width(content, 0, 0);
     lv_obj_set_style_radius(content, 0, 0);
     lv_obj_set_style_pad_all(content, 2, 0);
@@ -255,7 +247,7 @@ static void create_mem_mode(lv_obj_t *parent)
     const int line_h = 24;
 
     s_screen.label_ram_total = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_ram_total, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_ram_total, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_ram_total, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_ram_total, "RAM");
     lv_obj_align(s_screen.label_ram_total, LV_ALIGN_TOP_LEFT, 4, line_y);
@@ -263,33 +255,33 @@ static void create_mem_mode(lv_obj_t *parent)
     s_screen.bar_ram = lv_bar_create(content);
     lv_obj_set_size(s_screen.bar_ram, 400, 12);
     lv_bar_set_value(s_screen.bar_ram, 0, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(s_screen.bar_ram, COLOR_INACTIVE, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(s_screen.bar_ram, COLOR_PRIMARY, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(s_screen.bar_ram, theme_get().inactive, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_screen.bar_ram, theme_get().accent, LV_PART_INDICATOR);
     lv_obj_set_style_radius(s_screen.bar_ram, 3, LV_PART_MAIN);
     lv_obj_set_style_radius(s_screen.bar_ram, 3, LV_PART_INDICATOR);
     lv_obj_align(s_screen.bar_ram, LV_ALIGN_TOP_LEFT, 60, line_y + 4);
 
     s_screen.label_ram_pct = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_ram_pct, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_ram_pct, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_ram_pct, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_ram_pct, "0%");
     lv_obj_align(s_screen.label_ram_pct, LV_ALIGN_TOP_LEFT, 470, line_y);
 
     s_screen.label_ram_free = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_ram_free, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.label_ram_free, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.label_ram_free, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_ram_free, "--");
     lv_obj_align(s_screen.label_ram_free, LV_ALIGN_TOP_LEFT, 520, line_y);
 
     s_screen.label_ram_cached = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_ram_cached, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.label_ram_cached, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.label_ram_cached, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_ram_cached, "--");
     lv_obj_align(s_screen.label_ram_cached, LV_ALIGN_TOP_LEFT, 600, line_y);
     line_y += line_h;
 
     s_screen.label_swap_total = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_swap_total, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_swap_total, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_swap_total, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_swap_total, "Swap");
     lv_obj_align(s_screen.label_swap_total, LV_ALIGN_TOP_LEFT, 4, line_y);
@@ -297,21 +289,21 @@ static void create_mem_mode(lv_obj_t *parent)
     s_screen.bar_swap = lv_bar_create(content);
     lv_obj_set_size(s_screen.bar_swap, 400, 12);
     lv_bar_set_value(s_screen.bar_swap, 0, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(s_screen.bar_swap, COLOR_INACTIVE, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(s_screen.bar_swap, COLOR_PRIMARY, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(s_screen.bar_swap, theme_get().inactive, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_screen.bar_swap, theme_get().accent, LV_PART_INDICATOR);
     lv_obj_set_style_radius(s_screen.bar_swap, 3, LV_PART_MAIN);
     lv_obj_set_style_radius(s_screen.bar_swap, 3, LV_PART_INDICATOR);
     lv_obj_align(s_screen.bar_swap, LV_ALIGN_TOP_LEFT, 60, line_y + 4);
 
     s_screen.label_swap_pct = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_swap_pct, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_swap_pct, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_swap_pct, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_swap_pct, "--");
     lv_obj_align(s_screen.label_swap_pct, LV_ALIGN_TOP_LEFT, 470, line_y);
     line_y += line_h;
 
     s_screen.label_disk_total = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_disk_total, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_disk_total, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_disk_total, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_disk_total, "Disk");
     lv_obj_align(s_screen.label_disk_total, LV_ALIGN_TOP_LEFT, 4, line_y);
@@ -319,21 +311,21 @@ static void create_mem_mode(lv_obj_t *parent)
     s_screen.bar_disk = lv_bar_create(content);
     lv_obj_set_size(s_screen.bar_disk, 400, 12);
     lv_bar_set_value(s_screen.bar_disk, 0, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(s_screen.bar_disk, COLOR_INACTIVE, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(s_screen.bar_disk, COLOR_PRIMARY, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(s_screen.bar_disk, theme_get().inactive, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_screen.bar_disk, theme_get().accent, LV_PART_INDICATOR);
     lv_obj_set_style_radius(s_screen.bar_disk, 3, LV_PART_MAIN);
     lv_obj_set_style_radius(s_screen.bar_disk, 3, LV_PART_INDICATOR);
     lv_obj_align(s_screen.bar_disk, LV_ALIGN_TOP_LEFT, 60, line_y + 4);
 
     s_screen.label_disk_pct = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_disk_pct, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_disk_pct, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_disk_pct, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_disk_pct, "0%");
     lv_obj_align(s_screen.label_disk_pct, LV_ALIGN_TOP_LEFT, 470, line_y);
     line_y += line_h;
 
     s_screen.label_hostname = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_hostname, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.label_hostname, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.label_hostname, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_hostname, "--");
     lv_obj_align(s_screen.label_hostname, LV_ALIGN_TOP_LEFT, 4, line_y);
@@ -352,7 +344,7 @@ void ui_Screen_SystemDetail_screen_init(SystemDetailMode mode)
     s_screen.screen = ui_Screen_SystemDetail;
     lv_obj_set_size(ui_Screen_SystemDetail, 640, 172);
     lv_obj_clear_flag(ui_Screen_SystemDetail, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(ui_Screen_SystemDetail, COLOR_BG, 0);
+    lv_obj_set_style_bg_color(ui_Screen_SystemDetail, theme_get().bg, 0);
 
     const char *title = (mode == SYS_DETAIL_CPU) ? "CPU Detail" : "Memory Detail";
     create_status_bar(ui_Screen_SystemDetail, title);
@@ -410,8 +402,8 @@ void ui_Screen_SystemDetail_update_data(const NasData *data)
                 lv_obj_t *bar = lv_bar_create(s_screen.core_container);
                 lv_obj_set_size(bar, 56, 26);
                 lv_bar_set_value(bar, (int32_t)sys->cpu_cores[i], LV_ANIM_OFF);
-                lv_obj_set_style_bg_color(bar, COLOR_INACTIVE, LV_PART_MAIN);
-                lv_obj_set_style_bg_color(bar, COLOR_PRIMARY, LV_PART_INDICATOR);
+                lv_obj_set_style_bg_color(bar, theme_get().inactive, LV_PART_MAIN);
+                lv_obj_set_style_bg_color(bar, theme_get().accent, LV_PART_INDICATOR);
                 lv_obj_set_style_radius(bar, 2, LV_PART_MAIN);
                 lv_obj_set_style_radius(bar, 2, LV_PART_INDICATOR);
 
@@ -419,7 +411,7 @@ void ui_Screen_SystemDetail_update_data(const NasData *data)
                 static char core_strs[MAX_CPU_CORES][8];
                 snprintf(core_strs[i], sizeof(core_strs[i]), "%d%%", (int)sys->cpu_cores[i]);
                 lv_label_set_text(lbl, core_strs[i]);
-                lv_obj_set_style_text_color(lbl, COLOR_TEXT, 0);
+                lv_obj_set_style_text_color(lbl, theme_get().text, 0);
                 lv_obj_set_style_text_font(lbl, &lv_font_montserrat_12, 0);
                 lv_obj_center(lbl);
 
@@ -462,9 +454,9 @@ void ui_Screen_SystemDetail_update_data(const NasData *data)
         if (ram_pct < 0) ram_pct = 0;
         if (ram_pct > 100) ram_pct = 100;
         lv_bar_set_value(s_screen.bar_ram, ram_pct, LV_ANIM_ON);
-        lv_color_t ram_color = COLOR_PRIMARY;
-        if (ram_pct >= 90) ram_color = COLOR_CRIT;
-        else if (ram_pct >= 75) ram_color = COLOR_WARN;
+        lv_color_t ram_color = theme_get().accent;
+        if (ram_pct >= 90) ram_color = theme_get().danger;
+        else if (ram_pct >= 75) ram_color = theme_get().warn;
         lv_obj_set_style_bg_color(s_screen.bar_ram, ram_color, LV_PART_INDICATOR);
         snprintf(buf, sizeof(buf), "%d%%", ram_pct);
         lv_label_set_text(s_screen.label_ram_pct, buf);
@@ -494,9 +486,9 @@ void ui_Screen_SystemDetail_update_data(const NasData *data)
         if (disk_pct < 0) disk_pct = 0;
         if (disk_pct > 100) disk_pct = 100;
         lv_bar_set_value(s_screen.bar_disk, disk_pct, LV_ANIM_ON);
-        lv_color_t disk_color = COLOR_PRIMARY;
-        if (disk_pct >= 90) disk_color = COLOR_CRIT;
-        else if (disk_pct >= 75) disk_color = COLOR_WARN;
+        lv_color_t disk_color = theme_get().accent;
+        if (disk_pct >= 90) disk_color = theme_get().danger;
+        else if (disk_pct >= 75) disk_color = theme_get().warn;
         lv_obj_set_style_bg_color(s_screen.bar_disk, disk_color, LV_PART_INDICATOR);
         snprintf(buf, sizeof(buf), "%d%%", disk_pct);
         lv_label_set_text(s_screen.label_disk_pct, buf);
@@ -540,6 +532,6 @@ void ui_Screen_SystemDetail_update_wifi(bool connected)
 {
     if (s_screen.icon_wifi) {
         lv_obj_set_style_text_color(s_screen.icon_wifi,
-            connected ? lv_color_hex(0x00FF00) : COLOR_ICON_DIM, 0);
+            connected ? theme_get().ok : theme_get().dim, 0);
     }
 }

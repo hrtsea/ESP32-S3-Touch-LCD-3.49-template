@@ -2,21 +2,11 @@
 #include "../ui.h"
 #include "esp_log.h"
 #include "config.h"
+#include "theme.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_12);
 
 static const char *TAG = "DiskDetail";
-
-#define COLOR_BG        lv_color_hex(0x000000)
-#define COLOR_TEXT      lv_color_hex(0xFFFFFF)
-#define COLOR_TEXT_DIM  lv_color_hex(0xA0A0A0)
-#define COLOR_PRIMARY   lv_color_hex(0x40E0D0)
-#define COLOR_INACTIVE  lv_color_hex(0x333333)
-#define COLOR_OK        lv_color_hex(0x00FF00)
-#define COLOR_WARN      lv_color_hex(0xFFA500)
-#define COLOR_CRIT      lv_color_hex(0xFF0000)
-#define COLOR_UNKNOWN   lv_color_hex(0x666666)
-#define COLOR_ICON_DIM  lv_color_hex(0x666666)
 
 typedef struct {
     lv_obj_t *screen;
@@ -103,7 +93,7 @@ static void create_status_bar(lv_obj_t *parent)
 {
     lv_obj_t *status_bar = lv_obj_create(parent);
     lv_obj_set_size(status_bar, 640, 35);
-    lv_obj_set_style_bg_color(status_bar, COLOR_BG, 0);
+    lv_obj_set_style_bg_color(status_bar, theme_get().bg, 0);
     lv_obj_set_style_border_width(status_bar, 0, 0);
     lv_obj_set_style_radius(status_bar, 0, 0);
     lv_obj_set_style_pad_all(status_bar, 0, 0);
@@ -112,68 +102,68 @@ static void create_status_bar(lv_obj_t *parent)
 
     s_screen.btn_back = lv_btn_create(status_bar);
     lv_obj_set_size(s_screen.btn_back, 50, 24);
-    lv_obj_set_style_bg_color(s_screen.btn_back, COLOR_INACTIVE, 0);
+    lv_obj_set_style_bg_color(s_screen.btn_back, theme_get().inactive, 0);
     lv_obj_set_style_radius(s_screen.btn_back, 3, 0);
     lv_obj_align(s_screen.btn_back, LV_ALIGN_LEFT_MID, 2, 0);
     lv_obj_add_event_cb(s_screen.btn_back, back_btn_cb, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *lbl_back = lv_label_create(s_screen.btn_back);
     lv_label_set_text(lbl_back, "<");
-    lv_obj_set_style_text_color(lbl_back, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(lbl_back, theme_get().text, 0);
     lv_obj_set_style_text_font(lbl_back, &lv_font_montserrat_12, 0);
     lv_obj_center(lbl_back);
 
     s_screen.label_title = lv_label_create(status_bar);
     lv_label_set_text(s_screen.label_title, "Disk");
-    lv_obj_set_style_text_color(s_screen.label_title, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_title, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_title, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.label_title, LV_ALIGN_LEFT_MID, 55, 0);
 
     /* 时间 */
     s_screen.label_time = lv_label_create(status_bar);
     lv_label_set_text(s_screen.label_time, "--:--");
-    lv_obj_set_style_text_color(s_screen.label_time, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_time, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_time, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.label_time, LV_ALIGN_LEFT_MID, 160, 0);
 
     /* 上传速度 */
     s_screen.label_up = lv_label_create(status_bar);
     lv_label_set_text(s_screen.label_up, "^ 0KB/s");
-    lv_obj_set_style_text_color(s_screen.label_up, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_up, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_up, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.label_up, LV_ALIGN_LEFT_MID, 250, 0);
 
     /* 下载速度 */
     s_screen.label_down = lv_label_create(status_bar);
     lv_label_set_text(s_screen.label_down, "v 0KB/s");
-    lv_obj_set_style_text_color(s_screen.label_down, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_down, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_down, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.label_down, LV_ALIGN_LEFT_MID, 330, 0);
 
     /* IP 地址 */
     s_screen.label_ip = lv_label_create(status_bar);
     lv_label_set_text(s_screen.label_ip, "IP: --");
-    lv_obj_set_style_text_color(s_screen.label_ip, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_ip, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_ip, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.label_ip, LV_ALIGN_LEFT_MID, 445, 0);
 
     /* WiFi 图标 */
     s_screen.icon_wifi = lv_label_create(status_bar);
     lv_label_set_text(s_screen.icon_wifi, LV_SYMBOL_WIFI);
-    lv_obj_set_style_text_color(s_screen.icon_wifi, COLOR_ICON_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.icon_wifi, theme_get().dim, 0);
     lv_obj_set_style_text_font(s_screen.icon_wifi, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.icon_wifi, LV_ALIGN_LEFT_MID, 594, 0);
 
     /* 蓝牙图标 */
     s_screen.icon_bt = lv_label_create(status_bar);
     lv_label_set_text(s_screen.icon_bt, LV_SYMBOL_BLUETOOTH);
-    lv_obj_set_style_text_color(s_screen.icon_bt, COLOR_ICON_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.icon_bt, theme_get().dim, 0);
     lv_obj_set_style_text_font(s_screen.icon_bt, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.icon_bt, LV_ALIGN_RIGHT_MID, -5, 0);
 
     lv_obj_t *divider = lv_obj_create(parent);
     lv_obj_set_size(divider, 640, 2);
-    lv_obj_set_style_bg_color(divider, COLOR_INACTIVE, 0);
+    lv_obj_set_style_bg_color(divider, theme_get().inactive, 0);
     lv_obj_set_style_border_width(divider, 0, 0);
     lv_obj_set_style_radius(divider, 0, 0);
     lv_obj_clear_flag(divider, LV_OBJ_FLAG_SCROLLABLE);
@@ -184,7 +174,7 @@ static void create_content(lv_obj_t *parent)
 {
     lv_obj_t *content = lv_obj_create(parent);
     lv_obj_set_size(content, 640, 135);
-    lv_obj_set_style_bg_color(content, COLOR_BG, 0);
+    lv_obj_set_style_bg_color(content, theme_get().bg, 0);
     lv_obj_set_style_border_width(content, 0, 0);
     lv_obj_set_style_radius(content, 0, 0);
     lv_obj_set_style_pad_all(content, 2, 0);
@@ -195,51 +185,51 @@ static void create_content(lv_obj_t *parent)
     const int line_h = 20;
 
     s_screen.label_name = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_name, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_name, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_name, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_name, "--");
     lv_obj_align(s_screen.label_name, LV_ALIGN_TOP_LEFT, 4, line_y);
 
     s_screen.label_model = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_model, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.label_model, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.label_model, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_model, "--");
     lv_obj_align(s_screen.label_model, LV_ALIGN_TOP_LEFT, 180, line_y);
     line_y += line_h;
 
     s_screen.label_device = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_device, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_device, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_device, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_device, "--");
     lv_obj_align(s_screen.label_device, LV_ALIGN_TOP_LEFT, 4, line_y);
 
     s_screen.label_mount = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_mount, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.label_mount, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.label_mount, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_mount, "--");
     lv_obj_align(s_screen.label_mount, LV_ALIGN_TOP_LEFT, 180, line_y);
     line_y += line_h;
 
     s_screen.label_type = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_type, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_type, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_type, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_type, "--");
     lv_obj_align(s_screen.label_type, LV_ALIGN_TOP_LEFT, 4, line_y);
 
     s_screen.label_slot = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_slot, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.label_slot, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.label_slot, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_slot, "--");
     lv_obj_align(s_screen.label_slot, LV_ALIGN_TOP_LEFT, 100, line_y);
 
     s_screen.label_online = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_online, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_online, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_online, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_online, "--");
     lv_obj_align(s_screen.label_online, LV_ALIGN_TOP_LEFT, 180, line_y);
 
     s_screen.label_health = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_health, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_health, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_health, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_health, "--");
     lv_obj_align(s_screen.label_health, LV_ALIGN_TOP_LEFT, 280, line_y);
@@ -248,33 +238,33 @@ static void create_content(lv_obj_t *parent)
     s_screen.bar_usage = lv_bar_create(content);
     lv_obj_set_size(s_screen.bar_usage, 400, 12);
     lv_bar_set_value(s_screen.bar_usage, 0, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(s_screen.bar_usage, COLOR_INACTIVE, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(s_screen.bar_usage, COLOR_PRIMARY, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(s_screen.bar_usage, theme_get().inactive, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_screen.bar_usage, theme_get().accent, LV_PART_INDICATOR);
     lv_obj_set_style_radius(s_screen.bar_usage, 3, LV_PART_MAIN);
     lv_obj_set_style_radius(s_screen.bar_usage, 3, LV_PART_INDICATOR);
     lv_obj_align(s_screen.bar_usage, LV_ALIGN_TOP_LEFT, 4, line_y + 2);
 
     s_screen.label_usage = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_usage, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_usage, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_usage, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_usage, "0%");
     lv_obj_align(s_screen.label_usage, LV_ALIGN_TOP_LEFT, 410, line_y);
 
     s_screen.label_temp = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_temp, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.label_temp, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.label_temp, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_temp, "--°C");
     lv_obj_align(s_screen.label_temp, LV_ALIGN_TOP_LEFT, 460, line_y);
     line_y += line_h + 4;
 
     s_screen.label_read = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_read, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.label_read, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.label_read, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_read, "R: --");
     lv_obj_align(s_screen.label_read, LV_ALIGN_TOP_LEFT, 4, line_y);
 
     s_screen.label_write = lv_label_create(content);
-    lv_obj_set_style_text_color(s_screen.label_write, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.label_write, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.label_write, &lv_font_montserrat_12, 0);
     lv_label_set_text(s_screen.label_write, "W: --");
     lv_obj_align(s_screen.label_write, LV_ALIGN_TOP_LEFT, 200, line_y);
@@ -285,7 +275,7 @@ static void create_smart_section(lv_obj_t *parent)
     /* SMART 区域容器 — 与 HTML 画布对齐 */
     s_screen.smart_container = lv_obj_create(parent);
     lv_obj_set_size(s_screen.smart_container, 342, 133);
-    lv_obj_set_style_bg_color(s_screen.smart_container, COLOR_BG, 0);
+    lv_obj_set_style_bg_color(s_screen.smart_container, theme_get().bg, 0);
     lv_obj_set_style_border_width(s_screen.smart_container, 0, 0);
     lv_obj_set_style_radius(s_screen.smart_container, 0, 0);
     lv_obj_set_style_pad_all(s_screen.smart_container, 0, 0);
@@ -294,59 +284,59 @@ static void create_smart_section(lv_obj_t *parent)
 
     /* 左侧分隔线 */
     lv_obj_set_style_border_side(s_screen.smart_container, LV_BORDER_SIDE_LEFT, 0);
-    lv_obj_set_style_border_color(s_screen.smart_container, COLOR_INACTIVE, 0);
+    lv_obj_set_style_border_color(s_screen.smart_container, theme_get().inactive, 0);
     lv_obj_set_style_border_width(s_screen.smart_container, 1, 0);
     lv_obj_set_style_pad_left(s_screen.smart_container, 8, 0);
 
     /* SMART 标题 */
     s_screen.smart_title = lv_label_create(s_screen.smart_container);
     lv_label_set_text(s_screen.smart_title, "SMART");
-    lv_obj_set_style_text_color(s_screen.smart_title, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(s_screen.smart_title, theme_get().text, 0);
     lv_obj_set_style_text_font(s_screen.smart_title, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.smart_title, LV_ALIGN_TOP_LEFT, 8, 0);
 
     /* Row 1: 通电时间 / 通电次数 / 重映射 */
     s_screen.smart_power_on = lv_label_create(s_screen.smart_container);
     lv_label_set_text(s_screen.smart_power_on, "通电时间: --");
-    lv_obj_set_style_text_color(s_screen.smart_power_on, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.smart_power_on, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.smart_power_on, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.smart_power_on, LV_ALIGN_TOP_LEFT, 8, 18);
 
     s_screen.smart_power_cycle = lv_label_create(s_screen.smart_container);
     lv_label_set_text(s_screen.smart_power_cycle, "通电次数: --");
-    lv_obj_set_style_text_color(s_screen.smart_power_cycle, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.smart_power_cycle, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.smart_power_cycle, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.smart_power_cycle, LV_ALIGN_TOP_LEFT, 125, 18);
 
     s_screen.smart_reallocated = lv_label_create(s_screen.smart_container);
     lv_label_set_text(s_screen.smart_reallocated, "重映射: --");
-    lv_obj_set_style_text_color(s_screen.smart_reallocated, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.smart_reallocated, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.smart_reallocated, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.smart_reallocated, LV_ALIGN_TOP_LEFT, 242, 18);
 
     /* Row 2: 待映射 / 不可修复 / 气流温度 */
     s_screen.smart_pending = lv_label_create(s_screen.smart_container);
     lv_label_set_text(s_screen.smart_pending, "待映射: --");
-    lv_obj_set_style_text_color(s_screen.smart_pending, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.smart_pending, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.smart_pending, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.smart_pending, LV_ALIGN_TOP_LEFT, 8, 42);
 
     s_screen.smart_uncorrectable = lv_label_create(s_screen.smart_container);
     lv_label_set_text(s_screen.smart_uncorrectable, "不可修复: --");
-    lv_obj_set_style_text_color(s_screen.smart_uncorrectable, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.smart_uncorrectable, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.smart_uncorrectable, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.smart_uncorrectable, LV_ALIGN_TOP_LEFT, 125, 42);
 
     s_screen.smart_airflow = lv_label_create(s_screen.smart_container);
     lv_label_set_text(s_screen.smart_airflow, "气流温度: --");
-    lv_obj_set_style_text_color(s_screen.smart_airflow, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.smart_airflow, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.smart_airflow, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.smart_airflow, LV_ALIGN_TOP_LEFT, 242, 42);
 
     /* Row 3: SMART 状态 */
     s_screen.smart_status = lv_label_create(s_screen.smart_container);
     lv_label_set_text(s_screen.smart_status, "SMART 状态: --");
-    lv_obj_set_style_text_color(s_screen.smart_status, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.smart_status, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(s_screen.smart_status, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.smart_status, LV_ALIGN_TOP_LEFT, 8, 66);
 }
@@ -364,7 +354,7 @@ void ui_Screen_DiskDetail_screen_init(uint8_t disk_index)
     s_screen.screen = ui_Screen_DiskDetail;
     lv_obj_set_size(ui_Screen_DiskDetail, 640, 172);
     lv_obj_clear_flag(ui_Screen_DiskDetail, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(ui_Screen_DiskDetail, COLOR_BG, 0);
+    lv_obj_set_style_bg_color(ui_Screen_DiskDetail, theme_get().bg, 0);
 
     create_status_bar(ui_Screen_DiskDetail);
     create_content(ui_Screen_DiskDetail);
@@ -425,15 +415,15 @@ void ui_Screen_DiskDetail_update_data(const NasData *data)
 
     lv_label_set_text(s_screen.label_online, disk->online ? "ONLINE" : "OFFLINE");
     lv_obj_set_style_text_color(s_screen.label_online,
-        disk->online ? COLOR_OK : COLOR_CRIT, 0);
+        disk->online ? theme_get().ok : theme_get().danger, 0);
 
     const char *health_str;
     lv_color_t health_color;
     switch (disk->health) {
-        case HEALTH_OK:      health_str = "OK";      health_color = COLOR_OK;      break;
-        case HEALTH_WARNING: health_str = "WARN";    health_color = COLOR_WARN;    break;
-        case HEALTH_CRITICAL:health_str = "CRIT";    health_color = COLOR_CRIT;    break;
-        default:             health_str = "UNK";     health_color = COLOR_UNKNOWN; break;
+        case HEALTH_OK:      health_str = "OK";      health_color = theme_get().ok;      break;
+        case HEALTH_WARNING: health_str = "WARN";    health_color = theme_get().warn;    break;
+        case HEALTH_CRITICAL:health_str = "CRIT";    health_color = theme_get().danger;    break;
+        default:             health_str = "UNK";     health_color = theme_get().dim; break;
     }
     lv_label_set_text(s_screen.label_health, health_str);
     lv_obj_set_style_text_color(s_screen.label_health, health_color, 0);
@@ -442,9 +432,9 @@ void ui_Screen_DiskDetail_update_data(const NasData *data)
     if (pct < 0) pct = 0;
     if (pct > 100) pct = 100;
     lv_bar_set_value(s_screen.bar_usage, pct, LV_ANIM_ON);
-    lv_color_t bar_color = COLOR_PRIMARY;
-    if (pct >= 90) bar_color = COLOR_CRIT;
-    else if (pct >= 75) bar_color = COLOR_WARN;
+    lv_color_t bar_color = theme_get().accent;
+    if (pct >= 90) bar_color = theme_get().danger;
+    else if (pct >= 75) bar_color = theme_get().warn;
     lv_obj_set_style_bg_color(s_screen.bar_usage, bar_color, LV_PART_INDICATOR);
 
     snprintf(buf, sizeof(buf), "%d%%", pct);
@@ -501,6 +491,6 @@ void ui_Screen_DiskDetail_update_wifi(bool connected)
 {
     if (s_screen.icon_wifi) {
         lv_obj_set_style_text_color(s_screen.icon_wifi,
-            connected ? COLOR_OK : COLOR_ICON_DIM, 0);
+            connected ? theme_get().ok : theme_get().dim, 0);
     }
 }

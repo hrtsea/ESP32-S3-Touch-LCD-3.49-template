@@ -124,6 +124,7 @@ target_link_libraries(sim_overrides PUBLIC
 set(UI_SOURCES
     ${MAIN_DIR}/ui/ui.c
     ${MAIN_DIR}/ui/ui_helpers.c
+    ${MAIN_DIR}/ui/ui_widgets.c
     ${MAIN_DIR}/ui/ui_events.c
     ${MAIN_DIR}/ui/screens/ui_Screen_Boot.c
     ${MAIN_DIR}/ui/screens/ui_Screen_Overview.c
@@ -133,6 +134,7 @@ set(UI_SOURCES
     ${MAIN_DIR}/ui/screens/ui_Screen_DiskDetail.c
     ${MAIN_DIR}/ui/screens/ui_Screen_SystemDetail.c
     ${MAIN_DIR}/ui/screens/ui_Screen_SDCopy.c
+    ${MAIN_DIR}/ui/screens/ui_Screen_NetDetail.c
     # Settings Tab 子模块
     ${MAIN_DIR}/ui/screens/ui_Screen_Settings_WifiTab.c
     ${MAIN_DIR}/ui/screens/ui_Screen_Settings_NasTab.c
@@ -165,6 +167,7 @@ set(UTILS_SOURCES
     ${MAIN_DIR}/utils/i18n.c
     ${MAIN_DIR}/utils/theme.c
     ${MAIN_DIR}/utils/wifi_adapter.c
+    ${MAIN_DIR}/utils/format.c
 )
 
 # 直接编译原版的配置/事件总线（nvs stub 返回 NOT_FOUND 即可正常工作）

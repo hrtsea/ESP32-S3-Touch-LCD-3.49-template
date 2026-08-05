@@ -54,6 +54,7 @@
 #include "screens/ui_Screen_Storage.h"
 #include "screens/ui_Screen_DiskDetail.h"
 #include "screens/ui_Screen_SystemDetail.h"
+#include "screens/ui_Screen_NetDetail.h"
 
 /* WiFi adapter（用于读取当前 IP） */
 #include "wifi_adapter.h"
@@ -116,6 +117,11 @@ static void sim_update_screens(const NasData *data)
                                               (int)(data->network.rx_bps / 1000));
     }
 
+    /* NetDetail 屏幕（仅当用户进入时存在） */
+    if (ui_Screen_NetDetail != NULL) {
+        netdetail_screen_update_network(data->network.tx_bps, data->network.rx_bps);
+    }
+
     /* WiFi 状态/IP 显示 */
     char ip_buf[16] = {0};
     wifi_cfg_get_current_ip(ip_buf, sizeof(ip_buf));
@@ -123,10 +129,12 @@ static void sim_update_screens(const NasData *data)
     if (ui_Screen_Storage)  storage_screen_update_ip(ip_buf);
     if (ui_Screen_DiskDetail) ui_Screen_DiskDetail_update_ip(ip_buf);
     if (ui_Screen_SystemDetail) ui_Screen_SystemDetail_update_ip(ip_buf);
+    if (ui_Screen_NetDetail) netdetail_screen_update_ip(ip_buf);
     if (ui_Screen_Overview) overview_screen_update_wifi(wifi_cfg_is_connected());
     if (ui_Screen_Storage)  storage_screen_update_wifi(wifi_cfg_is_connected());
     if (ui_Screen_DiskDetail) ui_Screen_DiskDetail_update_wifi(wifi_cfg_is_connected());
     if (ui_Screen_SystemDetail) ui_Screen_SystemDetail_update_wifi(wifi_cfg_is_connected());
+    if (ui_Screen_NetDetail) netdetail_screen_update_wifi(wifi_cfg_is_connected());
 
     /* 推送温度给风扇控制 */
     fan_control_on_nas_data(data);
@@ -149,6 +157,7 @@ int main(int argc, char **argv)
 
     /* 1. 配置初始化（内存版，nvs stub 返回 NOT_FOUND） */
     config_load();
+    g_config.poll_sec = 1;  /* 测试：1 秒轮询，加速 sparkline 更新 */
     ESP_LOGI(TAG, "config loaded: nas_type=%s sata=%u m2=%u poll=%us",
              g_config.nas_type, g_config.sata_disk_count,
              g_config.m2_disk_count, g_config.poll_sec);

@@ -35,6 +35,7 @@ extern "C" {
 #include "screens/ui_Screen_DiskDetail.h"
 #include "screens/ui_Screen_SystemDetail.h"
 #include "screens/ui_Screen_SDCopy.h"
+#include "screens/ui_Screen_NetDetail.h"
 
 #define N_TILES 4
 

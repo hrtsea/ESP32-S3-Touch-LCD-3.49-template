@@ -3,19 +3,11 @@
 #include "esp_log.h"
 #include "esp_wifi_config.h"
 #include "wifi_adapter.h"
+#include "theme.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_12);
 
 lv_obj_t *ui_Screen_Storage = NULL;
-
-#define COLOR_BG        lv_color_hex(0x000000)
-#define COLOR_PRIMARY   lv_color_hex(0x40E0D0)
-#define COLOR_TEXT      lv_color_hex(0xFFFFFF)
-#define COLOR_INACTIVE  lv_color_hex(0x333333)
-#define COLOR_WARNING   lv_color_make(0xff, 0xa0, 0x40)
-#define COLOR_CRITICAL  lv_color_make(0xff, 0x40, 0x40)
-#define COLOR_ICON_DIM  lv_color_hex(0x666666)
-#define COLOR_TEXT_DIM  lv_color_hex(0xA0A0A0)
 
 #define LV_OBJ_CHECK(obj, name) \
     if (!(obj)) { \
@@ -46,10 +38,11 @@ static void create_storage_status_bar(lv_obj_t *parent)
     LV_OBJ_CHECK(status_bar, "status_bar");
 
     lv_obj_set_size(status_bar, 640, 35);
-    lv_obj_set_style_bg_color(status_bar, COLOR_BG, 0);
+    lv_obj_set_style_bg_color(status_bar, theme_get().bg, 0);
     lv_obj_set_style_border_width(status_bar, 0, 0);
     lv_obj_set_style_radius(status_bar, 0, 0);
     lv_obj_clear_flag(status_bar, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(status_bar, LV_OBJ_FLAG_GESTURE_BUBBLE);
 
     lv_obj_t *label_title = lv_label_create(status_bar);
     LV_OBJ_CHECK(label_title, "label_title");
@@ -62,7 +55,7 @@ static void create_storage_status_bar(lv_obj_t *parent)
         snprintf(title_str, sizeof(title_str), "NAS Monitor");
     }
     lv_label_set_text(label_title, title_str);
-    lv_obj_set_style_text_color(label_title, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(label_title, theme_get().text, 0);
     lv_obj_set_style_text_font(label_title, &lv_font_montserrat_12, 0);
     lv_obj_align(label_title, LV_ALIGN_LEFT_MID, 5, 0);
 
@@ -70,7 +63,7 @@ static void create_storage_status_bar(lv_obj_t *parent)
     LV_OBJ_CHECK(label_time, "label_time");
     s_screen.label_time = label_time;
     lv_label_set_text(label_time, "--:--");
-    lv_obj_set_style_text_color(label_time, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(label_time, theme_get().text, 0);
     lv_obj_set_style_text_font(label_time, &lv_font_montserrat_12, 0);
     lv_obj_align(label_time, LV_ALIGN_LEFT_MID, 110, 0);
 
@@ -78,7 +71,7 @@ static void create_storage_status_bar(lv_obj_t *parent)
     LV_OBJ_CHECK(label_up, "label_up");
     s_screen.label_up = label_up;
     lv_label_set_text(label_up, "^ 0KB/s");
-    lv_obj_set_style_text_color(label_up, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(label_up, theme_get().text, 0);
     lv_obj_set_style_text_font(label_up, &lv_font_montserrat_12, 0);
     lv_obj_align(label_up, LV_ALIGN_LEFT_MID, 250, 0);
 
@@ -86,21 +79,21 @@ static void create_storage_status_bar(lv_obj_t *parent)
     LV_OBJ_CHECK(label_down, "label_down");
     s_screen.label_down = label_down;
     lv_label_set_text(label_down, "v 0KB/s");
-    lv_obj_set_style_text_color(label_down, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(label_down, theme_get().text, 0);
     lv_obj_set_style_text_font(label_down, &lv_font_montserrat_12, 0);
     lv_obj_align(label_down, LV_ALIGN_LEFT_MID, 330, 0);
 
     s_screen.icon_wifi = lv_label_create(status_bar);
     LV_OBJ_CHECK(s_screen.icon_wifi, "icon_wifi");
     lv_label_set_text(s_screen.icon_wifi, LV_SYMBOL_WIFI);
-    lv_obj_set_style_text_color(s_screen.icon_wifi, COLOR_ICON_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.icon_wifi, theme_get().dim, 0);
     lv_obj_set_style_text_font(s_screen.icon_wifi, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.icon_wifi, LV_ALIGN_LEFT_MID, 594, 0);
 
     s_screen.icon_bt = lv_label_create(status_bar);
     LV_OBJ_CHECK(s_screen.icon_bt, "icon_bt");
     lv_label_set_text(s_screen.icon_bt, LV_SYMBOL_BLUETOOTH);
-    lv_obj_set_style_text_color(s_screen.icon_bt, COLOR_ICON_DIM, 0);
+    lv_obj_set_style_text_color(s_screen.icon_bt, theme_get().dim, 0);
     lv_obj_set_style_text_font(s_screen.icon_bt, &lv_font_montserrat_12, 0);
     lv_obj_align(s_screen.icon_bt, LV_ALIGN_RIGHT_MID, -5, 0);
 
@@ -108,14 +101,14 @@ static void create_storage_status_bar(lv_obj_t *parent)
     LV_OBJ_CHECK(label_ip, "label_ip");
     s_screen.label_ip = label_ip;
     lv_label_set_text(label_ip, "IP: --");
-    lv_obj_set_style_text_color(label_ip, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(label_ip, theme_get().text, 0);
     lv_obj_set_style_text_font(label_ip, &lv_font_montserrat_12, 0);
     lv_obj_align(label_ip, LV_ALIGN_LEFT_MID, 445, 0);
 
     lv_obj_t *divider = lv_obj_create(parent);
     LV_OBJ_CHECK(divider, "divider");
     lv_obj_set_size(divider, 640, 2);
-    lv_obj_set_style_bg_color(divider, COLOR_INACTIVE, 0);
+    lv_obj_set_style_bg_color(divider, theme_get().inactive, 0);
     lv_obj_set_style_border_width(divider, 0, 0);
     lv_obj_set_style_radius(divider, 0, 0);
     lv_obj_clear_flag(divider, LV_OBJ_FLAG_SCROLLABLE);
@@ -128,10 +121,11 @@ static void create_hdd_storage_bars(lv_obj_t *parent)
     LV_OBJ_CHECK(s_screen.container, "storage_container");
 
     lv_obj_set_size(s_screen.container, 640, 135);
-    lv_obj_set_style_bg_color(s_screen.container, COLOR_BG, 0);
+    lv_obj_set_style_bg_color(s_screen.container, theme_get().bg, 0);
     lv_obj_set_style_border_width(s_screen.container, 0, 0);
     lv_obj_set_style_radius(s_screen.container, 0, 0);
     lv_obj_clear_flag(s_screen.container, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(s_screen.container, LV_OBJ_FLAG_GESTURE_BUBBLE);
     lv_obj_align(s_screen.container, LV_ALIGN_TOP_MID, 0, 37);
 
     uint8_t total_disks = config_get_total_disk_slots();
@@ -162,7 +156,7 @@ static void create_hdd_storage_bars(lv_obj_t *parent)
             s_screen.hdd_names[index] = lv_label_create(s_screen.container);
             LV_OBJ_CHECK(s_screen.hdd_names[index], "hdd_name");
             lv_label_set_text(s_screen.hdd_names[index], label_text);
-            lv_obj_set_style_text_color(s_screen.hdd_names[index], COLOR_TEXT, 0);
+            lv_obj_set_style_text_color(s_screen.hdd_names[index], theme_get().text, 0);
             lv_obj_set_style_text_font(s_screen.hdd_names[index], &lv_font_montserrat_12, 0);
             lv_obj_align(s_screen.hdd_names[index], LV_ALIGN_TOP_LEFT, x_offset, y_offset);
 
@@ -171,8 +165,8 @@ static void create_hdd_storage_bars(lv_obj_t *parent)
             LV_OBJ_CHECK(s_screen.hdd_bars[index], "hdd_bar");
             lv_obj_set_size(s_screen.hdd_bars[index], bar_width, 12);
             lv_bar_set_value(s_screen.hdd_bars[index], 0, LV_ANIM_OFF);
-            lv_obj_set_style_bg_color(s_screen.hdd_bars[index], COLOR_INACTIVE, LV_PART_MAIN);
-            lv_obj_set_style_bg_color(s_screen.hdd_bars[index], COLOR_PRIMARY, LV_PART_INDICATOR);
+            lv_obj_set_style_bg_color(s_screen.hdd_bars[index], theme_get().inactive, LV_PART_MAIN);
+            lv_obj_set_style_bg_color(s_screen.hdd_bars[index], theme_get().accent, LV_PART_INDICATOR);
             lv_obj_set_style_radius(s_screen.hdd_bars[index], 3, LV_PART_MAIN);
             lv_obj_set_style_radius(s_screen.hdd_bars[index], 3, LV_PART_INDICATOR);
             lv_obj_align(s_screen.hdd_bars[index], LV_ALIGN_TOP_LEFT, x_offset + 50, y_offset + 2);
@@ -180,14 +174,14 @@ static void create_hdd_storage_bars(lv_obj_t *parent)
             s_screen.hdd_percents[index] = lv_label_create(s_screen.container);
             LV_OBJ_CHECK(s_screen.hdd_percents[index], "hdd_percent");
             lv_label_set_text(s_screen.hdd_percents[index], "0%");
-            lv_obj_set_style_text_color(s_screen.hdd_percents[index], COLOR_TEXT, 0);
+            lv_obj_set_style_text_color(s_screen.hdd_percents[index], theme_get().text, 0);
             lv_obj_set_style_text_font(s_screen.hdd_percents[index], &lv_font_montserrat_12, 0);
             lv_obj_align(s_screen.hdd_percents[index], LV_ALIGN_TOP_LEFT, x_offset + 50 + bar_width + 4, y_offset);
 
             s_screen.hdd_temps[index] = lv_label_create(s_screen.container);
             LV_OBJ_CHECK(s_screen.hdd_temps[index], "hdd_temp");
             lv_label_set_text(s_screen.hdd_temps[index], "--°C");
-            lv_obj_set_style_text_color(s_screen.hdd_temps[index], COLOR_TEXT_DIM, 0);
+            lv_obj_set_style_text_color(s_screen.hdd_temps[index], theme_get().text_dim, 0);
             lv_obj_set_style_text_font(s_screen.hdd_temps[index], &lv_font_montserrat_12, 0);
             lv_obj_align(s_screen.hdd_temps[index], LV_ALIGN_TOP_LEFT, x_offset + 50 + bar_width + 30, y_offset);
         }
@@ -208,13 +202,15 @@ void ui_Screen_Storage_screen_init(void)
 
     lv_obj_set_size(ui_Screen_Storage, 640, 172);
     lv_obj_clear_flag(ui_Screen_Storage, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(ui_Screen_Storage, COLOR_BG, 0);
-    lv_obj_add_flag(ui_Screen_Storage, LV_OBJ_FLAG_GESTURE_BUBBLE);
+    lv_obj_set_style_bg_color(ui_Screen_Storage, theme_get().bg, 0);
+    lv_obj_clear_flag(ui_Screen_Storage, LV_OBJ_FLAG_GESTURE_BUBBLE);
 
     create_storage_status_bar(ui_Screen_Storage);
     create_hdd_storage_bars(ui_Screen_Storage);
 
     lv_obj_add_event_cb(ui_Screen_Storage, ui_event_Screen_Storage_gesture, LV_EVENT_GESTURE, NULL);
+
+    ui_helpers_create_page_dots(ui_Screen_Storage, 4, 2);
 
     ESP_LOGI("Storage", "Screen initialized successfully");
 }
@@ -296,7 +292,7 @@ void storage_screen_update_wifi(bool connected)
 {
     if (s_screen.icon_wifi) {
         lv_obj_set_style_text_color(s_screen.icon_wifi,
-            connected ? lv_color_hex(0x00FF00) : COLOR_ICON_DIM, 0);
+            connected ? theme_get().ok : theme_get().dim, 0);
     }
 }
 
@@ -314,11 +310,11 @@ void storage_screen_update_hdd_bar(int index, int used_pct, int health)
         used_pct = (used_pct < 0) ? 0 : (used_pct > 100) ? 100 : used_pct;
         lv_bar_set_value(s_screen.hdd_bars[index], used_pct, LV_ANIM_ON);
 
-        lv_color_t color = COLOR_PRIMARY;
+        lv_color_t color = theme_get().accent;
         if (health == 2) {
-            color = COLOR_WARNING;
+            color = theme_get().warn;
         } else if (health == 3) {
-            color = COLOR_CRITICAL;
+            color = theme_get().danger;
         }
         lv_obj_set_style_bg_color(s_screen.hdd_bars[index], color, LV_PART_INDICATOR);
     }

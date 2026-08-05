@@ -1,4 +1,5 @@
 #include "../ui.h"
+#include "theme.h"
 #include "ui_Screen_Settings_RegionTab.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_16);
@@ -102,6 +103,8 @@ void ui_Screen_Settings_RegionTab_init(lv_obj_t *parent)
     lv_obj_set_scrollbar_mode(ui_Settings_Tabpage_region, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_scroll_dir(ui_Settings_Tabpage_region, LV_DIR_HOR);
 
+    theme_palette_t theme = theme_get();
+
     ui_Settings_Image_Globe = lv_img_create(ui_Settings_Tabpage_region);
     lv_img_set_src(ui_Settings_Image_Globe, &ui_img_images_globe_png);
     lv_obj_set_width(ui_Settings_Image_Globe, LV_SIZE_CONTENT);
@@ -126,17 +129,17 @@ void ui_Screen_Settings_RegionTab_init(lv_obj_t *parent)
     lv_textarea_set_placeholder_text(ui_Settings_Textarea_Latitude, "Latitude");
     lv_textarea_set_one_line(ui_Settings_Textarea_Latitude, true);
     lv_obj_set_scrollbar_mode(ui_Settings_Textarea_Latitude, LV_SCROLLBAR_MODE_OFF);
-    lv_obj_set_style_text_color(ui_Settings_Textarea_Latitude, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui_Settings_Textarea_Latitude, theme.bg, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_Settings_Textarea_Latitude, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_align(ui_Settings_Textarea_Latitude, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_Settings_Textarea_Latitude, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    lv_obj_set_style_border_color(ui_Settings_Textarea_Latitude, lv_color_hex(0x000000), LV_PART_CURSOR | LV_STATE_FOCUSED);
+    lv_obj_set_style_border_color(ui_Settings_Textarea_Latitude, theme.bg, LV_PART_CURSOR | LV_STATE_FOCUSED);
     lv_obj_set_style_border_opa(ui_Settings_Textarea_Latitude, 255, LV_PART_CURSOR | LV_STATE_FOCUSED);
     lv_obj_set_style_border_width(ui_Settings_Textarea_Latitude, 1, LV_PART_CURSOR | LV_STATE_FOCUSED);
     lv_obj_set_style_border_side(ui_Settings_Textarea_Latitude, LV_BORDER_SIDE_LEFT, LV_PART_CURSOR | LV_STATE_FOCUSED);
 
-    lv_obj_set_style_text_color(ui_Settings_Textarea_Latitude, lv_color_hex(0x555555),
+    lv_obj_set_style_text_color(ui_Settings_Textarea_Latitude, theme.text_dim,
                                 LV_PART_TEXTAREA_PLACEHOLDER | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_Settings_Textarea_Latitude, 255, LV_PART_TEXTAREA_PLACEHOLDER | LV_STATE_DEFAULT);
 
@@ -149,18 +152,18 @@ void ui_Screen_Settings_RegionTab_init(lv_obj_t *parent)
     lv_textarea_set_placeholder_text(ui_Settings_Textarea_Longitude, "Longitude");
     lv_textarea_set_one_line(ui_Settings_Textarea_Longitude, true);
     lv_obj_set_scrollbar_mode(ui_Settings_Textarea_Longitude, LV_SCROLLBAR_MODE_OFF);
-    lv_obj_set_style_text_color(ui_Settings_Textarea_Longitude, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui_Settings_Textarea_Longitude, theme.bg, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_Settings_Textarea_Longitude, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_align(ui_Settings_Textarea_Longitude, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_Settings_Textarea_Longitude, &lv_font_montserrat_16, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    lv_obj_set_style_border_color(ui_Settings_Textarea_Longitude, lv_color_hex(0x000000),
+    lv_obj_set_style_border_color(ui_Settings_Textarea_Longitude, theme.bg,
                                   LV_PART_CURSOR | LV_STATE_FOCUSED);
     lv_obj_set_style_border_opa(ui_Settings_Textarea_Longitude, 255, LV_PART_CURSOR | LV_STATE_FOCUSED);
     lv_obj_set_style_border_width(ui_Settings_Textarea_Longitude, 1, LV_PART_CURSOR | LV_STATE_FOCUSED);
     lv_obj_set_style_border_side(ui_Settings_Textarea_Longitude, LV_BORDER_SIDE_LEFT, LV_PART_CURSOR | LV_STATE_FOCUSED);
 
-    lv_obj_set_style_text_color(ui_Settings_Textarea_Longitude, lv_color_hex(0x555555),
+    lv_obj_set_style_text_color(ui_Settings_Textarea_Longitude, theme.text_dim,
                                 LV_PART_TEXTAREA_PLACEHOLDER | LV_STATE_DEFAULT);
     lv_obj_set_style_text_opa(ui_Settings_Textarea_Longitude, 255, LV_PART_TEXTAREA_PLACEHOLDER | LV_STATE_DEFAULT);
 

@@ -8,18 +8,6 @@ LV_FONT_DECLARE(lv_font_montserrat_14);
 
 static const char *TAG = "FanTab";
 
-/* 颜色定义 */
-#define COLOR_BG          lv_color_hex(0x000000)
-#define COLOR_PANEL       lv_color_hex(0x101010)
-#define COLOR_GRID        lv_color_hex(0x303030)
-#define COLOR_CURVE       lv_color_hex(0x40E0D0)
-#define COLOR_POINT       lv_color_hex(0xFFFFFF)
-#define COLOR_POINT_SEL   lv_color_hex(0xFFFF00)
-#define COLOR_TEXT        lv_color_hex(0xFFFFFF)
-#define COLOR_TEXT_DIM    lv_color_hex(0xA0A0A0)
-#define COLOR_PRIMARY     lv_color_hex(0x40E0D0)
-#define COLOR_INACTIVE    lv_color_hex(0x333333)
-
 /* 画布尺寸（buffer = 280*84*2 = ~47KB） */
 #define CANVAS_W          280
 #define CANVAS_H          84
@@ -90,12 +78,12 @@ static int pixel_to_pwm(lv_coord_t y)
  * ============================================================ */
 static void draw_canvas(void)
 {
-    lv_canvas_fill_bg(s_canvas, COLOR_PANEL, LV_OPA_COVER);
+    lv_canvas_fill_bg(s_canvas, theme_get().panel, LV_OPA_COVER);
 
     /* 网格线描述符 */
     lv_draw_line_dsc_t grid_dsc;
     lv_draw_line_dsc_init(&grid_dsc);
-    grid_dsc.color = COLOR_GRID;
+    grid_dsc.color = theme_get().grid;
     grid_dsc.width = 1;
 
     /* 水平网格 (PWM 0/25/50/75/100) */
@@ -116,7 +104,7 @@ static void draw_canvas(void)
     /* 标尺文字 */
     lv_draw_label_dsc_t lbl_dsc;
     lv_draw_label_dsc_init(&lbl_dsc);
-    lbl_dsc.color = COLOR_TEXT_DIM;
+    lbl_dsc.color = theme_get().text_dim;
     lbl_dsc.font = &lv_font_montserrat_12;
     lbl_dsc.align = LV_TEXT_ALIGN_RIGHT;
 
@@ -137,7 +125,7 @@ static void draw_canvas(void)
     /* 曲线折线 */
     lv_draw_line_dsc_t curve_dsc;
     lv_draw_line_dsc_init(&curve_dsc);
-    curve_dsc.color = COLOR_CURVE;
+    curve_dsc.color = theme_get().accent;
     curve_dsc.width = 2;
     for (int i = 0; i < FAN_CURVE_POINTS - 1; i++) {
         lv_point_t pts[2];
@@ -153,7 +141,7 @@ static void draw_canvas(void)
     rect_dsc.border_width = 0;
     for (int i = 0; i < FAN_CURVE_POINTS; i++) {
         lv_point_t p = temp_pwm_to_pixel(s_editing_cfg.curve[i].temp, s_editing_cfg.curve[i].pwm_pct);
-        rect_dsc.bg_color = (i == s_dragging_point_idx) ? COLOR_POINT_SEL : COLOR_POINT;
+        rect_dsc.bg_color = (i == s_dragging_point_idx) ? theme_get().highlight : theme_get().text;
         lv_canvas_draw_rect(s_canvas, p.x - 4, p.y - 4, 8, 8, &rect_dsc);
     }
 }
@@ -176,7 +164,7 @@ static void update_dirty_state(void)
 {
     s_dirty = true;
     if (s_apply_btn) {
-        lv_obj_set_style_bg_color(s_apply_btn, COLOR_PRIMARY, 0);
+        lv_obj_set_style_bg_color(s_apply_btn, theme_get().accent, 0);
     }
 }
 
@@ -289,7 +277,7 @@ void fan_tab_save(lv_event_t *e)
     config_save_fan(&s_editing_cfg);
     s_dirty = false;
     if (s_apply_btn) {
-        lv_obj_set_style_bg_color(s_apply_btn, COLOR_INACTIVE, 0);
+        lv_obj_set_style_bg_color(s_apply_btn, theme_get().inactive, 0);
     }
     ESP_LOGI(TAG, "fan config saved: mode=%d enabled=%d",
              s_editing_cfg.mode, s_editing_cfg.enabled);
@@ -302,7 +290,7 @@ static void create_top_bar(lv_obj_t *parent)
 {
     lv_obj_t *bar = lv_obj_create(parent);
     lv_obj_set_size(bar, 620, 22);
-    lv_obj_set_style_bg_color(bar, COLOR_BG, 0);
+    lv_obj_set_style_bg_color(bar, theme_get().bg, 0);
     lv_obj_set_style_border_width(bar, 0, 0);
     lv_obj_set_style_radius(bar, 0, 0);
     lv_obj_set_style_pad_all(bar, 0, 0);
@@ -312,7 +300,7 @@ static void create_top_bar(lv_obj_t *parent)
     /* Mode 下拉 */
     lv_obj_t *lbl_mode = lv_label_create(bar);
     lv_label_set_text(lbl_mode, "Mode:");
-    lv_obj_set_style_text_color(lbl_mode, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(lbl_mode, theme_get().text, 0);
     lv_obj_set_style_text_font(lbl_mode, &lv_font_montserrat_12, 0);
     lv_obj_align(lbl_mode, LV_ALIGN_LEFT_MID, 2, 0);
 
@@ -327,7 +315,7 @@ static void create_top_bar(lv_obj_t *parent)
     /* Source 下拉 */
     lv_obj_t *lbl_src = lv_label_create(bar);
     lv_label_set_text(lbl_src, "Src:");
-    lv_obj_set_style_text_color(lbl_src, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(lbl_src, theme_get().text, 0);
     lv_obj_set_style_text_font(lbl_src, &lv_font_montserrat_12, 0);
     lv_obj_align(lbl_src, LV_ALIGN_LEFT_MID, 118, 0);
 
@@ -342,7 +330,7 @@ static void create_top_bar(lv_obj_t *parent)
     /* Enable 开关 */
     lv_obj_t *lbl_en = lv_label_create(bar);
     lv_label_set_text(lbl_en, "On:");
-    lv_obj_set_style_text_color(lbl_en, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(lbl_en, theme_get().text, 0);
     lv_obj_set_style_text_font(lbl_en, &lv_font_montserrat_12, 0);
     lv_obj_align(lbl_en, LV_ALIGN_LEFT_MID, 262, 0);
 
@@ -357,14 +345,14 @@ static void create_top_bar(lv_obj_t *parent)
     /* Apply 按钮 */
     s_apply_btn = lv_btn_create(bar);
     lv_obj_set_size(s_apply_btn, 60, 18);
-    lv_obj_set_style_bg_color(s_apply_btn, COLOR_INACTIVE, 0);
+    lv_obj_set_style_bg_color(s_apply_btn, theme_get().inactive, 0);
     lv_obj_set_style_radius(s_apply_btn, 3, 0);
     lv_obj_align(s_apply_btn, LV_ALIGN_RIGHT_MID, -2, 0);
     lv_obj_add_event_cb(s_apply_btn, fan_tab_save, LV_EVENT_CLICKED, NULL);
 
     lv_obj_t *lbl_apply = lv_label_create(s_apply_btn);
     lv_label_set_text(lbl_apply, "Apply");
-    lv_obj_set_style_text_color(lbl_apply, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(lbl_apply, theme_get().text, 0);
     lv_obj_set_style_text_font(lbl_apply, &lv_font_montserrat_12, 0);
     lv_obj_center(lbl_apply);
 }
@@ -376,7 +364,7 @@ static void create_canvas_area(lv_obj_t *parent)
 {
     lv_obj_t *area = lv_obj_create(parent);
     lv_obj_set_size(area, 620, 85);
-    lv_obj_set_style_bg_color(area, COLOR_BG, 0);
+    lv_obj_set_style_bg_color(area, theme_get().bg, 0);
     lv_obj_set_style_border_width(area, 0, 0);
     lv_obj_set_style_radius(area, 0, 0);
     lv_obj_set_style_pad_all(area, 0, 0);
@@ -397,7 +385,7 @@ static void create_canvas_area(lv_obj_t *parent)
     /* 右侧点列表 */
     lv_obj_t *points_panel = lv_obj_create(area);
     lv_obj_set_size(points_panel, 310, 83);
-    lv_obj_set_style_bg_color(points_panel, COLOR_PANEL, 0);
+    lv_obj_set_style_bg_color(points_panel, theme_get().panel, 0);
     lv_obj_set_style_border_width(points_panel, 0, 0);
     lv_obj_set_style_radius(points_panel, 0, 0);
     lv_obj_set_style_pad_all(points_panel, 2, 0);
@@ -406,7 +394,7 @@ static void create_canvas_area(lv_obj_t *parent)
 
     for (int i = 0; i < FAN_CURVE_POINTS; i++) {
         s_point_labels[i] = lv_label_create(points_panel);
-        lv_obj_set_style_text_color(s_point_labels[i], COLOR_TEXT, 0);
+        lv_obj_set_style_text_color(s_point_labels[i], theme_get().text, 0);
         lv_obj_set_style_text_font(s_point_labels[i], &lv_font_montserrat_12, 0);
     }
     update_point_labels();
@@ -421,7 +409,7 @@ static void create_params_row(lv_obj_t *parent)
 {
     lv_obj_t *row = lv_obj_create(parent);
     lv_obj_set_size(row, 620, 20);
-    lv_obj_set_style_bg_color(row, COLOR_BG, 0);
+    lv_obj_set_style_bg_color(row, theme_get().bg, 0);
     lv_obj_set_style_border_width(row, 0, 0);
     lv_obj_set_style_radius(row, 0, 0);
     lv_obj_set_style_pad_all(row, 0, 0);
@@ -433,7 +421,7 @@ static void create_params_row(lv_obj_t *parent)
     /* Hysteresis */
     lv_obj_t *lbl_h = lv_label_create(row);
     lv_label_set_text(lbl_h, "Hyst:");
-    lv_obj_set_style_text_color(lbl_h, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(lbl_h, theme_get().text, 0);
     lv_obj_set_style_text_font(lbl_h, &lv_font_montserrat_12, 0);
 
     s_hyst_dd = lv_dropdown_create(row);
@@ -451,7 +439,7 @@ static void create_params_row(lv_obj_t *parent)
     /* Min PWM */
     lv_obj_t *lbl_m = lv_label_create(row);
     lv_label_set_text(lbl_m, "Min:");
-    lv_obj_set_style_text_color(lbl_m, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(lbl_m, theme_get().text, 0);
     lv_obj_set_style_text_font(lbl_m, &lv_font_montserrat_12, 0);
 
     s_minpwm_dd = lv_dropdown_create(row);
@@ -469,7 +457,7 @@ static void create_params_row(lv_obj_t *parent)
     /* Emergency Temp */
     lv_obj_t *lbl_e = lv_label_create(row);
     lv_label_set_text(lbl_e, "Emerg:");
-    lv_obj_set_style_text_color(lbl_e, COLOR_TEXT, 0);
+    lv_obj_set_style_text_color(lbl_e, theme_get().text, 0);
     lv_obj_set_style_text_font(lbl_e, &lv_font_montserrat_12, 0);
 
     s_emerg_dd = lv_dropdown_create(row);
@@ -487,7 +475,7 @@ static void create_params_row(lv_obj_t *parent)
     /* 状态标签 */
     lv_obj_t *lbl_status = lv_label_create(row);
     lv_label_set_text(lbl_status, "°C  Drag points to edit");
-    lv_obj_set_style_text_color(lbl_status, COLOR_TEXT_DIM, 0);
+    lv_obj_set_style_text_color(lbl_status, theme_get().text_dim, 0);
     lv_obj_set_style_text_font(lbl_status, &lv_font_montserrat_12, 0);
 }
 
@@ -502,7 +490,7 @@ void ui_Screen_Settings_FanTab_init(lv_obj_t *parent)
     memcpy(&s_editing_cfg, &g_config.fan, sizeof(FanConfig));
 
     s_tab_page = lv_tabview_add_tab(parent, "Fan");
-    lv_obj_set_style_bg_color(s_tab_page, COLOR_BG, 0);
+    lv_obj_set_style_bg_color(s_tab_page, theme_get().bg, 0);
     lv_obj_set_style_border_width(s_tab_page, 0, 0);
     lv_obj_set_style_pad_all(s_tab_page, 2, 0);
     lv_obj_clear_flag(s_tab_page, LV_OBJ_FLAG_SCROLLABLE);

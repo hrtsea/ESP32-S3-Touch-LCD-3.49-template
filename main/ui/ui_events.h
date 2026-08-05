@@ -27,10 +27,12 @@ void ui_Screen_Boot_event_handler(lv_event_t* e);
 void ui_event_Screen_Overview_hdd_clicked(lv_event_t* e);
 void ui_event_Screen_Overview_cpu_clicked(lv_event_t* e);
 void ui_event_Screen_Overview_mem_clicked(lv_event_t* e);
+void ui_event_Screen_Overview_net_clicked(lv_event_t* e);
 void ui_event_Screen_Overview_gesture(lv_event_t* e);
 void ui_event_Screen_Settings_gesture(lv_event_t* e);
 void ui_event_Screen_Storage_gesture(lv_event_t* e);
 void ui_event_Screen_SDCopy_gesture(lv_event_t* e);
+void ui_event_Screen_NetDetail_gesture(lv_event_t* e);
 
 void resetScreenOffTimer(lv_event_t * e);
 void saveWiFiCredential(lv_event_t * e);

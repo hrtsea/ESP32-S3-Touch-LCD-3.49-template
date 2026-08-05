@@ -100,6 +100,9 @@ typedef struct _ui_anim_user_data_t {
 void _ui_anim_callback_free_user_data(lv_anim_t * a);
 void _ui_anim_callback_set_x(lv_anim_t * a, int32_t v);
 void _ui_anim_callback_set_y(lv_anim_t * a, int32_t v);
+
+/* 页面指示器圆点：在 parent 底部居中创建 total 个圆点，第 current 个高亮 */
+void ui_helpers_create_page_dots(lv_obj_t *parent, int total, int current);
 void _ui_anim_callback_set_width(lv_anim_t * a, int32_t v);
 void _ui_anim_callback_set_height(lv_anim_t * a, int32_t v);
 void _ui_anim_callback_set_opacity(lv_anim_t * a, int32_t v);

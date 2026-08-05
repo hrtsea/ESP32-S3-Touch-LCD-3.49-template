@@ -166,9 +166,13 @@ bool sdl_driver_poll(void)
             s_mouse_pressed = true;
             s_mouse_x = (int16_t)(ev.button.x / SIM_SCALE);
             s_mouse_y = (int16_t)(ev.button.y / SIM_SCALE);
+            fprintf(stderr, "[sdl] BUTTONDOWN at %d,%d\n", s_mouse_x, s_mouse_y);
+            fflush(stderr);
             break;
         case SDL_MOUSEBUTTONUP:
             s_mouse_pressed = false;
+            fprintf(stderr, "[sdl] BUTTONUP at %d,%d\n", s_mouse_x, s_mouse_y);
+            fflush(stderr);
             break;
         case SDL_KEYDOWN:
             if (ev.key.keysym.sym == SDLK_ESCAPE) {

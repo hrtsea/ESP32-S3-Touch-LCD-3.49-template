@@ -22,6 +22,15 @@ typedef struct {
     lv_color_t danger;
     lv_color_t info;
     lv_color_t dim;
+
+    lv_color_t accent;       /* 页面主强调色 (原 COLOR_PRIMARY / page_accent) */
+    lv_color_t inactive;     /* 非激活/禁用色 */
+    lv_color_t text_dim;     /* 次要文字 */
+    lv_color_t card_bg;      /* 卡片背景 */
+    lv_color_t panel;        /* 面板背景 */
+    lv_color_t grid;         /* 网格线 */
+    lv_color_t highlight;    /* 高亮/选中 */
+    lv_color_t up_accent;    /* 上涨/上传 */
 } theme_palette_t;
 
 theme_palette_t theme_get(void);

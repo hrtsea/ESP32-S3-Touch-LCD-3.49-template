@@ -2,6 +2,7 @@
 
 #include "esp_log.h"
 #include "utils/bg_fetcher.h"
+#include "utils/theme.h"
 #include "screens/ui_Screen_Boot.h"
 #include "screens/ui_Screen_Overview.h"
 
@@ -17,9 +18,9 @@ static void create_global_fps_label(void)
     lv_obj_t *fps_lbl = lv_label_create(lv_layer_top());
     disp_driver_set_fps_label(fps_lbl);
     lv_label_set_text(fps_lbl, "FPS --");
-    lv_obj_set_style_text_color(fps_lbl, lv_color_make(0x00, 0xff, 0x80), 0);
+    lv_obj_set_style_text_color(fps_lbl, theme_get().ok, 0);
     lv_obj_set_style_text_font(fps_lbl, i18n_font(), 0);
-    lv_obj_set_style_bg_color(fps_lbl, lv_color_black(), 0);
+    lv_obj_set_style_bg_color(fps_lbl, theme_get().bg, 0);
     lv_obj_set_style_bg_opa(fps_lbl, LV_OPA_60, 0);
     lv_obj_set_style_pad_hor(fps_lbl, 3, 0);
     lv_obj_align(fps_lbl, LV_ALIGN_TOP_LEFT, 4, 4);

@@ -143,8 +143,14 @@ static void generate_mock_data(NasData* data)
         data->services[i].is_docker = (i == 5);
     }
 
-    data->network.rx_bps = (10 + (s_counter % 90)) * 1000000;
-    data->network.tx_bps = (5 + (s_counter % 45)) * 1000000;
+    /* 网络流量：正弦波 + 随机噪声，便于测试 sparkline 趋势线 */
+    {
+        float phase = (float)(s_counter % 20) / 20.0f * 6.28318f;  /* 20 步一个周期 */
+        float rx_wave = 50.0f + 40.0f * sinf(phase) + (float)(s_counter % 7);
+        float tx_wave = 25.0f + 20.0f * sinf(phase + 1.0f) + (float)(s_counter % 5);
+        data->network.rx_bps = (uint32_t)(rx_wave * 1000000);
+        data->network.tx_bps = (uint32_t)(tx_wave * 1000000);
+    }
     strncpy(data->network.ip, "192.168.1.100", sizeof(data->network.ip));
     strncpy(data->network.interface, "eth0", sizeof(data->network.interface));
 
@@ -152,8 +158,11 @@ static void generate_mock_data(NasData* data)
 
     strncpy(data->interfaces[0].name, "eth0", sizeof(data->interfaces[0].name));
     strncpy(data->interfaces[0].ip, "192.168.1.100", sizeof(data->interfaces[0].ip));
-    data->interfaces[0].rx_bps = (10 + (s_counter % 90)) * 125;
-    data->interfaces[0].tx_bps = (5 + (s_counter % 45)) * 125;
+    {
+        float phase = (float)(s_counter % 20) / 20.0f * 6.28318f;
+        data->interfaces[0].rx_bps = (uint32_t)((50.0f + 40.0f * sinf(phase)) * 125);
+        data->interfaces[0].tx_bps = (uint32_t)((25.0f + 20.0f * sinf(phase + 1.0f)) * 125);
+    }
     data->interfaces[0].active = true;
 
     strncpy(data->interfaces[1].name, "eth1", sizeof(data->interfaces[1].name));
