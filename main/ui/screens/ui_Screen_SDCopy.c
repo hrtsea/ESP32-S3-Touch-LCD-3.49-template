@@ -235,7 +235,7 @@ void ui_Screen_SDCopy_screen_init(void) {
 
     lv_obj_add_event_cb(ui_Screen_SDCopy, ui_event_Screen_SDCopy_gesture, LV_EVENT_GESTURE, NULL);
 
-    ui_helpers_create_page_dots(ui_Screen_SDCopy, 4, 3);
+    ui_helpers_create_page_dots(ui_Screen_SDCopy, 4, 3, -1);
 
     ESP_LOGI("SDCopy", "SD Copy screen initialized");
 }

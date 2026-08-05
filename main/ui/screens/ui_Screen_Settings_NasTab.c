@@ -132,20 +132,6 @@ static void update_m2_dropdown_options(void) {
     }
 }
 
-void nas_tab_save(lv_event_t *e) {
-    (void)e;
-    ESP_LOGI(TAG, "NAS Tab save started");
-
-    int sata_disks = sata_disk_dropdown ? (int)lv_dropdown_get_selected(sata_disk_dropdown) : g_config.sata_disk_count;
-    int m2_disks = m2_disk_dropdown ? (int)lv_dropdown_get_selected(m2_disk_dropdown) : g_config.m2_disk_count;
-
-    ESP_LOGI(TAG, "Saving disk config: sata=%d, m2=%d", sata_disks, m2_disks);
-
-    config_save_disk_config((uint8_t)sata_disks, (uint8_t)m2_disks);
-
-    ESP_LOGI(TAG, "Disk config saved");
-}
-
 static void nas_type_btn_cb(lv_event_t* e) {
     if (nas_type_btn_label == NULL) {
         ESP_LOGI(TAG, "nas_type_btn_label is NULL");
@@ -754,8 +740,8 @@ static void m2_dropdown_cb(lv_event_t* e) {
 void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
 {
     ui_Settings_Tabpage_nas = lv_tabview_add_tab(parent, "NAS");
-    lv_obj_set_scrollbar_mode(ui_Settings_Tabpage_nas, LV_SCROLLBAR_MODE_AUTO);
-    lv_obj_set_scroll_dir(ui_Settings_Tabpage_nas, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(ui_Settings_Tabpage_nas, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_clear_flag(ui_Settings_Tabpage_nas, LV_OBJ_FLAG_SCROLLABLE);
 
     selected_nas_type_idx = -1;
     for (int i = 0; i < DATA_TYPE_COUNT; i++) {
@@ -774,13 +760,14 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
     theme_palette_t theme = theme_get();
 
     lv_obj_t* nas_type_row = lv_obj_create(ui_Settings_Tabpage_nas);
-    lv_obj_set_size(nas_type_row, lv_pct(100), 36);
+    lv_obj_set_size(nas_type_row, 630, 22);
     lv_obj_set_style_bg_color(nas_type_row, theme.bg, 0);
     lv_obj_set_style_border_width(nas_type_row, 0, 0);
     lv_obj_set_style_pad_all(nas_type_row, 0, 0);
     lv_obj_set_flex_flow(nas_type_row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(nas_type_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(nas_type_row, 6, 0);
+    lv_obj_align(nas_type_row, LV_ALIGN_TOP_LEFT, 5, 4);
 
     lv_obj_t* nas_type_lbl = lv_label_create(nas_type_row);
     lv_label_set_text(nas_type_lbl, "NAS Type:");
@@ -788,12 +775,12 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
     lv_obj_set_width(nas_type_lbl, 70);
 
     nas_type_btn = lv_btn_create(nas_type_row);
-    lv_obj_set_size(nas_type_btn, 0, 36);
-    lv_obj_set_flex_grow(nas_type_btn, 1);
-    lv_obj_set_style_bg_color(nas_type_btn, theme.bg, 0);
+    lv_obj_set_size(nas_type_btn, 200, 20);
+    lv_obj_set_style_bg_color(nas_type_btn, theme.inactive, 0);
     lv_obj_set_style_border_width(nas_type_btn, 1, 0);
     lv_obj_set_style_border_color(nas_type_btn, theme.text, 0);
-    lv_obj_set_style_radius(nas_type_btn, 4, 0);
+    lv_obj_set_style_radius(nas_type_btn, 3, 0);
+    lv_obj_set_style_pad_all(nas_type_btn, 0, 0);
     lv_obj_add_event_cb(nas_type_btn, nas_type_btn_cb, LV_EVENT_CLICKED, NULL);
 
     nas_type_btn_label = lv_label_create(nas_type_btn);
@@ -809,14 +796,17 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
     lv_obj_t* disk_label = lv_label_create(ui_Settings_Tabpage_nas);
     lv_label_set_text(disk_label, "Disk Count (SATA / M.2):");
     lv_obj_set_style_text_font(disk_label, &lv_font_montserrat_12, 0);
+    lv_obj_align(disk_label, LV_ALIGN_TOP_LEFT, 5, 30);
 
     lv_obj_t* disk_count_row = lv_obj_create(ui_Settings_Tabpage_nas);
-    lv_obj_set_size(disk_count_row, lv_pct(100), 36);
+    lv_obj_set_size(disk_count_row, 630, 20);
     lv_obj_set_style_bg_color(disk_count_row, theme.bg, 0);
     lv_obj_set_style_border_width(disk_count_row, 0, 0);
     lv_obj_set_style_pad_all(disk_count_row, 0, 0);
     lv_obj_set_flex_flow(disk_count_row, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(disk_count_row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_flex_align(disk_count_row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(disk_count_row, 8, 0);
+    lv_obj_align(disk_count_row, LV_ALIGN_TOP_LEFT, 5, 46);
 
     lv_obj_t* sata_label = lv_label_create(disk_count_row);
     lv_label_set_text(sata_label, "SATA:");
@@ -836,7 +826,8 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
     sata_disk_dropdown = lv_dropdown_create(disk_count_row);
     lv_dropdown_set_options(sata_disk_dropdown, sata_initial_options);
     lv_dropdown_set_selected(sata_disk_dropdown, g_config.sata_disk_count);
-    lv_obj_set_width(sata_disk_dropdown, 60);
+    lv_obj_set_width(sata_disk_dropdown, 50);
+    lv_obj_set_height(sata_disk_dropdown, 19);
     lv_obj_set_style_text_font(sata_disk_dropdown, &lv_font_montserrat_12, 0);
     lv_obj_add_event_cb(sata_disk_dropdown, sata_dropdown_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
@@ -858,7 +849,8 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
     m2_disk_dropdown = lv_dropdown_create(disk_count_row);
     lv_dropdown_set_options(m2_disk_dropdown, m2_initial_options);
     lv_dropdown_set_selected(m2_disk_dropdown, g_config.m2_disk_count);
-    lv_obj_set_width(m2_disk_dropdown, 60);
+    lv_obj_set_width(m2_disk_dropdown, 50);
+    lv_obj_set_height(m2_disk_dropdown, 19);
     lv_obj_set_style_text_font(m2_disk_dropdown, &lv_font_montserrat_12, 0);
     lv_obj_add_event_cb(m2_disk_dropdown, m2_dropdown_cb, LV_EVENT_VALUE_CHANGED, NULL);
 
@@ -867,25 +859,9 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
     int total_disks = config_get_total_disk_slots();
     snprintf(disk_buf, sizeof(disk_buf), "Total: %d/16", total_disks);
     lv_label_set_text(disk_total_label, disk_buf);
+    lv_obj_set_flex_grow(disk_total_label, 1);
     lv_obj_set_style_text_font(disk_total_label, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(disk_total_label, theme.ok, 0);
-
-    lv_obj_t* spacer = lv_obj_create(ui_Settings_Tabpage_nas);
-    lv_obj_set_flex_grow(spacer, 1);
-    lv_obj_set_style_bg_opa(spacer, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(spacer, 0, 0);
-    lv_obj_set_style_pad_all(spacer, 0, 0);
-
-    lv_obj_t* save_btn = lv_btn_create(ui_Settings_Tabpage_nas);
-    lv_obj_set_size(save_btn, lv_pct(100), 40);
-    lv_obj_set_style_bg_color(save_btn, theme.ok, 0);
-    lv_obj_set_style_radius(save_btn, 4, 0);
-    lv_obj_add_event_cb(save_btn, nas_tab_save, LV_EVENT_CLICKED, NULL);
-
-    lv_obj_t* save_label = lv_label_create(save_btn);
-    lv_label_set_text(save_label, LV_SYMBOL_OK " Save NAS Config");
-    lv_obj_set_style_text_font(save_label, &lv_font_montserrat_14, 0);
-    lv_obj_center(save_label);
+    lv_obj_set_style_text_color(disk_total_label, theme.info, 0);
 }
 
 void ui_Screen_Settings_NasTab_cleanup(void)

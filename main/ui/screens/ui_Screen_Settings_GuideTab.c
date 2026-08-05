@@ -32,7 +32,7 @@ void ui_event_Settings_Textarea_UserGuide(lv_event_t * e)
 
 void ui_Screen_Settings_GuideTab_init(lv_obj_t *parent)
 {
-    ui_Settings_Tabpage_guide = lv_tabview_add_tab(parent, "User Guide");
+    ui_Settings_Tabpage_guide = lv_tabview_add_tab(parent, "Guide");
     lv_obj_set_scrollbar_mode(ui_Settings_Tabpage_guide, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_scroll_dir(ui_Settings_Tabpage_guide, LV_DIR_VER);
 

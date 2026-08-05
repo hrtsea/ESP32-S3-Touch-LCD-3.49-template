@@ -271,7 +271,7 @@ void _ui_anim_callback_set_image_zoom(lv_anim_t * a, int32_t v)
 }
 
 /* 页面指示器圆点 */
-void ui_helpers_create_page_dots(lv_obj_t *parent, int total, int current)
+void ui_helpers_create_page_dots(lv_obj_t *parent, int total, int current, lv_coord_t bottom_offset)
 {
     if (total <= 1 || !parent) return;
 
@@ -284,7 +284,7 @@ void ui_helpers_create_page_dots(lv_obj_t *parent, int total, int current)
     lv_obj_set_style_radius(dots, 0, 0);
     lv_obj_clear_flag(dots, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(dots, LV_OBJ_FLAG_GESTURE_BUBBLE);
-    lv_obj_align(dots, LV_ALIGN_BOTTOM_MID, 0, -1);
+    lv_obj_align(dots, LV_ALIGN_BOTTOM_MID, 0, bottom_offset);
 
     for (int i = 0; i < total; i++) {
         lv_obj_t *dot = lv_obj_create(dots);

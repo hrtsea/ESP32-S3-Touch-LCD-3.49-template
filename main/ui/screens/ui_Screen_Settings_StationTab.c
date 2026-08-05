@@ -35,7 +35,7 @@ void ui_event_Settings_Button_LoadStation(lv_event_t * e)
 
 void ui_Screen_Settings_StationTab_init(lv_obj_t *parent)
 {
-    ui_Settings_Tabpage_station = lv_tabview_add_tab(parent, "Radio");
+    ui_Settings_Tabpage_station = lv_tabview_add_tab(parent, "Station");
     lv_obj_set_scrollbar_mode(ui_Settings_Tabpage_station, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_scroll_dir(ui_Settings_Tabpage_station, LV_DIR_HOR);
 

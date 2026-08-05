@@ -451,7 +451,7 @@ void ui_Screen_Overview_screen_init(void) {
 
     lv_obj_add_event_cb(ui_Screen_Overview, ui_event_Screen_Overview_gesture, LV_EVENT_GESTURE, NULL);
 
-    ui_helpers_create_page_dots(ui_Screen_Overview, 4, 1);
+    ui_helpers_create_page_dots(ui_Screen_Overview, 4, 1, -1);
 
     ESP_LOGI("Overview", "Overview screen initialized");
 }

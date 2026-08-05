@@ -24,9 +24,23 @@
     "[repair-ledger] validationRepairLedger[0].revalidationReportPath is missing",
     "[repair-ledger] validationRepairLedger[0].revalidationReportHash is missing",
     "[repair-ledger] validationRepairLedger[0].revalidationSuccess should be a boolean",
-    "[html-quality] colors_and_type.css: free-explore radius tokens must stay within the restrained 2/4/8/12/16px scale; oversized or forbidden radius tokens found (--nas-radius-large: 8px). Do not use 20px+ radii unless the user explicitly requested large rounded shapes."
+    "[html-quality] page-settings.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference."
   ],
-  "repairPlanHints": [],
+  "repairPlanHints": [
+    {
+      "errorClass": "hardcoded-color-in-body",
+      "owner": "sub-agent",
+      "repairScope": "targeted-token-replace",
+      "strategy": "targeted_token_replace_once",
+      "affectedFiles": [
+        "page-settings.html"
+      ],
+      "repairReportPath": null,
+      "repairAlreadyAttempted": false,
+      "allowSourceRead": "no-full-html-read",
+      "maxValidationRuns": 2
+    }
+  ],
   "repairActionTable": [],
   "errorCount": 0,
   "warningCount": 5,
@@ -36,7 +50,7 @@
     "[repair-ledger] validationRepairLedger[0].revalidationReportPath is missing",
     "[repair-ledger] validationRepairLedger[0].revalidationReportHash is missing",
     "[repair-ledger] validationRepairLedger[0].revalidationSuccess should be a boolean",
-    "[html-quality] colors_and_type.css: free-explore radius tokens must stay within the restrained 2/4/8/12/16px scale; oversized or forbidden radius tokens found (--nas-radius-large: 8px). Do not use 20px+ radii unless the user explicitly requested large rounded shapes."
+    "[html-quality] page-settings.html: hardcoded colors are forbidden outside <style id=\"theme-vars\">. Use brand CSS variables from the token reference."
   ],
   "validationRunDisciplineStatus": {
     "declared": true,
@@ -53,7 +67,7 @@
   "terminalState": null,
   "nextCheck": {
     "type": "finish-readiness",
-    "command": "node \"c:\\Users\\steven\\.trae-cn\\builtin\\design\\default\\skills\\solo-design\\shared-runtime\\deterministic-tooling\\validate-finish-readiness.mjs\" \"E:\\zotlabnas-split\\ESP32-S3-Touch-LCD-3.49-template\\nas-monitor-lvgl\" --check=all",
+    "command": "node \"c:\\Users\\steven\\.trae-cn\\builtin\\design\\default\\skills\\solo-design\\shared-runtime\\deterministic-tooling\\validate-finish-readiness.mjs\" \"f:\\nasmonitor\\ESP32-S3-Touch-LCD-3.49-template\\nas-monitor-lvgl\" --check=all",
     "fullValidationAllowed": false,
     "reason": "workspace validation passed; run complete finish readiness before final delivery"
   },
@@ -79,7 +93,7 @@
     "repairActionTable": [],
     "nextCheck": {
       "type": "finish-readiness",
-      "command": "node \"c:\\Users\\steven\\.trae-cn\\builtin\\design\\default\\skills\\solo-design\\shared-runtime\\deterministic-tooling\\validate-finish-readiness.mjs\" \"E:\\zotlabnas-split\\ESP32-S3-Touch-LCD-3.49-template\\nas-monitor-lvgl\" --check=all",
+      "command": "node \"c:\\Users\\steven\\.trae-cn\\builtin\\design\\default\\skills\\solo-design\\shared-runtime\\deterministic-tooling\\validate-finish-readiness.mjs\" \"f:\\nasmonitor\\ESP32-S3-Touch-LCD-3.49-template\\nas-monitor-lvgl\" --check=all",
       "fullValidationAllowed": false,
       "reason": "workspace validation passed; run complete finish readiness before final delivery"
     },
@@ -91,19 +105,20 @@
     ]
   },
   "projectFileHashes": {
-    "nas-monitor-lvgl.design": "c6aeeca50a1b74825517fda03345fe9fd18e90cd3a3feb5d669bc248403948f0",
-    "colors_and_type.css": "26811a87953af2d27dc37a3b41ded9ff21a90cbf4849242b0cdb980a4f359ff7",
-    "runtime-orchestration-summary.json": "c7f7834bb1e266870dcba6cac73fafc7ce3d84f071e350f022b07916265dd12c",
+    "nas-monitor-lvgl.design": "d8757c077c2c54217828ef47a30851609a668afa8050a9c6aac7f774096119cb",
+    "runtime-orchestration-summary.json": "9ab4f7b443ee4e4427de77598ed4331cb290ba72dadbc19d24041335f1540669",
     "pages/page-boot.html": "2c27d1d99da9900b42e1a79ce3166601066b5d8d45c8cbd375e50389222409be",
-    "pages/page-disk-detail.html": "9abaa9ac369267652c9d63f09a5dc3f622251a0846ea03b97fa829550f083f24",
-    "pages/page-overview-enhanced.html": "ab0fd2a1d098106598143ea166ce13c250e5321562a0306495bda65f20b36885",
-    "pages/page-overview.html": "17de3c77896cfec14acd0c9c5c8d1dd34de0aed1170677c22b48a39448bc3df7",
-    "pages/page-storage.html": "7d7160377416cb0132bf81a9a3357ea3873ae19494af5ebacc900cb33a387e27",
-    "pages/page-system-detail-cpu.html": "509a00770a929e51732b778a2761dd61a5829b40d08cdb8d87a02c2b87337146",
-    "pages/page-system-detail-memory.html": "17130caa3da85c96853e7e62753a4a704ff787a5ce89359f92dbcbf50409b133"
+    "pages/page-disk-detail.html": "b71db262c0096031a1d263c054aa5bb0c311730c0c5bec0c0db8b74a153e74e7",
+    "pages/page-overview-enhanced.html": "f95a06ed579eea869a610f56a593d6fe259d65e8d5d2a329bfd60785e9ef44e5",
+    "pages/page-overview.html": "d4c873e45dccb671fb58e40cb80f0ce869d086981e655ca23a94c7c8e8abb33a",
+    "pages/page-sd-copy.html": "2a6d67741370b3027678b164490c3bf634c5363f1df1c6670abcf7b4151b0b1b",
+    "pages/page-settings.html": "8a88286b0abf44011d5c9d8815fc543893164e01f812951789bd0e2591465f38",
+    "pages/page-storage.html": "e9abb52835c33582dfa19cc34f3c5a2113933ab2ec92b2ee6b57c2205c87dae6",
+    "pages/page-system-detail-cpu.html": "5d4e10a76f7cf7aadcc2866de82b4db0b7f6da4c20e667d14c422655bb7e591d",
+    "pages/page-system-detail-memory.html": "d673028a52bcce7f20fa46bb97931e7fb6c248d738c4424af8e6cda4420fb933"
   },
   "designDir": "f:\\nasmonitor\\ESP32-S3-Touch-LCD-3.49-template\\nas-monitor-lvgl",
   "expectedPages": null,
   "requireInteractions": null,
-  "checkedAt": "2026-08-04T03:12:16.725Z"
+  "checkedAt": "2026-08-05T06:10:41.423Z"
 }

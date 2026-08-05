@@ -210,7 +210,7 @@ void ui_Screen_Storage_screen_init(void)
 
     lv_obj_add_event_cb(ui_Screen_Storage, ui_event_Screen_Storage_gesture, LV_EVENT_GESTURE, NULL);
 
-    ui_helpers_create_page_dots(ui_Screen_Storage, 4, 2);
+    ui_helpers_create_page_dots(ui_Screen_Storage, 4, 2, -1);
 
     ESP_LOGI("Storage", "Screen initialized successfully");
 }

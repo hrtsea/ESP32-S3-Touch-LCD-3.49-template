@@ -22,9 +22,6 @@ extern lv_obj_t * ui_Settings_Tabview_ConfigPanel;
 #include "ui_Screen_Settings_GuideTab.h"
 #include "ui_Screen_Settings_FanTab.h"
 
-extern void ui_event_Settings_Button_closeConfig(lv_event_t * e);
-extern lv_obj_t * ui_Settings_Button_closeConfig;
-extern lv_obj_t * ui_Settings_Label_closeBtnText;
 extern void ui_event_Settings_Keyboard_Keyboard1(lv_event_t * e);
 extern lv_obj_t * ui_Settings_Keyboard_Keyboard1;
 extern void ui_event_Settings_Keyboard_Number(lv_event_t * e);

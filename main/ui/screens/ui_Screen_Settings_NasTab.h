@@ -9,7 +9,6 @@ extern "C" {
 
 void ui_Screen_Settings_NasTab_init(lv_obj_t *parent);
 void ui_Screen_Settings_NasTab_cleanup(void);
-void nas_tab_save(lv_event_t *e);
 
 #ifdef __cplusplus
 }

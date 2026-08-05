@@ -45,6 +45,29 @@
 - 分隔线: 高度 1px → 2px，y 偏移 30 → 35
 - 内容区 y 偏移: 32 → 37（CPU 和 Memory 两个模式）
 
+### 6. Settings 标签页名称（已直接应用至源码）
+- `ui_Screen_Settings_StationTab.c`: Tab 名称 `Radio` → `Station`（与画布一致）
+- `ui_Screen_Settings_GuideTab.c`: Tab 名称 `User Guide` → `Guide`（与画布一致）
+
+### 7. NAS Tab 布局（与画布对齐，已直接应用至源码）
+`ui_Screen_Settings_NasTab.c`:
+- Tab 内容区: 滚动关闭（`SCROLLBAR_MODE_AUTO`→`OFF`，清除 SCROLLABLE），内容固定于 95px 内
+- NAS Type 行: 定位 (5,4)，行高 36 → 22
+- NAS Type 按钮: flex 撑满 → 固定 200x20，bg `theme.bg`→`theme.inactive`(#333)，radius 4→3
+- Disk Count 标签: 定位 y=30
+- Disk 行: 定位 (5,46)，行高 36 → 20，`SPACE_BETWEEN`→`START` + gap 8
+- SATA/M.2 下拉: 宽 60 → 50，高 19
+- Total 标签: `flex_grow(1)` 靠右，颜色 `theme.ok`→`theme.info`(青色)
+- Save 按钮: 全宽 40 → 630x26 底部定位 (y=-4)，radius 4→3，移除 `LV_SYMBOL_OK` 前缀，文字色 `theme.bg`
+
+> 本次变更已直接修改 `main/ui/screens/` 下的原始文件，无需复制。
+
+### 8. NAS Tab 移除 Save 按钮（与画布对齐，已直接应用至源码）
+- 画布 `page-settings.html`: 删除 `nas-save-btn` 元素（NAS tab 底部 "Save NAS Config" 按钮）
+- `ui_Screen_Settings_NasTab.c`: 删除 `nas_tab_save()` 回调 + Tab 页 save 按钮创建代码（对话框内保存按钮保留，使用 `dialog_save_cb`）
+- `ui_Screen_Settings_NasTab.h`: 删除 `nas_tab_save` 声明
+- `.design`: 清理已删除关闭按钮的残留交互记录 `btn-close`
+
 ---
 
 ## 如何应用

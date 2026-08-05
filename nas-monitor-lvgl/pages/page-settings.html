@@ -174,9 +174,6 @@
 <div style="position:absolute;right:5px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--nas-ink-3);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg></div>
 <div style="position:absolute;left:0;top:35px;width:640px;height:2px;background:var(--nas-muted);"></div>
 </div>
-<div data-dom-id="btn-close" style="position:absolute;right:0;top:0;width:50px;height:50px;display:flex;align-items:center;justify-content:center;border:3px solid var(--nas-foreground);box-sizing:border-box;cursor:pointer;z-index:10;">
-  <span style="font-size:20px;font-weight:700;color:var(--nas-foreground);">X</span>
-</div>
 <div data-dom-id="tabview-panel" style="position:absolute;left:0;top:37px;width:640px;height:95px;background:rgba(0,0,0,0.78);">
   <div data-dom-id="tab-content-wifi" style="position:absolute;left:0;top:0;width:640px;height:95px;">
     <div data-dom-id="wifi-ssid-label" style="position:absolute;left:10px;top:14px;font-size:12px;color:var(--nas-foreground);">SSID:</div>
@@ -272,6 +269,107 @@
       <span style="font-size:12px;color:var(--nas-ink-2);white-space:nowrap;">°C  Drag points to edit</span>
     </div>
   </div>
+  <div data-dom-id="tab-content-nas" style="position:absolute;left:0;top:0;width:640px;height:95px;display:none;">
+    <div data-dom-id="nas-type-row" style="position:absolute;left:5px;top:4px;width:630px;height:22px;display:flex;align-items:center;gap:6px;">
+      <span style="font-size:12px;color:var(--nas-foreground);">NAS Type:</span>
+      <div data-dom-id="nas-type-btn" style="flex:1;max-width:200px;height:20px;background:var(--nas-input);border:1px solid var(--nas-foreground);border-radius:3px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+        <span style="font-size:12px;color:var(--nas-foreground);">Synology NAS</span>
+      </div>
+    </div>
+    <div data-dom-id="nas-disk-label" style="position:absolute;left:5px;top:30px;font-size:12px;color:var(--nas-foreground);">Disk Count (SATA / M.2):</div>
+    <div data-dom-id="nas-disk-row" style="position:absolute;left:5px;top:46px;width:630px;height:20px;display:flex;align-items:center;gap:8px;">
+      <span style="font-size:12px;color:var(--nas-foreground);">SATA:</span>
+      <div data-dom-id="nas-sata-dd" style="width:50px;height:19px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:2px;display:flex;align-items:center;justify-content:space-between;padding:0 4px;box-sizing:border-box;cursor:pointer;">
+        <span style="font-size:12px;color:var(--nas-foreground);">4</span>
+        <span style="font-size:9px;color:var(--nas-ink-2);">▼</span>
+      </div>
+      <span style="font-size:12px;color:var(--nas-foreground);">M.2:</span>
+      <div data-dom-id="nas-m2-dd" style="width:50px;height:19px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:2px;display:flex;align-items:center;justify-content:space-between;padding:0 4px;box-sizing:border-box;cursor:pointer;">
+        <span style="font-size:12px;color:var(--nas-foreground);">2</span>
+        <span style="font-size:9px;color:var(--nas-ink-2);">▼</span>
+      </div>
+      <span data-dom-id="nas-disk-total" style="font-size:12px;color:var(--nas-state-info);margin-left:auto;">Total: 6/16</span>
+    </div>
+  </div>
+  <div data-dom-id="tab-content-screen" style="position:absolute;left:0;top:0;width:640px;height:95px;display:none;">
+    <div data-dom-id="screen-hint" style="position:absolute;left:15px;top:6px;font-size:12px;color:var(--nas-foreground);">Brightness  Sleep timer  Wallpaper  Theme</div>
+    <div data-dom-id="screen-dds-row" style="position:absolute;left:15px;top:24px;width:610px;height:28px;display:flex;align-items:center;gap:12px;">
+      <div data-dom-id="screen-dd-brightness" style="width:120px;height:26px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:3px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;box-sizing:border-box;cursor:pointer;">
+        <span style="font-size:12px;color:var(--nas-foreground);">MEDIUM</span>
+        <span style="font-size:10px;color:var(--nas-ink-2);">▼</span>
+      </div>
+      <div data-dom-id="screen-dd-sleep" style="width:120px;height:26px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:3px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;box-sizing:border-box;cursor:pointer;">
+        <span style="font-size:12px;color:var(--nas-foreground);">30</span>
+        <span style="font-size:10px;color:var(--nas-ink-2);">▼</span>
+      </div>
+      <div data-dom-id="screen-dd-wallpaper" style="width:120px;height:26px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:3px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;box-sizing:border-box;cursor:pointer;">
+        <span style="font-size:12px;color:var(--nas-foreground);">default</span>
+        <span style="font-size:10px;color:var(--nas-ink-2);">▼</span>
+      </div>
+      <div data-dom-id="screen-dd-theme" style="width:120px;height:26px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:3px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;box-sizing:border-box;cursor:pointer;">
+        <span style="font-size:12px;color:var(--nas-foreground);">Dark</span>
+        <span style="font-size:10px;color:var(--nas-ink-2);">▼</span>
+      </div>
+    </div>
+  </div>
+  <div data-dom-id="tab-content-station" style="position:absolute;left:0;top:0;width:640px;height:95px;display:none;">
+    <div data-dom-id="station-textarea" style="position:absolute;left:5px;top:4px;width:320px;height:65px;background:transparent;border:1px solid var(--nas-border);border-radius:3px;padding:4px 6px;box-sizing:border-box;overflow-y:auto;font-size:12px;color:var(--nas-foreground);font-family:var(--nas-font-mono);">
+      Station URL List
+    </div>
+    <div data-dom-id="station-load-btn" style="position:absolute;left:380px;top:12px;width:144px;height:50px;background:transparent;border:3px solid var(--nas-foreground);border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+      <span style="font-size:24px;font-weight:700;color:var(--nas-foreground);">D Load</span>
+    </div>
+    <div data-dom-id="station-hint" style="position:absolute;right:10px;bottom:4px;width:300px;font-size:12px;color:var(--nas-ink-2);text-align:right;line-height:1.3;">
+      Insert a microSD card with filename<br>[ stations.csv ] click Load.<br>Defaults will be used if the file is unavailable.
+    </div>
+  </div>
+  <div data-dom-id="tab-content-music" style="position:absolute;left:0;top:0;width:640px;height:95px;display:none;">
+    <div data-dom-id="music-load-btn" style="position:absolute;left:5px;bottom:4px;width:144px;height:50px;background:transparent;border:3px solid var(--nas-foreground);border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+      <span style="font-size:24px;font-weight:700;color:var(--nas-foreground);">D Load</span>
+    </div>
+    <div data-dom-id="music-hint" style="position:absolute;left:10px;top:8px;font-size:12px;color:var(--nas-foreground);">Tap LOAD to refresh the music library from the SD card</div>
+    <div data-dom-id="music-track-count" style="position:absolute;left:160px;bottom:20px;font-size:18px;color:var(--nas-ink-2);">Card Mount Failed</div>
+  </div>
+  <div data-dom-id="tab-content-region" style="position:absolute;left:0;top:0;width:640px;height:95px;display:none;">
+    <div data-dom-id="region-globe-icon" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:32px;height:32px;color:var(--nas-ink-2);">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+    </div>
+    <div data-dom-id="region-autoip-cb" style="position:absolute;left:130px;top:6px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+      <div style="width:14px;height:14px;border:2px solid var(--nas-foreground);border-radius:2px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;">
+        <div style="width:8px;height:8px;background:var(--nas-primary);border-radius:1px;"></div>
+      </div>
+      <span style="font-size:12px;color:var(--nas-foreground);">Auto by IP</span>
+    </div>
+    <div data-dom-id="region-lat-input" style="position:absolute;left:130px;top:26px;width:150px;height:24px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:3px;display:flex;align-items:center;padding:0 6px;box-sizing:border-box;">
+      <span style="font-size:12px;color:var(--nas-ink-2);">Latitude</span>
+    </div>
+    <div data-dom-id="region-lon-input" style="position:absolute;left:130px;top:54px;width:150px;height:24px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:3px;display:flex;align-items:center;padding:0 6px;box-sizing:border-box;">
+      <span style="font-size:12px;color:var(--nas-ink-2);">Longitude</span>
+    </div>
+    <div data-dom-id="region-tz-hint" style="position:absolute;right:10px;top:4px;font-size:12px;color:var(--nas-foreground);">UTC Offset :Hour   Minute   Unit</div>
+    <div data-dom-id="region-tz-rollers" style="position:absolute;right:25px;top:20px;display:flex;gap:10px;">
+      <div data-dom-id="region-roller-hour" style="width:50px;height:60px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;">
+        <span style="font-size:11px;color:var(--nas-ink-3);">+14</span>
+        <span style="font-size:14px;color:var(--nas-primary);font-weight:700;">+8</span>
+        <span style="font-size:11px;color:var(--nas-ink-3);">+7</span>
+      </div>
+      <div data-dom-id="region-roller-min" style="width:50px;height:60px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;">
+        <span style="font-size:11px;color:var(--nas-ink-3);">+15</span>
+        <span style="font-size:14px;color:var(--nas-primary);font-weight:700;">0</span>
+        <span style="font-size:11px;color:var(--nas-ink-3);">-15</span>
+      </div>
+      <div data-dom-id="region-roller-unit" style="width:50px;height:60px;background:var(--nas-input);border:1px solid var(--nas-border);border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;">
+        <span style="font-size:11px;color:var(--nas-ink-3);">°F</span>
+        <span style="font-size:14px;color:var(--nas-primary);font-weight:700;">°C</span>
+        <span style="font-size:11px;color:var(--nas-ink-3);">-</span>
+      </div>
+    </div>
+  </div>
+  <div data-dom-id="tab-content-guide" style="position:absolute;left:0;top:0;width:640px;height:95px;display:none;">
+    <div data-dom-id="guide-textarea" style="position:absolute;left:5px;top:0;width:630px;height:95px;overflow-y:auto;font-size:12px;color:var(--nas-foreground);line-height:1.4;padding:4px;box-sizing:border-box;">
+      <span style="color:var(--nas-primary);">[Wi-Fi]</span> - Automatic Connection Setup<br>Set up your device to automatically connect to your preferred Wi-Fi networks (up to 10 SSIDs). Tap SCAN to search for nearby networks, select the network, enter the password, and tap SAVE.<br><br><span style="color:var(--nas-primary);">[Screen]</span> - Display Settings<br>Adjust screen brightness, set screen off timer (0 = always on).<br><br><span style="color:var(--nas-primary);">[Radio]</span> - Custom Radio Station List<br>Create a stations.csv file (title,url http only), save to SD Card, tap UPLOAD to load custom station list.<br><br><span style="color:var(--nas-primary);">[Music]</span> - Update Music Library<br>Load audio files from SD Card (mp3, flac, aac, ogg). Tap LOAD to build the music library.<br><br><span style="color:var(--nas-primary);">[Region]</span> - Set weather &amp; clock region<br>Auto by IP or manual Latitude/Longitude. Set UTC offset and temperature unit (°C/°F).<br><br><span style="color:var(--nas-primary);">[Button Control]</span><br>RESET - Reset TuneBar<br>POWER - Hold 1s to turn on / 3s to turn off<br>LIGHT - Toggle screen ON/OFF
+    </div>
+  </div>
 </div>
 <div data-dom-id="tab-bar" style="position:absolute;left:0;bottom:0;width:640px;height:40px;display:flex;overflow:hidden;background:linear-gradient(to bottom,#00ADFF,#025074);">
   <div data-dom-id="tab-wifi" style="flex:1;height:40px;display:flex;align-items:center;justify-content:center;border:2px solid var(--nas-background);box-sizing:border-box;background:linear-gradient(to bottom,#FFFFFF,#9D9C9C);cursor:pointer;">
@@ -308,6 +406,12 @@
         var tabs = document.querySelectorAll('[data-dom-id^="tab-"]:not([data-dom-id^="tab-content"])');
         var contents = {
           'tab-wifi': document.querySelector('[data-dom-id="tab-content-wifi"]'),
+          'tab-nas': document.querySelector('[data-dom-id="tab-content-nas"]'),
+          'tab-screen': document.querySelector('[data-dom-id="tab-content-screen"]'),
+          'tab-station': document.querySelector('[data-dom-id="tab-content-station"]'),
+          'tab-music': document.querySelector('[data-dom-id="tab-content-music"]'),
+          'tab-region': document.querySelector('[data-dom-id="tab-content-region"]'),
+          'tab-guide': document.querySelector('[data-dom-id="tab-content-guide"]'),
           'tab-fan': document.querySelector('[data-dom-id="tab-content-fan"]')
         };
         function switchTab(activeId) {

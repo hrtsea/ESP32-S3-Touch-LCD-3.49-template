@@ -101,8 +101,9 @@ void _ui_anim_callback_free_user_data(lv_anim_t * a);
 void _ui_anim_callback_set_x(lv_anim_t * a, int32_t v);
 void _ui_anim_callback_set_y(lv_anim_t * a, int32_t v);
 
-/* 页面指示器圆点：在 parent 底部居中创建 total 个圆点，第 current 个高亮 */
-void ui_helpers_create_page_dots(lv_obj_t *parent, int total, int current);
+/* 页面指示器圆点：在 parent 底部居中创建 total 个圆点，第 current 个高亮
+ * bottom_offset：距底部的 y 偏移（负值向上），避开底部 tab 按钮条等元素 */
+void ui_helpers_create_page_dots(lv_obj_t *parent, int total, int current, lv_coord_t bottom_offset);
 void _ui_anim_callback_set_width(lv_anim_t * a, int32_t v);
 void _ui_anim_callback_set_height(lv_anim_t * a, int32_t v);
 void _ui_anim_callback_set_opacity(lv_anim_t * a, int32_t v);

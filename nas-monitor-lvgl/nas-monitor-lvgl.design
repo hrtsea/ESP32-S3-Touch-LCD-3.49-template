@@ -52,8 +52,8 @@
           "version": 1,
           "contentHeight": 172,
           "viewportWidth": 640,
-          "sourceHash": "fnv1a-0f456fd5",
-          "measuredAt": 1785860165461
+          "sourceHash": "fnv1a-4199e216",
+          "measuredAt": 1785910452812
         }
       },
       "devMetadata": {
@@ -120,7 +120,13 @@
         "x": 216,
         "y": 72,
         "group": 0,
-        "layoutSnapshot": {},
+        "layoutSnapshot": {
+          "version": 1,
+          "contentHeight": 172,
+          "viewportWidth": 640,
+          "sourceHash": "fnv1a-16b7a8e3",
+          "measuredAt": 1785910452812
+        },
         "deviceType": "freeSize",
         "windowSize": {
           "width": 640,
@@ -146,8 +152,8 @@
           "version": 1,
           "contentHeight": 172,
           "viewportWidth": 640,
-          "sourceHash": "fnv1a-831b9add",
-          "measuredAt": 1785834274760
+          "sourceHash": "fnv1a-943b1bb1",
+          "measuredAt": 1785910452812
         },
         "deviceType": "freeSize",
         "windowSize": {
@@ -174,8 +180,8 @@
           "version": 1,
           "contentHeight": 172,
           "viewportWidth": 640,
-          "sourceHash": "fnv1a-9be49597",
-          "measuredAt": 1785834274760
+          "sourceHash": "fnv1a-623bff96",
+          "measuredAt": 1785910452812
         },
         "deviceType": "freeSize",
         "windowSize": {
@@ -207,8 +213,8 @@
           "version": 1,
           "contentHeight": 172,
           "viewportWidth": 640,
-          "sourceHash": "fnv1a-a785f7b4",
-          "measuredAt": 1785834274760
+          "sourceHash": "fnv1a-552aa235",
+          "measuredAt": 1785910452812
         },
         "deviceType": "freeSize",
         "windowSize": {
@@ -240,8 +246,8 @@
           "version": 1,
           "contentHeight": 172,
           "viewportWidth": 640,
-          "sourceHash": "fnv1a-9d40306b",
-          "measuredAt": 1785834274760
+          "sourceHash": "fnv1a-32cf0b62",
+          "measuredAt": 1785910452812
         },
         "deviceType": "freeSize",
         "windowSize": {
@@ -273,8 +279,8 @@
           "version": 1,
           "contentHeight": 172,
           "viewportWidth": 640,
-          "sourceHash": "fnv1a-ee2bd482",
-          "measuredAt": 1785832238490
+          "sourceHash": "fnv1a-fc8e468a",
+          "measuredAt": 1785910452812
         },
         "deviceType": "freeSize",
         "windowSize": {
@@ -350,8 +356,8 @@
           "version": 1,
           "contentHeight": 172,
           "viewportWidth": 640,
-          "sourceHash": "fnv1a-a003c480",
-          "measuredAt": 1785852641173
+          "sourceHash": "fnv1a-8c74aff4",
+          "measuredAt": 1785931769925
         },
         "deviceType": "freeSize",
         "windowSize": {

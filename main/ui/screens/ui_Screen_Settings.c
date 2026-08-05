@@ -33,8 +33,6 @@ static void init_styles(void)
 
 lv_obj_t * ui_Screen_Settings = NULL;
 lv_obj_t * ui_Settings_Tabview_ConfigPanel = NULL;
-lv_obj_t * ui_Settings_Button_closeConfig = NULL;
-lv_obj_t * ui_Settings_Label_closeBtnText = NULL;
 lv_obj_t * ui_Settings_Keyboard_Keyboard1 = NULL;
 lv_obj_t * ui_Settings_Keyboard_Number = NULL;
 
@@ -49,18 +47,6 @@ void ui_event_Settings_Tabview_ConfigPanel(lv_event_t * e)
     lv_event_code_t event_code = lv_event_get_code(e);
     if(event_code == LV_EVENT_PRESSED || event_code == LV_EVENT_VALUE_CHANGED) {
         settings_activity_kick(e);
-    }
-}
-
-void ui_event_Settings_Button_closeConfig(lv_event_t * e)
-{
-    lv_event_code_t event_code = lv_event_get_code(e);
-
-    if(event_code == LV_EVENT_CLICKED) {
-        saveConfig(e);
-        if (ui_Screen_Overview != NULL) {
-            lv_scr_load_anim(ui_Screen_Overview, LV_SCR_LOAD_ANIM_MOVE_TOP, 300, 0, false);
-        }
     }
 }
 
@@ -105,8 +91,8 @@ void ui_Screen_Settings_screen_init(void)
     lv_obj_clear_flag(ui_Screen_Settings, LV_OBJ_FLAG_GESTURE_BUBBLE);
 
     ui_Settings_Tabview_ConfigPanel = lv_tabview_create(ui_Screen_Settings, LV_DIR_BOTTOM, 40);
-    lv_obj_set_size(ui_Settings_Tabview_ConfigPanel, 640, 132);
-    lv_obj_align(ui_Settings_Tabview_ConfigPanel, LV_ALIGN_TOP_MID, 0, 40);
+    lv_obj_set_size(ui_Settings_Tabview_ConfigPanel, 640, 172);
+    lv_obj_align(ui_Settings_Tabview_ConfigPanel, LV_ALIGN_TOP_MID, 0, 0);
     lv_obj_clear_flag(ui_Settings_Tabview_ConfigPanel,
                       LV_OBJ_FLAG_SNAPPABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_ELASTIC |
                       LV_OBJ_FLAG_SCROLL_MOMENTUM | LV_OBJ_FLAG_SCROLL_CHAIN);
@@ -156,21 +142,6 @@ void ui_Screen_Settings_screen_init(void)
     ui_Screen_Settings_GuideTab_init(ui_Settings_Tabview_ConfigPanel);
     ui_Screen_Settings_FanTab_init(ui_Settings_Tabview_ConfigPanel);
 
-    ui_Settings_Button_closeConfig = lv_btn_create(ui_Screen_Settings);
-    lv_obj_set_width(ui_Settings_Button_closeConfig, 50);
-    lv_obj_set_height(ui_Settings_Button_closeConfig, 50);
-    lv_obj_set_align(ui_Settings_Button_closeConfig, LV_ALIGN_TOP_RIGHT);
-    lv_obj_add_flag(ui_Settings_Button_closeConfig, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
-    lv_obj_clear_flag(ui_Settings_Button_closeConfig, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_style(ui_Settings_Button_closeConfig, &style_btn_border, 0);
-
-    ui_Settings_Label_closeBtnText = lv_label_create(ui_Settings_Button_closeConfig);
-    lv_obj_set_width(ui_Settings_Label_closeBtnText, LV_SIZE_CONTENT);
-    lv_obj_set_height(ui_Settings_Label_closeBtnText, LV_SIZE_CONTENT);
-    lv_obj_set_align(ui_Settings_Label_closeBtnText, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_Settings_Label_closeBtnText, "X");
-    lv_obj_set_style_text_font(ui_Settings_Label_closeBtnText, &lv_font_montserrat_32, LV_PART_MAIN | LV_STATE_DEFAULT);
-
     ui_Settings_Keyboard_Keyboard1 = lv_keyboard_create(ui_Screen_Settings);
     lv_obj_set_width(ui_Settings_Keyboard_Keyboard1, 350);
     lv_obj_set_height(ui_Settings_Keyboard_Keyboard1, 130);
@@ -197,13 +168,12 @@ void ui_Screen_Settings_screen_init(void)
     lv_obj_add_event_cb(ui_Settings_Keyboard_Keyboard1, ui_event_Settings_Keyboard_Keyboard1, LV_EVENT_ALL, NULL);
     lv_keyboard_set_textarea(ui_Settings_Keyboard_Number, ui_Settings_Textarea_Latitude);
     lv_obj_add_event_cb(ui_Settings_Keyboard_Number, ui_event_Settings_Keyboard_Number, LV_EVENT_ALL, NULL);
-    lv_obj_add_event_cb(ui_Settings_Button_closeConfig, ui_event_Settings_Button_closeConfig, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Settings_Tabview_ConfigPanel, ui_event_Settings_Tabview_ConfigPanel, LV_EVENT_ALL, NULL);
 
     lv_obj_add_flag(ui_Settings_Tabview_ConfigPanel, LV_OBJ_FLAG_GESTURE_BUBBLE);
     lv_obj_add_event_cb(ui_Screen_Settings, ui_event_Screen_Settings_gesture, LV_EVENT_GESTURE, NULL);
 
-    ui_helpers_create_page_dots(ui_Screen_Settings, 4, 0);
+    ui_helpers_create_page_dots(ui_Screen_Settings, 4, 0, -44);
 }
 
 void ui_Screen_Settings_screen_destroy(void)
@@ -212,8 +182,6 @@ void ui_Screen_Settings_screen_destroy(void)
 
     ui_Screen_Settings = NULL;
     ui_Settings_Tabview_ConfigPanel = NULL;
-    ui_Settings_Button_closeConfig = NULL;
-    ui_Settings_Label_closeBtnText = NULL;
     ui_Settings_Keyboard_Keyboard1 = NULL;
     ui_Settings_Keyboard_Number = NULL;
 
