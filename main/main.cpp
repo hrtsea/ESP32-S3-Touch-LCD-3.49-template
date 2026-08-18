@@ -34,6 +34,7 @@
 #include "landmask.h"
 
 #include "app_cfg.h"
+#include "config.h"
 #include "disp_driver.h"
 #include "esp_wifi_config.h"
 #include "esp_bus.h"
@@ -116,7 +117,8 @@ extern "C" void app_main(void)
     event_bus_init();
     
     app_cfg_load();
-    
+
+    config_load();
     ESP_LOGI(TAG, "===== ZotLab NAS Monitor boot =====");
     ESP_LOGI(TAG, "H_RES=%d V_RES=%d  DMA=%d SPIRAM=%d",
              EXAMPLE_LCD_H_RES, EXAMPLE_LCD_V_RES,

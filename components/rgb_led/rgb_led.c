@@ -363,6 +363,12 @@ void rgb_led_get_status(RgbLedStatus *status)
     xSemaphoreGive(s_state_mux);
 }
 
+// 获取当前配置
+const RgbLedConfig *rgb_led_get_config(void)
+{
+    return &s_config;
+}
+
 // 更新温度（供外部调用）
 void rgb_led_update_temp(float temp)
 {

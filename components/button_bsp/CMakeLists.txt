@@ -1,4 +1,4 @@
 idf_component_register(
   SRCS "multi_button.c" "button_bsp.c"
-  PRIV_REQUIRES esp_timer driver
+  PRIV_REQUIRES esp_timer driver usb_hid_bsp
   INCLUDE_DIRS "./")

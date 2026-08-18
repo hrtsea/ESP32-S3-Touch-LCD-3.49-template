@@ -94,6 +94,20 @@ esp_err_t rgb_led_set_mode(RgbMode mode, RgbColor start, RgbColor end, uint8_t s
 esp_err_t rgb_led_apply_config(const RgbLedConfig *config);
 
 /**
+ * @brief 获取当前配置
+ *
+ * @return 指向当前配置的指针
+ */
+const RgbLedConfig *rgb_led_get_config(void);
+
+/**
+ * @brief 更新当前温度（供温度映射模式使用）
+ *
+ * @param temp 当前温度
+ */
+void rgb_led_update_temp(float temp);
+
+/**
  * @brief 获取当前状态
  *
  * @param status 状态输出

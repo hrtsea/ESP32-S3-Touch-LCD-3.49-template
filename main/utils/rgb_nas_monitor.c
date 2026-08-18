@@ -26,7 +26,7 @@ static void nas_data_handler(const event_t *evt, void *user_data)
 
         // 获取温度
         float temp;
-        if (s_config.use_cpu_temp) {
+        if (rgb_led_get_config()->use_cpu_temp) {
             temp = data->system.temp_cpu;
         } else {
             temp = data->system.temp_sys;
@@ -36,7 +36,7 @@ static void nas_data_handler(const event_t *evt, void *user_data)
         rgb_led_update_temp(temp);
 
         ESP_LOGD(TAG, "NAS temp updated: %.1f°C (source=%s)",
-                 temp, s_config.use_cpu_temp ? "CPU" : "SYS");
+                 temp, rgb_led_get_config()->use_cpu_temp ? "CPU" : "SYS");
     }
 }
 

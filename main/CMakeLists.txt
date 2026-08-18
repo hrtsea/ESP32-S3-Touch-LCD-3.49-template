@@ -23,6 +23,7 @@ idf_component_register(
         "ui/screens/ui_Screen_DiskDetail.c"
         "ui/screens/ui_Screen_SystemDetail.c"
         "ui/screens/ui_Screen_NetDetail.c"
+        "ui/screens/ui_Screen_SDCopy.c"
         "ui/fonts/ui_font_NotoSanThai16.c"
         "ui/images/ui_img_images_button_png.c"
         "ui/images/ui_img_images_globe_png.c"

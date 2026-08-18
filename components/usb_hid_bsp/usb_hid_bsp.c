@@ -8,8 +8,8 @@
 
 static const char *TAG = "USB_HID";
 
-// HID 键盘报告描述符
-static const uint8_t hid_report_descriptor[] = {
+// HID 键盘报告描述符（stub 模式预留，未实际注册到 tinyusb）
+static const uint8_t hid_report_descriptor[] __attribute__((unused)) = {
     0x05, 0x01,  // Usage Page (Generic Desktop)
     0x09, 0x06,  // Usage (Keyboard)
     0xA1, 0x01,  // Collection (Application)
