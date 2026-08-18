@@ -25,11 +25,18 @@ static void generate_mock_data(NasData* data)
     strncpy(data->system.hostname, "ZotLab-NAS-Mock", sizeof(data->system.hostname));
     strncpy(data->system.model, "Mock NAS DS920+", sizeof(data->system.model));
     data->system.uptime_s = s_counter * 100;
-    data->system.temp_cpu = 42 + (s_counter % 10);
-    data->system.temp_sys = 38 + (s_counter % 8);
-    data->system.cpu_pct = 25.0f + (s_counter % 30);
+
+    /* 平滑正弦波动 + 随机噪声，保证相邻两次数据变化幅度超过 UI 节流阈值，
+       否则界面数值会因变化太小而长时间不刷新（看起来像数据卡死） */
+    float t = (float)(s_counter % 120) / 120.0f * 6.28318f;
+
+    data->system.temp_cpu = (int16_t)(48 + 10.0f * sinf(t * 0.7f) + (rand() % 5) - 2);
+    data->system.temp_sys = (int16_t)(data->system.temp_cpu - 4);
+    data->system.cpu_pct = 40.0f + 25.0f * sinf(t) + (float)(rand() % 7) - 3.0f;
+    if (data->system.cpu_pct < 5.0f) data->system.cpu_pct = 5.0f;
+    if (data->system.cpu_pct > 95.0f) data->system.cpu_pct = 95.0f;
     data->system.ram_total_mb = 8192;
-    data->system.ram_used_mb = 3276 + (s_counter % 500);
+    data->system.ram_used_mb = 3400 + (uint32_t)(rand() % 2000);
     data->system.ram_pct = (data->system.ram_used_mb * 100.0f) / data->system.ram_total_mb;
 
     data->system.cpu_core_count = 4;
@@ -90,7 +97,7 @@ static void generate_mock_data(NasData* data)
             snprintf(data->disks[i].device, sizeof(data->disks[i].device), "/dev/sd%c", 'a' + type_idx);
             strncpy(data->disks[i].disk_type, "SATA", sizeof(data->disks[i].disk_type) - 1);
             data->disks[i].size_gb = 4000 + (type_idx * 1000);
-            data->disks[i].used_gb = 2000 + (s_counter % 1000) + (type_idx * 200);
+            data->disks[i].used_gb = 2000 + (uint32_t)(rand() % 700) + (type_idx * 200);
             data->disks[i].temp = 35 + (s_counter % 8) + type_idx;
         } else {
             /* M.2 硬盘 - Samsung 980 PRO 系列 */
@@ -99,7 +106,7 @@ static void generate_mock_data(NasData* data)
             snprintf(data->disks[i].device, sizeof(data->disks[i].device), "/dev/nvme%un1", type_idx);
             strncpy(data->disks[i].disk_type, "M.2", sizeof(data->disks[i].disk_type) - 1);
             data->disks[i].size_gb = 1000 + (type_idx * 500);
-            data->disks[i].used_gb = 400 + (s_counter % 300) + (type_idx * 100);
+            data->disks[i].used_gb = 400 + (uint32_t)(rand() % 500) + (type_idx * 100);
             data->disks[i].temp = 45 + (s_counter % 10) + type_idx;
         }
 

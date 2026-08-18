@@ -27,7 +27,7 @@ static bool data_source_fetch_and_publish(void)
     if (data_source_poll()) {
         const NasData *data = data_source_get_data();
         if (data && data->is_online) {
-            ESP_LOGD(TAG, "Data source fetched, publishing NasData (cpu=%.1f%%, mem=%.1f%%)",
+            ESP_LOGI(TAG, "Data source fetched, publishing NasData (cpu=%.1f%%, mem=%.1f%%)",
                      data->system.cpu_pct, data->system.ram_pct);
             event_bus_publish_nas_data(data);
             return true;
@@ -65,8 +65,13 @@ static void task_nas_data_loop(void *arg)
 
             case EVENT_WIFI_DISCONNECTED:
             case EVENT_HTTP_STOP:
-                s_fetch_enabled = false;
-                ESP_LOGI(TAG, "Data fetch disabled");
+                if (nas_type_from_string(g_config.nas_type) == NAS_MOCK) {
+                    // mock 数据源为本地模拟，WiFi 状态不影响数据抓取
+                    ESP_LOGD(TAG, "Fetch keep enabled (mock source, no WiFi needed)");
+                } else {
+                    s_fetch_enabled = false;
+                    ESP_LOGI(TAG, "Data fetch disabled");
+                }
                 break;
 
             default:
@@ -95,19 +100,25 @@ void nas_event_loop_start(void)
         return;
     }
 
+    const char *type_id;
     if (strlen(g_config.nas_type) > 0) {
-        ESP_LOGI(TAG, "Creating data source for type: %s", g_config.nas_type);
-        if (!data_source_init(g_config.nas_type)) {
-            ESP_LOGE(TAG, "Failed to init data source");
-        } else {
-            data_source_connect();
-        }
+        type_id = g_config.nas_type;
     } else {
         ESP_LOGW(TAG, "No NAS type configured, using mock");
-        if (!data_source_init("mock")) {
-            ESP_LOGE(TAG, "Failed to init mock data source");
-        } else {
-            data_source_connect();
+        type_id = "mock";
+    }
+
+    ESP_LOGI(TAG, "Creating data source for type: %s", type_id);
+    if (!data_source_init(type_id)) {
+        ESP_LOGE(TAG, "Failed to init data source");
+    } else {
+        data_source_connect();
+
+        // mock 数据源为本地模拟数据，无需 WiFi 连接即可轮询更新
+        // 注意：nas_type_from_string("") 不会返回 NAS_MOCK，故必须基于实际使用的 type_id 判断
+        if (nas_type_from_string(type_id) == NAS_MOCK) {
+            s_fetch_enabled = true;
+            ESP_LOGI(TAG, "Data fetch enabled (mock source, no WiFi needed)");
         }
     }
 
@@ -160,6 +171,16 @@ bool nas_event_loop_switch_source(const char *nas_type_id)
     }
 
     ESP_LOGI(TAG, "Data source switched to: %s", nas_type_id);
+
+    // 切换后同步抓取开关：mock 数据源为本地模拟，无需 WiFi 即可轮询
+    bool is_mock = (nas_type_id != NULL && nas_type_from_string(nas_type_id) == NAS_MOCK);
+    if (is_mock) {
+        s_fetch_enabled = true;
+        ESP_LOGI(TAG, "Data fetch enabled (mock source, no WiFi needed)");
+    } else {
+        s_fetch_enabled = false;
+        ESP_LOGI(TAG, "Data fetch disabled, waiting for WiFi");
+    }
 
     xSemaphoreGive(s_fetch_mutex);
 

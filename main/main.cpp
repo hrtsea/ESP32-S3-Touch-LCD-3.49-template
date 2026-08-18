@@ -43,6 +43,7 @@
 #include "sntp_manager.h"
 #include "hw_init.h"
 #include "ui.h"
+#include "ui_events.h"
 #include "nas_event_loop.h"
 #include "http_timer.h"
 #include "event_bus.h"
@@ -134,6 +135,12 @@ extern "C" void app_main(void)
     http_timer_start();
 
     ui_init();
+
+    // 启动 UI 事件任务（消费 NAS 数据/WiFi 事件更新界面，此前遗漏导致屏幕数据不刷新）
+    if (lvgl_lock(-1)) {
+        ui_events_start();
+        lvgl_unlock();
+    }
 
     // 初始化 RGB LED NAS 监控
     rgb_nas_monitor_init();
