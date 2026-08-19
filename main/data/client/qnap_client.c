@@ -349,10 +349,10 @@ static bool fetch_network(QnapClientData* priv)
     char val_buf[QNAP_XML_BUF_SIZE];
 
     const char* rx = extract_xml(xml, "net_rx", 0, val_buf, sizeof(val_buf));
-    if (rx) priv->data.network.rx_bps = (uint32_t)(atof(rx) * 1000 / 8);
+    if (rx) priv->data.network.rx_bps = (uint32_t)(atof(rx) * 1000);
 
     const char* tx = extract_xml(xml, "net_tx", 0, val_buf, sizeof(val_buf));
-    if (tx) priv->data.network.tx_bps = (uint32_t)(atof(tx) * 1000 / 8);
+    if (tx) priv->data.network.tx_bps = (uint32_t)(atof(tx) * 1000);
 
     const char* iface = extract_xml(xml, "interface", 0, val_buf, sizeof(val_buf));
     if (iface) {

@@ -77,7 +77,7 @@ static void generate_mock_data(NasData* data)
 
     uint8_t sata_count = (uint8_t)app_cfg_get_sata_disk_count();
     uint8_t m2_count   = (uint8_t)app_cfg_get_m2_disk_count();
-    uint8_t total_slots = app_cfg_get_sata_disk_count() + app_cfg_get_m2_disk_count();
+    uint8_t total_slots = sata_count + m2_count;
 
     data->disk_count = total_slots;
     data->disk_slot_count = total_slots;
@@ -155,8 +155,8 @@ static void generate_mock_data(NasData* data)
         float phase = (float)(s_counter % 20) / 20.0f * 6.28318f;  /* 20 步一个周期 */
         float rx_wave = 50.0f + 40.0f * sinf(phase) + (float)(s_counter % 7);
         float tx_wave = 25.0f + 20.0f * sinf(phase + 1.0f) + (float)(s_counter % 5);
-        data->network.rx_bps = (uint32_t)(rx_wave * 1000000);
-        data->network.tx_bps = (uint32_t)(tx_wave * 1000000);
+        data->network.rx_bps = (uint32_t)(rx_wave * 8000000);
+        data->network.tx_bps = (uint32_t)(tx_wave * 8000000);
     }
     strncpy(data->network.ip, "192.168.1.100", sizeof(data->network.ip));
     strncpy(data->network.interface, "eth0", sizeof(data->network.interface));
@@ -167,21 +167,21 @@ static void generate_mock_data(NasData* data)
     strncpy(data->interfaces[0].ip, "192.168.1.100", sizeof(data->interfaces[0].ip));
     {
         float phase = (float)(s_counter % 20) / 20.0f * 6.28318f;
-        data->interfaces[0].rx_bps = (uint32_t)((50.0f + 40.0f * sinf(phase)) * 125);
-        data->interfaces[0].tx_bps = (uint32_t)((25.0f + 20.0f * sinf(phase + 1.0f)) * 125);
+        data->interfaces[0].rx_bps = (uint32_t)((50.0f + 40.0f * sinf(phase)) * 1000);
+        data->interfaces[0].tx_bps = (uint32_t)((25.0f + 20.0f * sinf(phase + 1.0f)) * 1000);
     }
     data->interfaces[0].active = true;
 
     strncpy(data->interfaces[1].name, "eth1", sizeof(data->interfaces[1].name));
     strncpy(data->interfaces[1].ip, "192.168.2.100", sizeof(data->interfaces[1].ip));
-    data->interfaces[1].rx_bps = (s_counter % 5) * 125;
-    data->interfaces[1].tx_bps = (s_counter % 3) * 125;
+    data->interfaces[1].rx_bps = (s_counter % 5) * 1000;
+    data->interfaces[1].tx_bps = (s_counter % 3) * 1000;
     data->interfaces[1].active = false;
 
     strncpy(data->interfaces[2].name, "wlan0", sizeof(data->interfaces[2].name));
     strncpy(data->interfaces[2].ip, "192.168.1.150", sizeof(data->interfaces[2].ip));
-    data->interfaces[2].rx_bps = (2 + (s_counter % 20)) * 125;
-    data->interfaces[2].tx_bps = (1 + (s_counter % 10)) * 125;
+    data->interfaces[2].rx_bps = (2 + (s_counter % 20)) * 1000;
+    data->interfaces[2].tx_bps = (1 + (s_counter % 10)) * 1000;
     data->interfaces[2].active = true;
 
     data->active_interface_idx = 0;

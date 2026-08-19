@@ -208,12 +208,12 @@ static bool fetch_network(NetdataClientData* priv)
             float rx_kbps = (float)cJSON_GetArrayItem(dims, 0)->valuedouble;
             float tx_kbps = (float)cJSON_GetArrayItem(dims, 1)->valuedouble;
 
-            priv->data.network.rx_bps = (uint32_t)(rx_kbps * 1000.0f / 8.0f);
-            priv->data.network.tx_bps = (uint32_t)(tx_kbps * 1000.0f / 8.0f);
+            priv->data.network.rx_bps = (uint32_t)(rx_kbps * 1000.0f);
+            priv->data.network.tx_bps = (uint32_t)(tx_kbps * 1000.0f);
 
             memcpy(priv->data.network.interface, "eth0", sizeof("eth0"));
             ESP_LOGI(TAG, "Net: RX=%.1f KB/s, TX=%.1f KB/s",
-                priv->data.network.rx_bps / 1024.0f, priv->data.network.tx_bps / 1024.0f);
+                priv->data.network.rx_bps / 8000.0f, priv->data.network.tx_bps / 8000.0f);
             success = true;
         }
     }

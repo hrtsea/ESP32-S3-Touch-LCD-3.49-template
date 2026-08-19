@@ -428,7 +428,7 @@ static bool snmp_poll(DataSource* self)
                         if (priv->last_net_time > 0) {
                             uint32_t dt = (now - priv->last_net_time) / 1000;
                             if (dt > 0) {
-                                priv->data.network.rx_bps = (rx_bytes - priv->last_rx_bytes) / dt;
+                                priv->data.network.rx_bps = (rx_bytes - priv->last_rx_bytes) * 8 / dt;
                             }
                         }
                         priv->last_rx_bytes = rx_bytes;
@@ -441,7 +441,7 @@ static bool snmp_poll(DataSource* self)
                         if (priv->last_net_time > 0) {
                             uint32_t dt = (now - priv->last_net_time) / 1000;
                             if (dt > 0) {
-                                priv->data.network.tx_bps = (tx_bytes - priv->last_tx_bytes) / dt;
+                                priv->data.network.tx_bps = (tx_bytes - priv->last_tx_bytes) * 8 / dt;
                             }
                         }
                         priv->last_tx_bytes = tx_bytes;

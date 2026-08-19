@@ -177,8 +177,8 @@ static void on_nas_data_update_evt(const NasData *data)
             storage_screen_update_hdd_online(i, disk->online);
         }
 
-        float tx_speed = (float)data->network.tx_bps / 8000000.0f;
-        float rx_speed = (float)data->network.rx_bps / 8000000.0f;
+        float tx_speed = (float)data->network.tx_bps / 1000000.0f;
+        float rx_speed = (float)data->network.rx_bps / 1000000.0f;
         if (fabs(tx_speed - s_last_tx_speed) >= 0.05f ||
             fabs(rx_speed - s_last_rx_speed) >= 0.05f) {
             overview_screen_update_network((int)(data->network.tx_bps / 1000), (int)(data->network.rx_bps / 1000));

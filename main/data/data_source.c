@@ -75,87 +75,59 @@ const char* get_display_type_name(const char* nas_type_id)
 
 NasType nas_type_from_string(const char* nas_type_id)
 {
-    if (strcmp(nas_type_id, "synology") == 0) return NAS_SYNOLOGY;
-    if (strcmp(nas_type_id, "qnap") == 0) return NAS_QNAP;
-    if (strcmp(nas_type_id, "truenas") == 0) return NAS_TRUENAS;
-    if (strcmp(nas_type_id, "fnos") == 0) return NAS_FNOS;
-    if (strcmp(nas_type_id, "unraid") == 0) return NAS_UNRAID;
-    if (strcmp(nas_type_id, "netdata") == 0) return NET_NETDATA;
-    if (strcmp(nas_type_id, "snmp") == 0) return NET_SNMP;
-    if (strcmp(nas_type_id, "linux_http") == 0) return NET_LINUX_HTTP;
-    if (strcmp(nas_type_id, "linux_serial") == 0) return NET_LINUX_SERIAL;
-    if (strcmp(nas_type_id, "windows") == 0) return NET_WINDOWS;
-    if (strcmp(nas_type_id, "mock") == 0) return NAS_MOCK;
+    if (nas_type_id == NULL) return NET_LINUX_HTTP;
+    for (int i = 0; i < DATA_TYPE_COUNT; i++) {
+        if (strcmp(NAS_TYPES[i].id, nas_type_id) == 0) {
+            return NAS_TYPES[i].nas_type_enum;
+        }
+    }
     return NET_LINUX_HTTP;
 }
 
 const char* nas_type_to_string(NasType type)
 {
-    switch (type) {
-        case NAS_SYNOLOGY: return "synology";
-        case NAS_QNAP: return "qnap";
-        case NAS_TRUENAS: return "truenas";
-        case NAS_FNOS: return "fnos";
-        case NAS_UNRAID: return "unraid";
-        case NET_NETDATA: return "netdata";
-        case NET_SNMP: return "snmp";
-        case NET_LINUX_HTTP: return "linux_http";
-        case NET_LINUX_SERIAL: return "linux_serial";
-        case NET_WINDOWS: return "windows";
-        case NAS_MOCK: return "mock";
-        default: return "linux_http";
+    for (int i = 0; i < DATA_TYPE_COUNT; i++) {
+        if (NAS_TYPES[i].nas_type_enum == type) {
+            return NAS_TYPES[i].id;
+        }
     }
+    return "linux_http";
 }
 
 static DataSource* g_data_source = NULL;
 
+static DataSource* ds_create_by_type(NasType type)
+{
+    switch (type) {
+        case NAS_SYNOLOGY:     return synology_client_create();
+        case NAS_QNAP:         return qnap_client_create();
+        case NAS_TRUENAS:      return truenas_client_create();
+        case NAS_FNOS:         return mock_client_create_with_type(NAS_FNOS, "FNOS", "wifi");
+        case NAS_UNRAID:       return unraid_client_create();
+        case NET_NETDATA:      return netdata_client_create();
+        case NET_SNMP:         return snmp_client_create();
+        case NET_LINUX_HTTP:   return api_client_create(NET_LINUX_HTTP);
+        case NET_LINUX_SERIAL: return serial_client_create();
+        case NET_WINDOWS:      return api_client_create(NET_WINDOWS);
+        case NAS_MOCK:         return mock_client_create();
+        default:               return NULL;
+    }
+}
+
 DataSource* data_source_create(const char* nas_type_id)
 {
-    if (strcmp(nas_type_id, "synology") == 0) {
-        return synology_client_create();
-    }
-    if (strcmp(nas_type_id, "qnap") == 0) {
-        return qnap_client_create();
-    }
-    if (strcmp(nas_type_id, "truenas") == 0) {
-        return truenas_client_create();
-    }
-    if (strcmp(nas_type_id, "netdata") == 0) {
-        return netdata_client_create();
-    }
-    if (strcmp(nas_type_id, "linux_http") == 0) {
-        return api_client_create(NET_LINUX_HTTP);
-    }
-    if (strcmp(nas_type_id, "windows") == 0) {
-        return api_client_create(NET_WINDOWS);
-    }
-    if (strcmp(nas_type_id, "mock") == 0) {
-        return mock_client_create();
-    }
-    if (strcmp(nas_type_id, "fnos") == 0) {
-        return mock_client_create_with_type(NAS_FNOS, "FNOS", "wifi");
-    }
-    if (strcmp(nas_type_id, "unraid") == 0) {
-        return unraid_client_create();
-    }
-    if (strcmp(nas_type_id, "linux_serial") == 0) {
-        return serial_client_create();
-    }
-    if (strcmp(nas_type_id, "snmp") == 0) {
-        return snmp_client_create();
+    for (int i = 0; i < DATA_TYPE_COUNT; i++) {
+        if (strcmp(NAS_TYPES[i].id, nas_type_id) == 0) {
+            return ds_create_by_type(NAS_TYPES[i].nas_type_enum);
+        }
     }
 
     ESP_LOGW(TAG, "Unsupported type: %s, fallback to mock", nas_type_id);
     return mock_client_create();
 }
 
-bool data_source_init(const char* nas_type_id)
+static bool ds_create_and_init(const char* nas_type_id)
 {
-    if (g_data_source != NULL) {
-        ESP_LOGW(TAG, "Data source already initialized, switch first");
-        return false;
-    }
-
     g_data_source = data_source_create(nas_type_id);
     if (g_data_source == NULL) {
         ESP_LOGE(TAG, "Failed to create data source for type: %s", nas_type_id);
@@ -170,6 +142,16 @@ bool data_source_init(const char* nas_type_id)
     }
 
     return true;
+}
+
+bool data_source_init(const char* nas_type_id)
+{
+    if (g_data_source != NULL) {
+        ESP_LOGW(TAG, "Data source already initialized, switch first");
+        return false;
+    }
+
+    return ds_create_and_init(nas_type_id);
 }
 
 bool data_source_connect(void)
@@ -230,36 +212,14 @@ bool data_source_switch(const char* nas_type_id)
     }
 
     ESP_LOGI(TAG, "Creating new data source for type: %s", nas_type_id);
-    g_data_source = data_source_create(nas_type_id);
-
-    if (g_data_source == NULL) {
-        ESP_LOGE(TAG, "Failed to create data source for type: %s", nas_type_id);
+    if (!ds_create_and_init(nas_type_id)) {
         return false;
     }
 
-    if (!ds_init(g_data_source)) {
-        ESP_LOGE(TAG, "Failed to init data source");
-        ds_destroy(g_data_source);
-        g_data_source = NULL;
+    if (!ds_connect(g_data_source)) {
+        ESP_LOGW(TAG, "Failed to connect data source for type: %s", nas_type_id);
         return false;
     }
-
-    ESP_LOGI(TAG, "Data source created successfully, connecting...");
-    ds_connect(g_data_source);
 
     return true;
-}
-
-float data_source_get_rx_speed_mbps(void)
-{
-    if (g_data_source == NULL) return 0.0f;
-    const NasData* data = ds_get_data(g_data_source);
-    return (float)data->network.rx_bps / 8000000.0f;
-}
-
-float data_source_get_tx_speed_mbps(void)
-{
-    if (g_data_source == NULL) return 0.0f;
-    const NasData* data = ds_get_data(g_data_source);
-    return (float)data->network.tx_bps / 8000000.0f;
 }

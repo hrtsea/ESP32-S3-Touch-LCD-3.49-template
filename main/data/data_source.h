@@ -96,9 +96,6 @@ const char* data_source_get_type_name(void);
 const char* data_source_get_conn_icon(void);
 bool data_source_switch(const char* nas_type_id);
 
-float data_source_get_rx_speed_mbps(void);
-float data_source_get_tx_speed_mbps(void);
-
 const char* get_display_type_name(const char* nas_type_id);
 NasType nas_type_from_string(const char* nas_type_id);
 const char* nas_type_to_string(NasType type);
