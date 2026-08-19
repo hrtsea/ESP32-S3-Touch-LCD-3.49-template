@@ -26,7 +26,7 @@
 
 #include "app_cfg.h"
 #include "disp_driver.h"
-#include "../data/fan_control.h"
+#include "../drivers/fan_control.h"
 
 #define TM_YEAR_OFFSET 1900
 #define TM_MONTH_OFFSET 1

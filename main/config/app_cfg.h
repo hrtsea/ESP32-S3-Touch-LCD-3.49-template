@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include "fan_control.h"   /* FanConfig（从老 config 系统迁入） */
+#include "fan_config.h"    /* FanConfig 纯类型（config 层，不依赖 data 硬件头） */
 
 #ifdef __cplusplus
 extern "C" {

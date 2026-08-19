@@ -23,7 +23,7 @@
 #include "screens/ui_Screen_SystemDetail.h"
 #include "screens/ui_Screen_SDCopy.h"
 #include "screens/ui_Screen_NetDetail.h"
-#include "../data/fan_control.h"
+#include "../drivers/fan_control.h"
 
 #define UI_UPDATE(code) do { \
     if (lvgl_lock(50)) { \
