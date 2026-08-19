@@ -98,7 +98,7 @@ add_library(sim_overrides STATIC
     ${SIM_DIR}/overrides/disp_driver.c
     ${SIM_DIR}/overrides/event_bus.c
     ${SIM_DIR}/overrides/bg_fetcher.c
-    ${SIM_DIR}/overrides/hw_init.c
+    ${SIM_DIR}/overrides/system_init.c
     ${SIM_DIR}/overrides/cli.c
     ${SIM_DIR}/overrides/nas_event_loop.c
     ${SIM_DIR}/overrides/sntp_manager.c

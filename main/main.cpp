@@ -36,7 +36,7 @@
 #include "app_cfg.h"
 #include "disp_driver.h"
 #include "sntp_manager.h"
-#include "hw_init.h"
+#include "system_init.h"
 #include "board.h"
 #include "network_init.h"
 #include "ui.h"
@@ -88,7 +88,6 @@ extern "C" void app_main(void)
     /* 硬件初始化（随板内聚，见 boards/<name>/board.c） */
     board_set_status_cb(boot_status_cb);
     board_init();
-    system_time_init();
 
     network_init();
 

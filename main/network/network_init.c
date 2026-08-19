@@ -3,7 +3,8 @@
  * @brief 网络子系统初始化编排
  *
  * esp_bus 总线 → WiFi 管理层（wifi_manager_init，含 esp_wifi_config 库初始化）
- * → WebUI 启动。main.cpp 只保留 network_init() 一次调用。
+ * → 时间服务（sntp_manager_start，SNTP 同步 + 时区应用）→ WebUI 启动。
+ * main.cpp 只保留 network_init() 一次调用。
  */
 #include <stdio.h>
 
@@ -13,6 +14,7 @@
 #include "esp_wifi_config.h"   /* wifi_cfg_get_httpd */
 #include "esp_http_server.h"
 #include "wifi_manager.h"
+#include "sntp_manager.h"
 #include "webui.h"
 
 #include "user_config.h"
@@ -26,6 +28,8 @@ void network_init(void)
     esp_bus_init();
 
     wifi_manager_init();
+
+    sntp_manager_start();
 
     webui_set_auth(WEBUI_AUTH_USER, WEBUI_AUTH_PASSWORD);
 

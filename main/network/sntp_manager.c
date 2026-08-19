@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "esp_sntp.h"
 #include "i2c_equipment.h"
+#include "i18n.h"
 
 static const char *TAG = "sntp_manager";
 
@@ -61,7 +62,7 @@ static void sntp_sync_notification_cb(struct timeval *tv)
 }
 
 /**
- * @brief 启动 SNTP 时间同步服务
+ * @brief 启动 SNTP 时间同步服务并应用时区
  * 
  * 初始化并启动 ESP-IDF 的 SNTP 客户端，配置如下：
  * - 工作模式：轮询模式（SNTP_OPMODE_POLL）
@@ -69,13 +70,18 @@ static void sntp_sync_notification_cb(struct timeval *tv)
  * - 同步间隔：4 小时
  * - 同步回调：sntp_sync_notification_cb（用于回写 RTC）
  * 
- * 注意：此函数应在网络连接建立后调用，否则无法获取时间。
+ * 同时负责系统时区：启动前应用当前配置时区（tz_apply_current），
+ * 保证 SNTP 同步后 localtime() 立即输出本地时间。
+ * 
+ * 注意：不依赖启动时已联网——ESP-IDF SNTP 会在网络就绪后自动同步。
  * 多次调用不会重复初始化（通过 g_sntp_started 标志保护）。
  */
 void sntp_manager_start(void)
 {
     if (g_sntp_started) return;
     g_sntp_started = true;
+
+    tz_apply_current();
 
     esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
 
