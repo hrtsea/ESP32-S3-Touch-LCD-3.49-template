@@ -49,7 +49,7 @@ idf_component_register(
         "utils/cli.c"
         "utils/hw_init.c"
         "utils/bg_fetcher.c"
-        "utils/wifi_bridge.c"
+        "network/wifi_manager.c"
         "utils/rgb_nas_monitor.c"
         "data/data_source.c"
         "data/nas_event_loop.c"

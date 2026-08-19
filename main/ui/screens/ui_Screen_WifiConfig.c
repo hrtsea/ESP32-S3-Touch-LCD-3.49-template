@@ -6,7 +6,7 @@
 #include "nvs.h"
 #include "esp_wifi.h"
 #include "esp_wifi_config.h"
-#include "wifi_bridge.h"
+#include "wifi_manager.h"
 #include "app_cfg.h"
 
 static const char *TAG = "ui_Screen_WifiConfig";

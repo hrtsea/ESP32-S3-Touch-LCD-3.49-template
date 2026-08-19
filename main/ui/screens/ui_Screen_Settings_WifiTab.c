@@ -3,7 +3,7 @@
 #include "../../utils/theme.h"
 
 #include "esp_wifi_config.h"
-#include "wifi_bridge.h"
+#include "wifi_manager.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_32);
 

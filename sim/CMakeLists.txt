@@ -102,7 +102,7 @@ add_library(sim_overrides STATIC
     ${SIM_DIR}/overrides/cli.c
     ${SIM_DIR}/overrides/nas_event_loop.c
     ${SIM_DIR}/overrides/sntp_manager.c
-    ${SIM_DIR}/overrides/wifi_bridge.c
+    ${SIM_DIR}/overrides/wifi_manager.c
     ${SIM_DIR}/overrides/fan_control.c
     ${SIM_DIR}/sdl/sdl_driver.c
 )

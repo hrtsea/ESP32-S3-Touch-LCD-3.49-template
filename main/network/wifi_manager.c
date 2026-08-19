@@ -1,13 +1,14 @@
 /**
- * @file wifi_bridge.c
- * @brief WiFi 事件桥 + 共享状态
+ * @file wifi_manager.c
+ * @brief WiFi 管理层：库初始化 + esp_bus 事件桥 + 共享状态
  *
- * WiFi 的配置/连接/扫描/状态操作由调用方直接使用 esp_wifi_config 库 API，
- * 本文件只负责：
- *  1) esp_bus WiFi 事件 → event_bus 转发；
- *  2) UI 所需的共享状态：扫描缓存、连接发起时间、断开原因。
+ * WiFi 的配置/连接/扫描/状态等操作由调用方直接使用 esp_wifi_config 库 API，
+ * 本模块负责：
+ *  1) 初始化 esp_wifi_config 库（wifi_cfg_init，含默认网络/重试/AP/HTTP 配置）；
+ *  2) esp_bus WiFi 事件 → event_bus 转发；
+ *  3) UI 所需的共享状态：扫描缓存、连接发起时间、断开原因。
  */
-#include "wifi_bridge.h"
+#include "wifi_manager.h"
 
 #include <string.h>
 #include "esp_log.h"
@@ -15,6 +16,9 @@
 #include "esp_bus.h"           /* esp_bus_sub */
 #include "esp_wifi_config.h"   /* WIFI_EVT / WIFI_CFG_EVT_* */
 #include "event_bus.h"
+
+#include "user_config.h"
+#include "app_cfg.h"
 
 static const char *TAG = "wifi";
 
@@ -81,17 +85,12 @@ uint8_t wifi_get_last_reason(void)
 
 /* event_bus_publish 第二参为 void*，esp_bus 回调给的是 const void*，需去 const。
  * 事件数据本身为只读（库内部生命周期），UI 仅读取不修改，安全。 */
-static void bridge_forward(event_id_t id, const void *data, size_t len)
-{
-    event_bus_publish(id, (void *)data, len);
-}
-
 static void on_connected(const char *event, const void *data, size_t len, void *ctx)
 {
     (void)event;
     (void)ctx;
     ESP_LOGI(TAG, "wifi:connected -> EVENT_WIFI_CONNECTED");
-    bridge_forward(EVENT_WIFI_CONNECTED, data, len);
+    event_bus_publish(EVENT_WIFI_CONNECTED, (void *)data, len);
 }
 
 static void on_disconnected(const char *event, const void *data, size_t len, void *ctx)
@@ -103,7 +102,7 @@ static void on_disconnected(const char *event, const void *data, size_t len, voi
         wifi_set_last_reason(d->reason);
     }
     ESP_LOGI(TAG, "wifi:disconnected -> EVENT_WIFI_DISCONNECTED");
-    bridge_forward(EVENT_WIFI_DISCONNECTED, data, len);
+    event_bus_publish(EVENT_WIFI_DISCONNECTED, (void *)data, len);
 }
 
 static void on_scan_done(const char *event, const void *data, size_t len, void *ctx)
@@ -111,13 +110,40 @@ static void on_scan_done(const char *event, const void *data, size_t len, void *
     (void)event;
     (void)ctx;
     ESP_LOGI(TAG, "wifi:scan_done -> EVENT_WIFI_SCAN_DONE");
-    bridge_forward(EVENT_WIFI_SCAN_DONE, data, len);
+    event_bus_publish(EVENT_WIFI_SCAN_DONE, (void *)data, len);
 }
 
-void wifi_bridge_init(void)
+void wifi_manager_init(void)
 {
+    wifi_cfg_config_t cfg = {
+        .default_networks = (wifi_network_t[]){
+            { DEFAULT_WIFI_SSID, DEFAULT_WIFI_PASS, 10 },
+        },
+        .default_network_count = (DEFAULT_WIFI_SSID[0] && DEFAULT_WIFI_PASS[0]) ? 1 : 0,
+        .max_retry_per_network = 3,
+        .retry_interval_ms = 5000,
+        .retry_max_interval_ms = 30000,
+        .max_reconnect_attempts = 5,
+        .on_reconnect_exhausted = WIFI_ON_RECONNECT_EXHAUSTED_RESTART,
+        .provisioning_mode = WIFI_PROV_ON_FAILURE,
+        .stop_provisioning_on_connect = true,
+        .http_post_prov_mode = WIFI_HTTP_API_ONLY,
+        .default_ap = {
+            .ssid = DEFAULT_AP_SSID,
+            .password = DEFAULT_AP_PASSWORD,
+        },
+        .enable_ap = true,
+        .http = {
+            .api_base_path = "/api/wifi",
+            .enable_auth = true,
+            .auth_username = WEBUI_AUTH_USER,
+            .auth_password = WEBUI_AUTH_PASSWORD,
+        },
+    };
+    wifi_cfg_init(&cfg);
+
     esp_bus_sub(WIFI_EVT(WIFI_CFG_EVT_CONNECTED), on_connected, NULL);
     esp_bus_sub(WIFI_EVT(WIFI_CFG_EVT_DISCONNECTED), on_disconnected, NULL);
     esp_bus_sub(WIFI_EVT(WIFI_CFG_EVT_SCAN_DONE), on_scan_done, NULL);
-    ESP_LOGI(TAG, "esp_bus -> event_bus bridge initialized");
+    ESP_LOGI(TAG, "esp_wifi_config init + esp_bus -> event_bus bridge initialized");
 }
