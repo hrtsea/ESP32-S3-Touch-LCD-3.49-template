@@ -19,7 +19,10 @@ param(
     [switch]$Erase
 )
 
-$ErrorActionPreference = 'Stop'
+# 注意: $ErrorActionPreference 在点源 export.ps1 之后才设为 Stop,
+# 因为 export.ps1 内部调用 python activate.py 会向 stderr 打印 "Activating...",
+# 若此时已是 Stop, 会被当作 NativeCommandError 终止脚本。
+$ErrorActionPreference = 'Continue'
 
 # ---------- 配置 ----------
 $IDF_ROOT   = 'C:\esp\v5.5.4\esp-idf'
@@ -37,6 +40,9 @@ Write-Host "==> 初始化 ESP-IDF 环境 ($IDF_ROOT)" -ForegroundColor Cyan
 # export.ps1 会设置 IDF_PATH / PATH 等, 通过点源方式在当前作用域生效
 . $EXPORT_PS1 *>$null
 
+# 环境就绪后, 恢复严格错误处理
+$ErrorActionPreference = 'Stop'
+
 Set-Location $PROJECT
 
 # ---------- 端口探测 ----------
@@ -50,8 +56,8 @@ function Find-Port {
     }
     foreach ($p in $candidates) {
         try {
-            $out = & python $ESPTOOL --port $p --no-stamp chip-id 2>&1
-            if ($out -match 'MAC' -or $out -match 'chip') {
+            $out = & python $ESPTOOL --port $p --no-stub read_mac 2>&1
+            if ($out -match 'MAC') {
                 Write-Host "==> 检测到 ESP32 设备: $p" -ForegroundColor Green
                 return $p
             }
@@ -78,27 +84,14 @@ function Do-Build {
 }
 
 function Do-Flash([string]$p) {
-    $flashArgs = Join-Path $BUILD_DIR 'flash_args'
-    if (-not (Test-Path $flashArgs)) {
-        Write-Error "找不到 $flashArgs, 请先 build"
-        exit 1
-    }
     if ($Erase) {
         Write-Host "==> 擦除 flash ($p)" -ForegroundColor Cyan
-        & python $ESPTOOL --port $p --chip esp32s3 erase-flash
+        & idf.py -p $p erase-flash
+        if ($LASTEXITCODE -ne 0) { throw "擦除失败" }
     }
     Write-Host "==> 烧录到 $p ..." -ForegroundColor Cyan
-    # 从 flash_args 读取地址/文件名(跳过首行选项), 转为 build 目录下的绝对路径
-    $lines = Get-Content $flashArgs | Where-Object { $_ -match '^0x' }
-    $argsList = @('--port', $p, '--chip', 'esp32s3', 'write-flash',
-                  '--flash-mode', 'dio', '--flash-freq', '80m', '--flash-size', '16MB')
-    foreach ($line in $lines) {
-        $addr, $rel = $line.Trim() -split '\s+'
-        $abs = Join-Path $BUILD_DIR $rel
-        if (-not (Test-Path $abs)) { Write-Error "缺少镜像文件: $abs"; exit 1 }
-        $argsList += @($addr, $abs)
-    }
-    & python $ESPTOOL @argsList
+    # 使用 idf.py flash, 它会自动处理 flash_args、选用正确的 esptool 与参数
+    & idf.py -p $p flash
     if ($LASTEXITCODE -ne 0) { throw "烧录失败" }
     Write-Host '==> 烧录完成' -ForegroundColor Green
 }
