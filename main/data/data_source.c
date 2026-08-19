@@ -10,6 +10,8 @@
 #include "client/unraid_client.h"
 #include "esp_log.h"
 #include "event_bus.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -96,6 +98,36 @@ const char* nas_type_to_string(NasType type)
 
 static DataSource* g_data_source = NULL;
 
+/* ---------------- 数据源访问互斥锁（递归互斥量） ----------------
+ * 保护所有公开 API 对 g_data_source 及其 client 实例的访问，
+ * 使多调用方（事件循环任务 poll、UI 线程 switch）串行化操作数据源。
+ *
+ * 递归特性：事件循环任务经 data_source_lock() 对"抓数+发布"整体持锁，
+ * 期间内部调用的 poll/get_data 等 API 再次持锁（递归重入）不会死锁；
+ * get_data 返回的指针在外部锁释放前不会被其它线程的 switch 销毁。
+ *
+ * 懒初始化：首次调用时创建，此时通常处于启动单线程阶段，无创建竞争。 */
+static SemaphoreHandle_t s_ds_mutex = NULL;
+
+static void ds_lock(void)
+{
+    if (s_ds_mutex == NULL) {
+        s_ds_mutex = xSemaphoreCreateRecursiveMutex();
+        if (s_ds_mutex == NULL) {
+            ESP_LOGE(TAG, "Failed to create data source mutex");
+            return; /* 极端内存不足：降级为无锁，不阻塞调用方 */
+        }
+    }
+    xSemaphoreTakeRecursive(s_ds_mutex, portMAX_DELAY);
+}
+
+static void ds_unlock(void)
+{
+    if (s_ds_mutex != NULL) {
+        xSemaphoreGiveRecursive(s_ds_mutex);
+    }
+}
+
 static DataSource* ds_create_by_type(NasType type)
 {
     switch (type) {
@@ -146,58 +178,95 @@ static bool ds_create_and_init(const char* nas_type_id)
 
 bool data_source_init(const char* nas_type_id)
 {
+    bool result = false;
+    ds_lock();
     if (g_data_source != NULL) {
         ESP_LOGW(TAG, "Data source already initialized, switch first");
-        return false;
+    } else {
+        result = ds_create_and_init(nas_type_id);
     }
-
-    return ds_create_and_init(nas_type_id);
+    ds_unlock();
+    return result;
 }
 
 bool data_source_connect(void)
 {
-    if (g_data_source == NULL) return false;
-    return ds_connect(g_data_source);
+    bool result = false;
+    ds_lock();
+    if (g_data_source != NULL) result = ds_connect(g_data_source);
+    ds_unlock();
+    return result;
 }
 
 void data_source_disconnect(void)
 {
-    if (g_data_source == NULL) return;
-    ds_disconnect(g_data_source);
+    ds_lock();
+    if (g_data_source != NULL) ds_disconnect(g_data_source);
+    ds_unlock();
 }
 
 bool data_source_poll(void)
 {
-    if (g_data_source == NULL) return false;
-    return ds_poll(g_data_source);
+    bool result = false;
+    ds_lock();
+    if (g_data_source != NULL) result = ds_poll(g_data_source);
+    ds_unlock();
+    return result;
 }
 
 bool data_source_is_connected(void)
 {
-    if (g_data_source == NULL) return false;
-    return ds_is_connected(g_data_source);
+    bool result = false;
+    ds_lock();
+    if (g_data_source != NULL) result = ds_is_connected(g_data_source);
+    ds_unlock();
+    return result;
 }
 
 const NasData* data_source_get_data(void)
 {
-    if (g_data_source == NULL) return NULL;
-    return ds_get_data(g_data_source);
+    const NasData* result = NULL;
+    ds_lock();
+    if (g_data_source != NULL) result = ds_get_data(g_data_source);
+    ds_unlock();
+    return result;
 }
 
 const char* data_source_get_type_name(void)
 {
-    if (g_data_source == NULL) return "None";
-    return ds_get_type_name(g_data_source);
+    const char* result = "None";
+    ds_lock();
+    if (g_data_source != NULL) result = ds_get_type_name(g_data_source);
+    ds_unlock();
+    return result;
 }
 
 const char* data_source_get_conn_icon(void)
 {
-    if (g_data_source == NULL) return "none";
-    return ds_get_conn_icon(g_data_source);
+    const char* result = "none";
+    ds_lock();
+    if (g_data_source != NULL) result = ds_get_conn_icon(g_data_source);
+    ds_unlock();
+    return result;
+}
+
+/* 外部批量操作锁：事件循环任务在"抓数+发布"序列外整体持锁，
+ * 保证 get_data 返回的指针在其间不被其它线程（如 UI 设置页）
+ * 的 data_source_switch 销毁。与内部 ds_lock 为同一递归锁，嵌套调用安全。 */
+void data_source_lock(void)
+{
+    ds_lock();
+}
+
+void data_source_unlock(void)
+{
+    ds_unlock();
 }
 
 bool data_source_switch(const char* nas_type_id)
 {
+    ds_lock();
+
     if (g_data_source != NULL) {
         ESP_LOGI(TAG, "Switching from %s, disconnecting...", ds_get_type_name(g_data_source));
         ds_disconnect(g_data_source);
@@ -208,18 +277,22 @@ bool data_source_switch(const char* nas_type_id)
     if (nas_type_id == NULL || strlen(nas_type_id) == 0 ||
         strcmp(nas_type_id, "none") == 0) {
         ESP_LOGI(TAG, "Data source cleared (no type specified)");
+        ds_unlock();
         return true;
     }
 
     ESP_LOGI(TAG, "Creating new data source for type: %s", nas_type_id);
     if (!ds_create_and_init(nas_type_id)) {
+        ds_unlock();
         return false;
     }
 
     if (!ds_connect(g_data_source)) {
         ESP_LOGW(TAG, "Failed to connect data source for type: %s", nas_type_id);
+        ds_unlock();
         return false;
     }
 
+    ds_unlock();
     return true;
 }

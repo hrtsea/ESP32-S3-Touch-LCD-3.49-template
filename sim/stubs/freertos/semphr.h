@@ -3,6 +3,7 @@
 #include "FreeRTOS.h"
 
 static inline SemaphoreHandle_t xSemaphoreCreateMutex(void) { return (SemaphoreHandle_t)1; }
+static inline SemaphoreHandle_t xSemaphoreCreateRecursiveMutex(void) { return (SemaphoreHandle_t)1; }
 static inline SemaphoreHandle_t xSemaphoreCreateBinary(void) { return (SemaphoreHandle_t)1; }
 static inline SemaphoreHandle_t xSemaphoreCreateCounting(UBaseType_t max, UBaseType_t init) { (void)max; (void)init; return (SemaphoreHandle_t)1; }
 static inline BaseType_t xSemaphoreTake(SemaphoreHandle_t h, TickType_t to) { (void)h; (void)to; return pdTRUE; }

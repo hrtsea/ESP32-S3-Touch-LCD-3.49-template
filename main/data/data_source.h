@@ -95,6 +95,9 @@ const NasData* data_source_get_data(void);
 const char* data_source_get_type_name(void);
 const char* data_source_get_conn_icon(void);
 bool data_source_switch(const char* nas_type_id);
+/* 外部批量操作锁：对"抓数+发布"等需整体持锁的序列使用（递归锁，可嵌套） */
+void data_source_lock(void);
+void data_source_unlock(void);
 
 const char* get_display_type_name(const char* nas_type_id);
 NasType nas_type_from_string(const char* nas_type_id);

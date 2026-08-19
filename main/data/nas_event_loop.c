@@ -1,7 +1,6 @@
 #include "nas_event_loop.h"
 
 #include <string.h>
-#include <stdlib.h>
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -33,7 +32,9 @@
  *   - 消费者：task_nas_data_loop 任务阻塞在 event_bus_receive，串行处理所有事件。
  *
  * 并发模型：
- *   - s_fetch_mutex 保护数据源 poll/switch 的互斥；
+ *   - 数据源访问互斥由 data_source 模块内部的递归锁（data_source_lock/unlock）
+ *     统一保护，本模块任务在"抓数+发布"序列外持锁，与 UI 设置页的
+ *     data_source_switch 互斥，保证返回指针不被并发销毁；
  *   - 任务采用超时接收 + 退出信号量的优雅退出协议，stop 不直接强删任务，
  *     避免任务持锁或网络抓数进行中被强制终止。
  * ===================================================================== */
@@ -43,7 +44,6 @@ static const char *TAG = "nas_event_loop";
 /* ---------------- 模块级状态（全部仅由本模块访问） ---------------- */
 static TaskHandle_t s_nas_task_hdl = NULL;   /* 抓数任务句柄，stop 时用于等待其退出 */
 static bool s_running = false;               /* 事件循环总开关：start 置位 / stop 清零 */
-static SemaphoreHandle_t s_fetch_mutex = NULL;      /* 保护数据源 poll/switch 的互斥 */
 static SemaphoreHandle_t s_task_exit_sem = NULL;    /* 任务退出信号量：任务自删前 Give，stop 等待 */
 
 /* NAS 拉取周期定时器（原独立 http_timer 模块，已并入本模块）。
@@ -59,8 +59,9 @@ static SemaphoreHandle_t s_task_exit_sem = NULL;    /* 任务退出信号量：�
 static esp_timer_handle_t s_fetch_timer = NULL;   /* 2s 抓数周期定时器句柄 */
 
 /* 上一次抓数时的数据源连接状态：仅在翻转时打日志（连接建立/断开），
- * 避免每 2s 的抓数周期反复刷屏。初始假设已连接。 */
-static bool s_prev_connected = true;
+ * 避免每 2s 的抓数周期反复刷屏。初值 false：若首次抓数即已连接，
+ * 会打一条"established"日志，语义正确且不误报。 */
+static bool s_prev_connected = false;
 
 /* ---------------- 定时器回调 ---------------- */
 
@@ -152,20 +153,22 @@ static void task_nas_data_loop(void *arg)
     while (s_running) {
         event_t evt;
         /* 带超时接收：stop 置 s_running=false 后，任务最迟一个超时周期内自行退出，
-         * 避免被外部强删时可能持有 s_fetch_mutex 或正处于网络抓数中。 */
+         * 避免被外部强删时正处于网络抓数中。 */
         if (!event_bus_receive(&evt, pdMS_TO_TICKS(EVENT_LOOP_POLL_MS))) {
             continue; /* 超时无事件：回到 while 条件，检查是否被请求退出 */
         }
 
-        /* 持锁处理事件，与 nas_event_loop_switch_source 的数据源切换互斥 */
-        xSemaphoreTake(s_fetch_mutex, portMAX_DELAY);
+        /* "抓数+发布"整体持数据源锁：与 UI 设置页的 data_source_switch 互斥，
+         * 并保证 get_data 返回的指针在发布完成前不被并发销毁。
+         * 锁为递归锁，内部 is_connected/poll/get_data 各自持锁可安全重入。 */
+        data_source_lock();
 
         if (evt.id == EVENT_TRIGGER_HTTP_FETCH) {
             data_source_fetch_and_publish();
         }
         /* 其它事件与本模块无关，一律忽略 */
 
-        xSemaphoreGive(s_fetch_mutex);
+        data_source_unlock();
     }
 
     /* ---- 优雅退出路径：此处的必然前提是已 Give 锁，无锁残留 ---- */
@@ -180,11 +183,12 @@ static void task_nas_data_loop(void *arg)
 /* 启动事件循环：由 main 初始化流程调用一次。
  *
  * 初始化顺序（有严格依赖，不可随意调换）：
- *   1. 创建互斥锁 + 退出信号量（任何一步失败即回滚 s_running，允许重试）；
+ *   1. 创建任务退出信号量（失败即回滚 s_running，允许重试）；
  *   2. 根据配置创建并初始化数据源（失败仅告警，任务照常启动；
  *      是否可抓数由数据源内部连接状态决定，connect 失败会在 poll 中自动重试）；
- *   3. 创建抓数任务（失败则回滚全部已建资源）；
- *   4. 创建并启动 2s 周期定时器（失败则抓数停摆，但不影响事件循环本体）。 */
+ *   3. 创建抓数任务（失败则回滚已建资源）；
+ *   4. 创建并启动 2s 周期定时器（失败则抓数停摆，但不影响事件循环本体）。
+ *   注：数据源访问锁由 data_source 模块内部懒创建，本模块不参与。 */
 void nas_event_loop_start(void)
 {
     if (s_running) {
@@ -194,19 +198,11 @@ void nas_event_loop_start(void)
 
     s_running = true;
 
-    /* 1. 同步原语：先建互斥锁，再建退出信号量 */
-    s_fetch_mutex = xSemaphoreCreateMutex();
-    if (s_fetch_mutex == NULL) {
-        ESP_LOGE(TAG, "Failed to create fetch mutex");
-        s_running = false; /* 回滚状态，允许重试 */
-        return;
-    }
+    /* 1. 任务退出信号量：优雅退出协议的核心同步原语 */
     s_task_exit_sem = xSemaphoreCreateBinary();
     if (s_task_exit_sem == NULL) {
         ESP_LOGE(TAG, "Failed to create task exit semaphore");
-        vSemaphoreDelete(s_fetch_mutex);
-        s_fetch_mutex = NULL;
-        s_running = false;
+        s_running = false; /* 回滚状态，允许重试 */
         return;
     }
 
@@ -233,8 +229,6 @@ void nas_event_loop_start(void)
         ESP_LOGE(TAG, "Failed to create nas data loop task");
         vSemaphoreDelete(s_task_exit_sem);
         s_task_exit_sem = NULL;
-        vSemaphoreDelete(s_fetch_mutex);
-        s_fetch_mutex = NULL;
         s_running = false;
         return;
     }
@@ -270,7 +264,7 @@ void nas_event_loop_start(void)
  *   2. 置 s_running=false 并等待任务优雅退出 —— 任务自删前 Give 退出信号量，
  *      本函数阻塞等待至多 TASK_EXIT_WAIT_MS；超时才强删兜底（极端网络阻塞场景）；
  *   3. 断开数据源 —— 此时任务已退出，不会与 poll 并发访问数据源；
- *   4. 删除互斥锁与退出信号量。 */
+ *   4. 删除退出信号量。 */
 void nas_event_loop_stop(void)
 {
     if (!s_running) {
@@ -302,10 +296,6 @@ void nas_event_loop_stop(void)
     data_source_disconnect();
 
     /* 4. 清理同步原语 */
-    if (s_fetch_mutex != NULL) {
-        vSemaphoreDelete(s_fetch_mutex);
-        s_fetch_mutex = NULL;
-    }
     if (s_task_exit_sem != NULL) {
         vSemaphoreDelete(s_task_exit_sem);
         s_task_exit_sem = NULL;
@@ -318,33 +308,4 @@ void nas_event_loop_stop(void)
 bool nas_event_loop_is_running(void)
 {
     return s_running;
-}
-
-/* 运行时切换数据源类型：由设置界面在保存 NAS 类型后调用。
- *
- * 流程：持锁 → data_source_switch 重建并连接新数据源。
- * 是否可抓数不在此判断：新数据源的连接状态由其内部维护
- * （mock 恒连、真实 NAS 待 poll 重连成功），任务下一次抓数指令自然生效。
- * 与任务内的事件处理互斥，避免切换过程中发生并发 poll。 */
-bool nas_event_loop_switch_source(const char *nas_type_id)
-{
-    if (!s_running) {
-        ESP_LOGW(TAG, "NAS event loop not running");
-        return false;
-    }
-
-    /* 持锁期间任务内的事件处理（含 poll）全部暂停，保证切换原子性 */
-    xSemaphoreTake(s_fetch_mutex, portMAX_DELAY);
-
-    if (!data_source_switch(nas_type_id)) {
-        xSemaphoreGive(s_fetch_mutex);
-        ESP_LOGE(TAG, "Failed to switch data source");
-        return false;
-    }
-
-    ESP_LOGI(TAG, "Data source switched to: %s", nas_type_id);
-
-    xSemaphoreGive(s_fetch_mutex);
-
-    return true;
 }
