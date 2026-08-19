@@ -360,8 +360,8 @@ void app_cfg_init(void)
             strncpy(g_cfg.last_ssid, DEFAULT_WIFI_SSID, sizeof(g_cfg.last_ssid) - 1);
         }
         
-        /* 保存迁移后的配置（迁移必须立即落盘，不延迟） */
-        app_cfg_flush();
+        /* 保存迁移后的配置（迁移直接改 g_cfg 未置脏，必须无条件立即落盘） */
+        cfg_write_all_to_nvs();
     }
 
     /* 输出配置信息日志 */
@@ -604,16 +604,6 @@ void app_cfg_set_bg_refresh_s(int s)
 void app_cfg_clock_bg_reload(void)
 {
     event_bus_publish(EVENT_CLOCK_BG_CHANGED, NULL, 0);
-}
-
-/**
- * @brief 立即获取背景图片
- * 
- * 如果当前是图片背景模式且有 URL，则触发获取回调
- */
-void app_cfg_bg_fetch_now(void)
-{
-    if (g_cfg.bg_mode != 2 || !g_cfg.bg_url[0]) return;
 }
 
 /* ==================== 行情配置 API ==================== */

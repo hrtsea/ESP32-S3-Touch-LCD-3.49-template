@@ -207,7 +207,6 @@ uint32_t app_cfg_get_bg_color(void);                /* 获取背景纯色 */
 void app_cfg_set_bg_color(uint32_t rgba);           /* 设置背景纯色 */
 void app_cfg_set_bg_refresh_s(int s);               /* 设置背景刷新间隔 */
 void app_cfg_clock_bg_reload(void);                 /* 重新加载背景 */
-void app_cfg_bg_fetch_now(void);                    /* 立即获取背景图片 */
 
 const char *app_cfg_get_quotes_sym_l(void);         /* 获取左侧行情符号 */
 const char *app_cfg_get_quotes_sym_r(void);         /* 获取右侧行情符号 */

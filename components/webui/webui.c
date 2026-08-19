@@ -39,6 +39,7 @@
 #include "sdcard_bsp.h"
 #include "app_cfg.h"      /* 配置唯一权威源 */
 #include "drivers/disp_driver.h"  /* 画布尺寸查询（硬件信息） */
+#include "utils/bg_fetcher.h"  /* bg_fetcher_ensure */
 #include "data_source.h"  /* data_source_switch */
 #include "fan_control.h"  /* FanConfig */
 #include "esp_wifi_config.h"  /* WiFi authority: wifi_cfg_* */
@@ -153,7 +154,6 @@ extern void app_cfg_set_bg_mode(int m);
 extern void app_cfg_set_bg_url(const char *url);
 extern void app_cfg_set_bg_refresh_s(int s);
 extern void app_cfg_clock_bg_reload(void);
-extern void app_cfg_bg_fetch_now(void);
 extern uint32_t app_cfg_get_bg_color(void);
 extern void app_cfg_set_bg_color(uint32_t rgba);
 /* Quotes tile. */
@@ -1051,7 +1051,7 @@ static esp_err_t h_bg_fetch(httpd_req_t *r)
         return send_str(r, "application/json",
                         "{\"ok\":false,\"err\":\"empty URL\"}");
     }
-    app_cfg_bg_fetch_now();
+    bg_fetcher_ensure();
     return send_str(r, "application/json", "{\"ok\":true}");
 }
 
