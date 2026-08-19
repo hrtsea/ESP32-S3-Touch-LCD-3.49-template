@@ -20,89 +20,15 @@ static SemaphoreHandle_t s_fetch_mutex = NULL;
 
 /* NAS 拉取周期定时器（原独立 http_timer 模块，已并入本模块）。
  * 回调仅发布 EVENT_TRIGGER_HTTP_FETCH，实际抓数由 task_nas_data_loop 执行，
- * 避免网络阻塞 esp_timer 任务。 */
+ * 避免网络阻塞 esp_timer 任务。随 nas_event_loop_start() 一并创建并启动。 */
+#define FETCH_INTERVAL_MS 2000u
+
 static esp_timer_handle_t s_fetch_timer = NULL;
-static uint32_t s_fetch_interval_ms = 2000;
-static bool s_fetch_timer_running = false;
 
 static void fetch_timer_cb(void *arg)
 {
     (void)arg;
     event_bus_publish(EVENT_TRIGGER_HTTP_FETCH, NULL, 0);
-}
-
-void nas_event_loop_timer_init(void)
-{
-    if (s_fetch_timer) return;
-
-    esp_timer_create_args_t args = {
-        .callback = fetch_timer_cb,
-        .arg = NULL,
-        .dispatch_method = ESP_TIMER_TASK,
-        .name = "nas_fetch_timer",
-        .skip_unhandled_events = true,
-    };
-    esp_err_t err = esp_timer_create(&args, &s_fetch_timer);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to create fetch timer: %s", esp_err_to_name(err));
-        return;
-    }
-
-    ESP_LOGI(TAG, "Fetch timer initialized (interval=%ums)", s_fetch_interval_ms);
-}
-
-void nas_event_loop_timer_start(void)
-{
-    if (s_fetch_timer == NULL) {
-        nas_event_loop_timer_init();
-    }
-
-    if (s_fetch_timer_running) {
-        ESP_LOGW(TAG, "Fetch timer already running");
-        return;
-    }
-
-    esp_err_t err = esp_timer_start_periodic(s_fetch_timer, (uint64_t)s_fetch_interval_ms * 1000);
-    if (err == ESP_OK) {
-        s_fetch_timer_running = true;
-        ESP_LOGI(TAG, "Fetch timer started");
-    } else {
-        ESP_LOGE(TAG, "Failed to start fetch timer: %s", esp_err_to_name(err));
-    }
-}
-
-void nas_event_loop_timer_stop(void)
-{
-    if (!s_fetch_timer_running || s_fetch_timer == NULL) {
-        return;
-    }
-
-    esp_err_t err = esp_timer_stop(s_fetch_timer);
-    if (err == ESP_OK) {
-        s_fetch_timer_running = false;
-        ESP_LOGI(TAG, "Fetch timer stopped");
-    }
-}
-
-void nas_event_loop_timer_set_interval_ms(uint32_t ms)
-{
-    s_fetch_interval_ms = ms;
-
-    if (s_fetch_timer != NULL && s_fetch_timer_running) {
-        esp_timer_stop(s_fetch_timer);
-        esp_timer_start_periodic(s_fetch_timer, (uint64_t)ms * 1000);
-        ESP_LOGI(TAG, "Fetch timer interval changed to %ums", ms);
-    }
-}
-
-uint32_t nas_event_loop_timer_get_interval_ms(void)
-{
-    return s_fetch_interval_ms;
-}
-
-bool nas_event_loop_timer_is_running(void)
-{
-    return s_fetch_timer_running;
 }
 
 static bool data_source_fetch_and_publish(void)
@@ -211,6 +137,21 @@ void nas_event_loop_start(void)
     }
 
     xTaskCreate(task_nas_data_loop, "nas_data_loop", 8192, NULL, 1, &s_nas_task_hdl);
+
+    /* 拉取周期定时器：随事件循环一并创建并启动，回调仅发布 EVENT_TRIGGER_HTTP_FETCH */
+    esp_timer_create_args_t args = {
+        .callback = fetch_timer_cb,
+        .arg = NULL,
+        .dispatch_method = ESP_TIMER_TASK,
+        .name = "nas_fetch_timer",
+        .skip_unhandled_events = true,
+    };
+    if (esp_timer_create(&args, &s_fetch_timer) == ESP_OK &&
+        esp_timer_start_periodic(s_fetch_timer, (uint64_t)FETCH_INTERVAL_MS * 1000) == ESP_OK) {
+        ESP_LOGI(TAG, "Fetch timer started (interval=%ums)", FETCH_INTERVAL_MS);
+    } else {
+        ESP_LOGE(TAG, "Failed to create/start fetch timer");
+    }
 
     ESP_LOGI(TAG, "NAS event loop started");
 }

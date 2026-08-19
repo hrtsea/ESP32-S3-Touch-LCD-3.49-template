@@ -36,7 +36,7 @@
 #include "app_cfg.h"
 #include "disp_driver.h"
 #include "sntp_manager.h"
-#include "system_init.h"
+#include "system_monitor.h"
 #include "board.h"
 #include "network_init.h"
 #include "ui.h"
@@ -92,9 +92,6 @@ extern "C" void app_main(void)
     network_init();
 
     nas_event_loop_start();
-
-    nas_event_loop_timer_init();
-    nas_event_loop_timer_start();
 
     ui_init();
 
