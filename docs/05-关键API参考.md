@@ -48,8 +48,6 @@ uint8_t       app_cfg_get_bg_mode(void);
 uint16_t      app_cfg_get_bg_refresh_s(void);
 const char*   app_cfg_get_bg_url(void);              // 内部指针
 uint32_t      app_cfg_get_bg_color(void);
-uint16_t      app_cfg_get_canvas_w(void);            // 转发到 disp_driver
-uint16_t      app_cfg_get_canvas_h(void);
 const char*   app_cfg_get_quotes_sym_l(void);
 const char*   app_cfg_get_quotes_sym_r(void);
 uint16_t      app_cfg_get_quotes_refresh_s(void);
@@ -62,34 +60,60 @@ uint32_t      app_cfg_get_quotes_down_rgba(void);
 | 分类 | API |
 |------|-----|
 | 时钟 | `app_cfg_set_show_seconds(uint8_t)` / `set_show_clock(uint8_t)` / `set_clock_text(const char*)` / `set_clock_pos(int16_t x, int16_t y)` / `set_clock_size(uint8_t)` / `set_clock_rgba(uint32_t)` / `set_show_ms(uint8_t)` |
-| 背景 | `app_cfg_set_bg_mode(uint8_t)` / `set_bg_url(const char*)` / `set_bg_color(uint32_t)` / `set_bg_refresh_s(uint16_t)` / `clock_bg_reload(void)` / `bg_fetch_now(void)` |
+| 背景 | `app_cfg_set_bg_mode(uint8_t)` / `set_bg_url(const char*)` / `set_bg_color(uint32_t)` / `set_bg_refresh_s(uint16_t)` / `clock_bg_reload(void)` |
 | 行情 | `app_cfg_set_quotes_sym_l(const char*)` / `set_quotes_sym_r(const char*)` / `set_quotes_refresh_s(uint16_t)` / `set_quotes_up_rgba(uint32_t)` / `set_quotes_down_rgba(uint32_t)` |
 | 显示 | `app_cfg_set_lang(uint8_t)` / `set_brightness(uint8_t)` / `set_dim_off(uint16_t dim_s, uint16_t off_s)` / `set_show_fps(uint8_t)` / `set_audio_enable(uint8_t)` / `set_audio_volume(uint8_t)` / `set_theme(uint8_t)` |
 | 时间 | `app_cfg_set_tz_idx(uint16_t)` / `set_hour24(uint8_t)` / `set_date_fmt(uint8_t)` |
 | WiFi | `app_cfg_set_wifi_autoconnect(uint8_t)` / `wifi_connect_save(const char* ssid, const char* pass)` / `set_last_ssid(const char*)` |
 | Tile | `app_cfg_set_active_tile(int idx)` |
 
-### config（旧体系，命名空间 `"nasmon"`）
+### app_cfg NAS/磁盘配置（v8 并入，命名空间 `"cfg"`）
 
-文件：[config.h](../main/config/config.h)
+文件：[app_cfg.h](../main/config/app_cfg.h)
+
+> **2026-08 更新**：旧 `config.h/.c` 体系已删除，NAS/SNMP/磁盘/风扇/天气等字段全部并入 `app_cfg`。
 
 ```c
-void config_load(void);
-void config_save(void);
-void config_save_wifi(const char* ssid, const char* pass);
-void config_save_nas(const char* type, const char* ip, uint16_t port,
-                     const char* user, const char* pass, bool https);
-void config_save_display(uint16_t rotation_angle, uint8_t brightness, uint8_t autodim);
-void config_save_fan(const FanConfig* fan);
-void config_save_disk_config(uint8_t sata, uint8_t m2);   // 发布 EVENT_DISK_CONFIG_CHANGED
-void config_reset(void);
-void config_save_backup(void);
-void config_restore_backup(void);
+// NAS 连接
+void     app_cfg_set_nas_type(const char* t);
+void     app_cfg_set_nas_ip(const char* ip);
+void     app_cfg_set_nas_port(uint16_t p);
+void     app_cfg_set_nas_user(const char* u);
+void     app_cfg_set_nas_pass(const char* p);
+void     app_cfg_set_nas_https(bool on);
+const char* app_cfg_get_nas_type(void);
+const char* app_cfg_get_nas_ip(void);
+uint16_t app_cfg_get_nas_port(void);
+const char* app_cfg_get_nas_user(void);
+const char* app_cfg_get_nas_pass(void);
+bool     app_cfg_get_nas_https(void);
 
-// 内联辅助
-static inline uint8_t config_get_total_disk_slots(void);
-static inline bool    config_is_sata_slot(uint8_t idx);
-static inline bool    config_is_m2_slot(uint8_t idx);
+// SNMP / 串口 / 轮询
+void     app_cfg_set_snmp_comm(const char* c);
+void     app_cfg_set_snmp_ver(uint8_t v);
+void     app_cfg_set_serial_baud(uint32_t b);
+void     app_cfg_set_poll_sec(uint8_t s);
+void     app_cfg_set_rotation_angle(uint16_t a);
+void     app_cfg_set_autodim(uint8_t a);
+void     app_cfg_set_timezone(int8_t tz);
+
+// 磁盘槽
+void     app_cfg_set_sata_disk_count(uint8_t c);   // 发布 EVENT_DISK_CONFIG_CHANGED
+void     app_cfg_set_m2_disk_count(uint8_t c);
+uint8_t  app_cfg_get_sata_disk_count(void);
+uint8_t  app_cfg_get_m2_disk_count(void);
+bool     app_cfg_is_sata_slot(uint8_t idx);        // idx < sata
+bool     app_cfg_is_m2_slot(uint8_t idx);
+
+// 风扇（FanConfig 类型，config 层 fan_config.h）
+void     app_cfg_set_fan(const FanConfig* fan);
+void     app_cfg_get_fan(FanConfig* fan);
+
+// 天气 / 轮播
+void     app_cfg_set_weather_api_key(const char* k);
+void     app_cfg_set_weather_city(const char* c);
+void     app_cfg_set_auto_cycle(bool on);
+void     app_cfg_set_auto_cycle_interval(uint32_t sec);
 ```
 
 ---

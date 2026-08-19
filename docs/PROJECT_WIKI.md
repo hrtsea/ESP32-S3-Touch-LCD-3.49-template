@@ -69,11 +69,11 @@ ZotLab NAS Monitor 是一款基于 ESP32-S3 的 NAS 监控设备固件，具备�
 
 ```
 main/
-├── config/              # 配置管理
-│   ├── app_cfg.c/h      # 应用配置（NVS 持久化）
-│   ├── config.c/h       # NAS 配置
+├── config/              # 配置管理（单一 app_cfg 体系）
+│   ├── app_cfg.c/h      # 应用配置（NVS 持久化，延迟落盘 C1）
+│   ├── fan_config.h     # FanConfig 纯类型 + 默认曲线
 │   └── app_info.h       # 应用信息
-├── data/                # 数据采集
+├── data/                # NAS 数据获取与处理
 │   ├── client/          # 数据源客户端
 │   │   ├── api_client.c/h
 │   │   ├── synology_client.c/h
@@ -86,10 +86,10 @@ main/
 │   ├── data_source.c/h  # 数据源工厂（VTable 模式）
 │   ├── nas_data.h       # NAS 数据结构定义
 │   ├── nas_data_json.c/h # JSON 解析
-│   ├── nas_event_loop.c/h # 数据采集事件循环
-│   └── fan_control.h    # 风扇控制接口
-├── drivers/             # 显示驱动
-│   └── disp_driver.c/h  # LCD 显示驱动（含 LVGL 适配）
+│   └── nas_event_loop.c/h # 数据采集事件循环
+├── drivers/             # 硬件驱动 + 控制
+│   ├── disp_driver.c/h  # LCD 显示驱动（含 LVGL 适配）
+│   └── fan_control.c/h  # 风扇控制（LEDC PWM + PCNT 测速）
 ├── fonts/               # 字体文件
 ├── network/             # 网络模块
 │   ├── wifi_manager.c/h # WiFi 管理（STA/AP/漫游）
