@@ -13,8 +13,6 @@ extern "C" {
  * ============================================================ */
 
 #define NVS_NAMESPACE "nasmon"
-#define NVS_WIFI_SSID "wifi_ssid"
-#define NVS_WIFI_PASS "wifi_pass"
 #define NVS_NAS_TYPE "nas_type"
 #define NVS_NAS_IP "nas_ip"
 #define NVS_NAS_PORT "nas_port"
@@ -26,7 +24,6 @@ extern "C" {
 #define NVS_SERIAL_BAUD "serial_baud"
 #define NVS_POLL_SEC "poll_sec"
 #define NVS_ROTATION_ANGLE "rotation_angle"
-#define NVS_BRIGHTNESS "brightness"
 #define NVS_AUTODIM "autodim"
 #define NVS_TIMEZONE "timezone"
 #define NVS_SATA_DISK_COUNT "sata_count"
@@ -92,9 +89,6 @@ extern "C" {
  * ============================================================ */
 
 typedef struct AppConfig {
-    char ssid[33];
-    char wifipass[65];
-
     char nas_type[16];
     char nas_ip[40];
     uint16_t nas_port;
@@ -107,7 +101,6 @@ typedef struct AppConfig {
 
     uint8_t poll_sec;
     uint8_t rotation_angle;
-    uint8_t brightness;
     bool autodim;
     int8_t timezone;
 
@@ -152,10 +145,9 @@ static inline bool config_is_m2_slot(uint8_t index) {
 
 void config_load(void);
 void config_save(void);
-void config_save_wifi(const char* ssid, const char* pass);
 void config_save_nas(const char* type, const char* ip, uint16_t port,
                      const char* user, const char* pass, bool https);
-void config_save_display(uint8_t rotation_angle, uint8_t brightness, bool autodim);
+void config_save_display(uint8_t rotation_angle, bool autodim);
 void config_save_fan(const FanConfig* fan);
 void config_save_disk_config(uint8_t sata_count, uint8_t m2_count);
 void config_reset(void);

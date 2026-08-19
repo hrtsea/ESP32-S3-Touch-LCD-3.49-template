@@ -15,7 +15,6 @@ static void config_init_defaults(void)
     g_config.nas_port = 0;
     g_config.poll_sec = DEFAULT_POLL_SEC;
     g_config.rotation_angle = 0;
-    g_config.brightness = 128;
     g_config.autodim = true;
     g_config.timezone = 8;
     g_config.serial_baud = DEFAULT_SERIAL_BAUD;
@@ -48,12 +47,6 @@ void config_load(void)
     }
 
     size_t len;
-
-    len = sizeof(g_config.ssid);
-    nvs_get_str(h, NVS_WIFI_SSID, g_config.ssid, &len);
-
-    len = sizeof(g_config.wifipass);
-    nvs_get_str(h, NVS_WIFI_PASS, g_config.wifipass, &len);
 
     len = sizeof(g_config.nas_type);
     nvs_get_str(h, NVS_NAS_TYPE, g_config.nas_type, &len);
@@ -98,10 +91,6 @@ void config_load(void)
 
     if (nvs_get_u8(h, NVS_ROTATION_ANGLE, &g_config.rotation_angle) != ESP_OK) {
         g_config.rotation_angle = 0;
-    }
-
-    if (nvs_get_u8(h, NVS_BRIGHTNESS, &g_config.brightness) != ESP_OK) {
-        g_config.brightness = 128;
     }
 
     uint8_t autodim;
@@ -195,8 +184,6 @@ void config_save(void)
         return;
     }
 
-    nvs_set_str(h, NVS_WIFI_SSID, g_config.ssid);
-    nvs_set_str(h, NVS_WIFI_PASS, g_config.wifipass);
     nvs_set_str(h, NVS_NAS_TYPE, g_config.nas_type);
     nvs_set_str(h, NVS_NAS_IP, g_config.nas_ip);
     nvs_set_u16(h, NVS_NAS_PORT, g_config.nas_port);
@@ -208,7 +195,6 @@ void config_save(void)
     nvs_set_u32(h, NVS_SERIAL_BAUD, g_config.serial_baud);
     nvs_set_u8(h, NVS_POLL_SEC, g_config.poll_sec);
     nvs_set_u8(h, NVS_ROTATION_ANGLE, g_config.rotation_angle);
-    nvs_set_u8(h, NVS_BRIGHTNESS, g_config.brightness);
     nvs_set_u8(h, NVS_AUTODIM, g_config.autodim ? 1 : 0);
     nvs_set_i8(h, NVS_TIMEZONE, g_config.timezone);
     nvs_set_u8(h, NVS_SATA_DISK_COUNT, g_config.sata_disk_count);
@@ -230,28 +216,6 @@ void config_save(void)
 
     nvs_commit(h);
     nvs_close(h);
-}
-
-void config_save_wifi(const char* ssid, const char* pass)
-{
-    nvs_handle_t h;
-    esp_err_t ret = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h);
-    if (ret != ESP_OK) {
-        return;
-    }
-
-    nvs_set_str(h, NVS_WIFI_SSID, ssid);
-    if (pass && strlen(pass) > 0) {
-        nvs_set_str(h, NVS_WIFI_PASS, pass);
-    }
-
-    nvs_commit(h);
-    nvs_close(h);
-
-    strlcpy(g_config.ssid, ssid, sizeof(g_config.ssid));
-    if (pass && strlen(pass) > 0) {
-        strlcpy(g_config.wifipass, pass, sizeof(g_config.wifipass));
-    }
 }
 
 void config_save_nas(const char* type, const char* ip, uint16_t port,
@@ -281,7 +245,7 @@ void config_save_nas(const char* type, const char* ip, uint16_t port,
     g_config.nas_https = https;
 }
 
-void config_save_display(uint8_t rotation_angle, uint8_t brightness, bool autodim)
+void config_save_display(uint8_t rotation_angle, bool autodim)
 {
     nvs_handle_t h;
     esp_err_t ret = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h);
@@ -290,14 +254,12 @@ void config_save_display(uint8_t rotation_angle, uint8_t brightness, bool autodi
     }
 
     nvs_set_u8(h, NVS_ROTATION_ANGLE, rotation_angle);
-    nvs_set_u8(h, NVS_BRIGHTNESS, brightness);
     nvs_set_u8(h, NVS_AUTODIM, autodim ? 1 : 0);
 
     nvs_commit(h);
     nvs_close(h);
 
     g_config.rotation_angle = rotation_angle;
-    g_config.brightness = brightness;
     g_config.autodim = autodim;
 }
 

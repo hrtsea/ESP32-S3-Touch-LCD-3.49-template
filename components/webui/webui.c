@@ -39,6 +39,7 @@
 #include "sdcard_bsp.h"
 #include "config.h"       /* g_config, config_save_* */
 #include "fan_control.h"  /* FanConfig */
+#include "esp_wifi_config.h"  /* WiFi authority: wifi_cfg_* */
 
 /* ── Basic Auth configuration ──────────────────────────────────── */
 
@@ -1337,6 +1338,14 @@ static esp_err_t h_settings_get(httpd_req_t *r)
     char *json = malloc(2048);
     if (!json) return send_str(r, "application/json", "{\"error\":\"oom\"}");
     const AppConfig *c = &g_config;
+    char cur_ssid[33] = {0};
+    {
+        wifi_network_t nets[1];
+        size_t cnt = 0;
+        if (wifi_cfg_list_networks(nets, 1, &cnt) == ESP_OK && cnt > 0) {
+            strncpy(cur_ssid, nets[0].ssid, sizeof(cur_ssid) - 1);
+        }
+    }
     int n = snprintf(json, 2048,
         "{\"wifi_ssid\":\"%s\",\"wifi_pass\":\"\","
         "\"nas_type\":\"%s\",\"nas_ip\":\"%s\",\"nas_port\":%u,"
@@ -1355,7 +1364,7 @@ static esp_err_t h_settings_get(httpd_req_t *r)
         "{\"temp\":%d,\"pct\":%u},{\"temp\":%d,\"pct\":%u},"
         "{\"temp\":%d,\"pct\":%u},{\"temp\":%d,\"pct\":%u},"
         "{\"temp\":%d,\"pct\":%u}]}",
-        c->ssid,
+        cur_ssid,
         c->nas_type, c->nas_ip, (unsigned)c->nas_port,
         c->nas_user, (int)c->nas_https,
         c->snmp_comm, (unsigned)c->snmp_ver, (unsigned long)c->serial_baud,
@@ -1398,22 +1407,29 @@ static esp_err_t h_settings_post(httpd_req_t *r)
     bool reboot_required = false;
     char tmp[80];
 
-    /* WiFi: empty password keeps current value */
+    /* WiFi: esp_wifi_config is the sole authority (NVS-backed).
+       Empty wifi_ssid means "do not change WiFi" (legacy empty/keep semantics). */
     if (form_has(body, "wifi_ssid") || form_has(body, "wifi_pass")) {
         char ssid[33] = {0};
         char pass[65] = {0};
         if (form_str(body, "wifi_ssid", tmp, sizeof(tmp))) {
             strncpy(ssid, tmp, sizeof(ssid) - 1);
-        } else {
-            strncpy(ssid, g_config.ssid, sizeof(ssid) - 1);
         }
         if (form_str(body, "wifi_pass", tmp, sizeof(tmp)) && tmp[0]) {
             strncpy(pass, tmp, sizeof(pass) - 1);
-        } else {
-            strncpy(pass, g_config.wifipass, sizeof(pass) - 1);
         }
-        config_save_wifi(ssid, pass);
-        reboot_required = true;
+        if (ssid[0]) {
+            wifi_network_t net = {0};
+            strncpy(net.ssid, ssid, sizeof(net.ssid) - 1);
+            strncpy(net.password, pass, sizeof(net.password) - 1);
+            net.priority = 0;
+            if (wifi_cfg_get_network(ssid, &net) == ESP_OK) {
+                wifi_cfg_update_network(&net);
+            } else {
+                wifi_cfg_add_network(&net);
+            }
+            reboot_required = true;
+        }
     }
 
     /* NAS connection */
@@ -1449,11 +1465,11 @@ static esp_err_t h_settings_post(httpd_req_t *r)
         reboot_required = true;
     }
 
-    /* Display: brightness is kept from g_config (it has its own endpoint) */
+    /* Display: brightness is managed by the new config system; only rotation/autodim here */
     if (form_has(body, "poll_sec") || form_has(body, "rotation_angle") || form_has(body, "autodim")) {
         uint8_t rot = (uint8_t)form_int(body, "rotation_angle", g_config.rotation_angle);
         bool autodim = form_has(body, "autodim") ? form_bool(body, "autodim", false) : g_config.autodim;
-        config_save_display(rot, g_config.brightness, autodim);
+        config_save_display(rot, autodim);
         if (form_has(body, "rotation_angle")) reboot_required = true;
     }
 
