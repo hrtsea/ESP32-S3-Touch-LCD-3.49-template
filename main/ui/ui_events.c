@@ -739,7 +739,7 @@ void setTempUnit(lv_event_t * e)
 void saveConfig(lv_event_t * e)
 {
     (void)e;
-    app_cfg_save();
+    app_cfg_flush();   /* UI 手动保存：立即落盘 */
 }
 
 void turnonScreen(lv_event_t * e)

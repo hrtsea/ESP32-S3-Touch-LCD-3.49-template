@@ -7,6 +7,7 @@
 #include "nvs.h"
 #include "esp_err.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
@@ -97,13 +98,56 @@ app_cfg_t g_cfg = {
     .auto_cycle_interval_sec = 10,
 };
 
+/* 延迟落盘标志：配置变更后先标记脏，由 esp_timer 周期统一写入 NVS（C1 去抖） */
+static bool                s_dirty = false;
+static esp_timer_handle_t  s_flush_timer = NULL;
+
+static void cfg_write_all_to_nvs(void);
+static void cfg_timer_cb(void *arg);
+static void cfg_mark_dirty(void);
+
+/**
+ * @brief 延迟落盘定时器回调：若有脏配置则统一写盘
+ */
+static void cfg_timer_cb(void *arg)
+{
+    (void)arg;
+    if (s_dirty) {
+        s_dirty = false;
+        cfg_write_all_to_nvs();
+    }
+}
+
+/**
+ * @brief 标记配置为脏，触发延迟落盘
+ *
+ * 高频 setter 仅标记，不每次提交 NVS，由周期定时器合并提交（防磨损）。
+ * 首次标记时创建定时器（1s 周期，一次性触发后停止），避免空转。
+ */
+static void cfg_mark_dirty(void)
+{
+    s_dirty = true;
+    if (s_flush_timer == NULL) {
+        esp_timer_create_args_t args = {
+            .callback = cfg_timer_cb,
+            .name = "cfg_flush",
+            .skip_unhandled_events = true,
+        };
+        if (esp_timer_create(&args, &s_flush_timer) != ESP_OK) return;
+    }
+    /* 每次变更都重置 1s 倒计时：最后变更后 1s 合并落盘 */
+    esp_timer_start_once(s_flush_timer, 1000000);
+}
+
 /**
  * @brief 发布配置变更事件
  *
  * 统一的发布入口，避免每个 setter 重复样板代码。
+ * 具体字段变更会顺带标记脏（延迟落盘），CFG_FIELD_ALL 除外。
  */
 static void cfg_publish(cfg_field_t field)
 {
+    if (field != CFG_FIELD_ALL) cfg_mark_dirty();
     cfg_change_info_t info = { .field = field };
     event_bus_publish(EVENT_CFG_CHANGED, &info, sizeof(info));
 }
@@ -316,8 +360,8 @@ void app_cfg_init(void)
             strncpy(g_cfg.last_ssid, DEFAULT_WIFI_SSID, sizeof(g_cfg.last_ssid) - 1);
         }
         
-        /* 保存迁移后的配置 */
-        app_cfg_save();
+        /* 保存迁移后的配置（迁移必须立即落盘，不延迟） */
+        app_cfg_flush();
     }
 
     /* 输出配置信息日志 */
@@ -341,15 +385,15 @@ void app_cfg_load(void)
 }
 
 /**
- * @brief 保存配置到 NVS
- * 
- * 将所有配置参数写入 NVS 并提交
+ * @brief 将全部配置字段写入 NVS 并提交
+ *
+ * 内部公共写盘逻辑，供延迟提交（tick）与立即落盘（flush）复用。
  */
-void app_cfg_save(void)
+static void cfg_write_all_to_nvs(void)
 {
     nvs_handle_t h;
     if (nvs_open(NVS_NS_CFG, NVS_READWRITE, &h) != ESP_OK) return;
-    
+
     /* 基础配置 */
     nvs_set_u8 (h, "ver",       g_cfg.version);
     nvs_set_u16(h, "tz_idx",    g_cfg.tz_idx);
@@ -366,7 +410,7 @@ void app_cfg_save(void)
     nvs_set_u8 (h, "lang",      g_cfg.lang);
     nvs_set_u16(h, "dim_s",     g_cfg.dim_s);
     nvs_set_u16(h, "off_s",     g_cfg.off_s);
-    
+
     /* 时钟配置 */
     nvs_set_i16(h, "clk_x",     g_cfg.clock_x);
     nvs_set_i16(h, "clk_y",     g_cfg.clock_y);
@@ -374,13 +418,13 @@ void app_cfg_save(void)
     nvs_set_u32(h, "clk_rgba",  g_cfg.clock_rgba);
     nvs_set_u8 (h, "clk_show",  g_cfg.show_clock);
     nvs_set_str(h, "clk_text",  g_cfg.clock_text);
-    
+
     /* 背景配置 */
     nvs_set_u8 (h, "bg_mode",   g_cfg.bg_mode);
     nvs_set_u16(h, "bg_refr",   g_cfg.bg_refresh_s);
     nvs_set_str(h, "bg_url",    g_cfg.bg_url);
     nvs_set_u32(h, "bg_color",  g_cfg.bg_color);
-    
+
     /* 行情配置 */
     nvs_set_str(h, "q_sl",      g_cfg.quotes_sym_l);
     nvs_set_str(h, "q_sr",      g_cfg.quotes_sym_r);
@@ -416,9 +460,30 @@ void app_cfg_save(void)
     /* 提交更改并关闭 NVS */
     nvs_commit(h);
     nvs_close(h);
+}
 
-    /* 通知订阅者配置已整体保存（细粒度事件由各 setter 单独发布） */
-    cfg_publish(CFG_FIELD_ALL);
+/**
+ * @brief 保存配置到 NVS（延迟）
+ *
+ * C1 去抖：仅标记脏，由 1Hz tick 统一合并写入 NVS，避免高频 setter
+ * （亮度/音量等）每次操作都触发全量擦写，减少 Flash 磨损。
+ */
+void app_cfg_save(void)
+{
+    cfg_mark_dirty();
+}
+
+/**
+ * @brief 立即刷新脏配置到 NVS（同步阻塞）
+ *
+ * 用于关机 / 配网 / 手动保存等需要确保落盘的场景。
+ */
+void app_cfg_flush(void)
+{
+    if (s_dirty) {
+        s_dirty = false;
+        cfg_write_all_to_nvs();
+    }
 }
 
 /* ==================== 获取器 API ==================== */
@@ -847,7 +912,7 @@ void app_cfg_set_last_ssid(const char *ssid)
     g_cfg.last_ssid[len] = '\0';
     cfg_unlock();
     cfg_publish(CFG_FIELD_LAST_SSID);
-    app_cfg_save();
+    app_cfg_flush();   /* 配网凭证：立即落盘，防断电丢失 */
 }
 
 size_t app_cfg_get_last_ssid(char *buf, size_t buf_len)
