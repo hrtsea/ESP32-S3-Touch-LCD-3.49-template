@@ -151,10 +151,10 @@ static void create_status_bar(lv_obj_t *parent) {
 
     lv_obj_t *label_title = lv_label_create(status_bar);
     static char title_str[32];
-    if (strlen(g_config.nas_user) > 0) {
-        snprintf(title_str, sizeof(title_str), "%s", g_config.nas_user);
-    } else if (strlen(g_config.nas_type) > 0 && strcmp(g_config.nas_type, "mock") != 0) {
-        snprintf(title_str, sizeof(title_str), "%s", g_config.nas_type);
+    if (strlen(app_cfg_get_nas_user()) > 0) {
+        snprintf(title_str, sizeof(title_str), "%s", app_cfg_get_nas_user());
+    } else if (strlen(app_cfg_get_nas_type()) > 0 && strcmp(app_cfg_get_nas_type(), "mock") != 0) {
+        snprintf(title_str, sizeof(title_str), "%s", app_cfg_get_nas_type());
     } else {
         snprintf(title_str, sizeof(title_str), "NAS Monitor");
     }
@@ -385,7 +385,7 @@ static void create_hdd_indicators(lv_obj_t *parent) {
     set_default_style(s_screen.hdd_container);
     lv_obj_align(s_screen.hdd_container, LV_ALIGN_BOTTOM_MID, 0, -2);
 
-    uint8_t total_disks = config_get_total_disk_slots();
+    uint8_t total_disks = app_cfg_get_sata_disk_count() + app_cfg_get_m2_disk_count();
     if (total_disks == 0) total_disks = 1;
 
     /* 设计规范: 无间距紧密排列，每个槽位 flex:1 均分宽度 */
@@ -395,10 +395,10 @@ static void create_hdd_indicators(lv_obj_t *parent) {
 
     for (uint8_t i = 0; i < total_disks; i++) {
         char label_text[16];
-        if (config_is_sata_slot(i)) {
+        if (app_cfg_is_sata_slot(i)) {
             snprintf(label_text, sizeof(label_text), "HDD%d", i + 1);
         } else {
-            uint8_t m2_index = i - g_config.sata_disk_count;
+            uint8_t m2_index = i - app_cfg_get_sata_disk_count();
             snprintf(label_text, sizeof(label_text), "M.2%d", m2_index + 1);
         }
 

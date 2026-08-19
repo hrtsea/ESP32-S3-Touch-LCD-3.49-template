@@ -1,0 +1,2 @@
+Error: Monitor requires standard input to be attached to TTY. Try using a different terminal.
+idf_monitor failed with exit code 1, output of the command is in the E:\zotlabnas-split\ESP32-S3-Touch-LCD-3.49-template\build\log\idf_py_stderr_output_3828 and E:\zotlabnas-split\ESP32-S3-Touch-LCD-3.49-template\build\log\idf_py_stdout_output_3828

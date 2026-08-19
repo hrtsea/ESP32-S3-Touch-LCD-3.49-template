@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "nas_data.h"
-#include "config.h"
+#include "app_cfg.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -104,6 +104,20 @@ NasType nas_type_from_string(const char* nas_type_id);
 const char* nas_type_to_string(NasType type);
 NasTypeConfig nas_type_config_get_defaults(NasType type);
 NasTypeConfig nas_type_config_get_defaults_by_id(const char* type_id);
+
+/* 协议默认端口与参数（原位于已废弃的 config.h，迁移至此） */
+#define DEFAULT_HTTP_PORT      8099
+#define DEFAULT_SYNOLOGY_PORT  5000
+#define DEFAULT_QNAP_PORT      8080
+#define DEFAULT_TRUENAS_PORT   80
+#define DEFAULT_NETDATA_PORT   19999
+#define DEFAULT_SNMP_PORT      161
+#define DEFAULT_SERIAL_BAUD    115200
+#define DEFAULT_POLL_SEC       5
+#define MIN_POLL_SEC           1
+#define MAX_POLL_SEC           30
+#define DEFAULT_SATA_DISK_COUNT     6
+#define DEFAULT_M2_DISK_COUNT       3
 
 #ifdef __cplusplus
 }

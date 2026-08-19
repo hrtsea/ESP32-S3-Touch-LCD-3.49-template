@@ -38,7 +38,6 @@
 #include "esp_timer.h"
 
 /* 项目配置 */
-#include "config.h"
 #include "app_cfg.h"
 #include "event_bus.h"
 #include "disp_driver.h"
@@ -79,7 +78,7 @@ static void sim_update_screens(const NasData *data)
         overview_screen_update_mem((int)data->system.ram_pct);
         overview_screen_update_disk((int)data->system.disk_pct);
 
-        uint8_t total_slots = config_get_total_disk_slots();
+        uint8_t total_slots = app_cfg_get_sata_disk_count() + app_cfg_get_m2_disk_count();
         for (int i = 0; i < total_slots; i++) {
             if (i < data->disk_slot_count) {
                 const NasDiskInfo *disk = &data->disks[i];
@@ -156,11 +155,11 @@ int main(int argc, char **argv)
     fprintf(stdout, "================================================\n");
 
     /* 1. 配置初始化（内存版，nvs stub 返回 NOT_FOUND） */
-    config_load();
-    g_config.poll_sec = 1;  /* 测试：1 秒轮询，加速 sparkline 更新 */
+    app_cfg_init();
+    app_cfg_set_poll_sec(1);  /* 测试：1 秒轮询，加速 sparkline 更新 */
     ESP_LOGI(TAG, "config loaded: nas_type=%s sata=%u m2=%u poll=%us",
-             g_config.nas_type, g_config.sata_disk_count,
-             g_config.m2_disk_count, g_config.poll_sec);
+             app_cfg_get_nas_type(), app_cfg_get_sata_disk_count(),
+             app_cfg_get_m2_disk_count(), app_cfg_get_poll_sec());
 
     /* 2. 应用配置（g_cfg，内存版） */
     app_cfg_init();
@@ -198,7 +197,7 @@ int main(int argc, char **argv)
 
     /* 9. 主循环 */
     uint32_t last_poll_ms = 0;
-    uint32_t poll_interval_ms = (uint32_t)g_config.poll_sec * 1000U;
+    uint32_t poll_interval_ms = (uint32_t)app_cfg_get_poll_sec() * 1000U;
     if (poll_interval_ms == 0) poll_interval_ms = 5000U;
 
     while (1) {

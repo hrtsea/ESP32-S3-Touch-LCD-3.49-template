@@ -76,6 +76,27 @@ app_cfg_t g_cfg = {
     .quotes_refresh_s  = 60,              /* 默认60秒刷新一次行情 */
     .quotes_up_rgba    = 0x33DD66FFu,     /* 默认绿色上涨 */
     .quotes_down_rgba  = 0xFF4040FFu,     /* 默认红色下跌 */
+
+    /* v8: 由老 config 系统 (config.c) 合并而来 */
+    .nas_type          = "unraid",         /* 默认 NAS 类型 */
+    .nas_ip            = {0},              /* 无默认 IP */
+    .nas_port          = 0,                /* 0 = 使用协议默认端口 */
+    .nas_user          = {0},
+    .nas_pass          = {0},
+    .nas_https         = 0,
+    .snmp_comm         = "public",
+    .snmp_ver          = 1,                /* 默认 v2c */
+    .serial_baud       = 115200,
+    .poll_sec          = 10,
+    .rotation_angle    = 0,
+    .autodim           = 1,
+    .timezone          = 0,
+    .sata_disk_count   = 0,
+    .m2_disk_count     = 0,
+    .weather_api_key   = {0},
+    .weather_city      = {0},
+    .auto_cycle_enabled = 0,
+    .auto_cycle_interval_sec = 10,
 };
 
 /**
@@ -125,6 +146,17 @@ static void cfg_validate(void)
     g_cfg.audio_enable = g_cfg.audio_enable ? 1 : 0;
     g_cfg.show_fps = g_cfg.show_fps ? 1 : 0;
     g_cfg.wifi_autoconnect = g_cfg.wifi_autoconnect ? 1 : 0;
+
+    /* v8 合并字段校验 */
+    g_cfg.nas_https = g_cfg.nas_https ? 1 : 0;
+    g_cfg.autodim = g_cfg.autodim ? 1 : 0;
+    g_cfg.snmp_ver = g_cfg.snmp_ver ? 1 : 0;  /* 仅 0/1 */
+    if (g_cfg.poll_sec == 0) g_cfg.poll_sec = 10;
+    if (g_cfg.rotation_angle > 270) g_cfg.rotation_angle = 0; /* 仅支持 0/90/180/270 */
+    if (g_cfg.sata_disk_count > 16) g_cfg.sata_disk_count = 16;
+    if (g_cfg.m2_disk_count > 16) g_cfg.m2_disk_count = 16;
+    g_cfg.auto_cycle_enabled = g_cfg.auto_cycle_enabled ? 1 : 0;
+    if (g_cfg.auto_cycle_interval_sec == 0) g_cfg.auto_cycle_interval_sec = 10;
 }
 
 /**
@@ -139,6 +171,12 @@ static void cfg_migrate(uint8_t from_ver)
     if (from_ver < 7) {
         ESP_LOGI(TAG, "cfg: migrate v%u -> v%u", (unsigned)from_ver, (unsigned)CFG_VERSION);
         /* 版本 7 的迁移逻辑可在此添加 */
+    }
+    if (from_ver < 8) {
+        /* v8: 合并老 config 系统 (config.c) 字段到 app_cfg。
+         * 接受"升级即重置"策略——老 "nasmon" 命名空间数据不迁移，
+         * 新字段使用 g_cfg 默认值，用户需在 UI / WebUI 重新配置。 */
+        ESP_LOGI(TAG, "cfg: migrated to v8 (old 'nasmon' config not carried over)");
     }
     g_cfg.version = CFG_VERSION;
 }
@@ -205,6 +243,31 @@ static void cfg_read_nvs(nvs_handle_t h)
     nvs_get_u32(h, "q_dn",      &qd);
     g_cfg.quotes_up_rgba = qu;
     g_cfg.quotes_down_rgba = qd;
+
+    /* v8: 老 config 系统合并字段 */
+    size_t ntl = sizeof(g_cfg.nas_type);  nvs_get_str(h, "nas_type", g_cfg.nas_type, &ntl);
+    size_t nil = sizeof(g_cfg.nas_ip);    nvs_get_str(h, "nas_ip",   g_cfg.nas_ip,   &nil);
+    nvs_get_u16(h, "nas_port",  &g_cfg.nas_port);
+    size_t nul = sizeof(g_cfg.nas_user);  nvs_get_str(h, "nas_user", g_cfg.nas_user, &nul);
+    size_t npl = sizeof(g_cfg.nas_pass);  nvs_get_str(h, "nas_pass", g_cfg.nas_pass, &npl);
+    nvs_get_u8 (h, "nas_https", &g_cfg.nas_https);
+    size_t scl = sizeof(g_cfg.snmp_comm); nvs_get_str(h, "snmp_comm", g_cfg.snmp_comm, &scl);
+    nvs_get_u8 (h, "snmp_ver",  &g_cfg.snmp_ver);
+    nvs_get_u32(h, "serial_bd", &g_cfg.serial_baud);
+    nvs_get_u8 (h, "poll_sec",  &g_cfg.poll_sec);
+    nvs_get_u8 (h, "rot_ang",   &g_cfg.rotation_angle);
+    nvs_get_u8 (h, "autodim",   &g_cfg.autodim);
+    int8_t tz;
+    if (nvs_get_i8(h, "tz_off", &tz) == ESP_OK) g_cfg.timezone = tz;
+    nvs_get_u8 (h, "sata_cnt",  &g_cfg.sata_disk_count);
+    nvs_get_u8 (h, "m2_cnt",    &g_cfg.m2_disk_count);
+    size_t wkl = sizeof(g_cfg.weather_api_key); nvs_get_str(h, "wx_key", g_cfg.weather_api_key, &wkl);
+    size_t wcl = sizeof(g_cfg.weather_city);    nvs_get_str(h, "wx_city", g_cfg.weather_city, &wcl);
+    nvs_get_u8 (h, "auto_cyc",  &g_cfg.auto_cycle_enabled);
+    nvs_get_u8 (h, "auto_cyc_i",&g_cfg.auto_cycle_interval_sec);
+
+    size_t fbl = sizeof(g_cfg.fan);
+    nvs_get_blob(h, "fan", &g_cfg.fan, &fbl);
 }
 
 /**
@@ -339,10 +402,32 @@ void app_cfg_save(void)
     nvs_set_u16(h, "q_refr",    g_cfg.quotes_refresh_s);
     nvs_set_u32(h, "q_up",      g_cfg.quotes_up_rgba);
     nvs_set_u32(h, "q_dn",      g_cfg.quotes_down_rgba);
-    
+
+    /* v8: 老 config 系统合并字段 */
+    nvs_set_str(h, "nas_type",  g_cfg.nas_type);
+    nvs_set_str(h, "nas_ip",    g_cfg.nas_ip);
+    nvs_set_u16(h, "nas_port",  g_cfg.nas_port);
+    nvs_set_str(h, "nas_user",  g_cfg.nas_user);
+    nvs_set_str(h, "nas_pass",  g_cfg.nas_pass);
+    nvs_set_u8 (h, "nas_https", g_cfg.nas_https);
+    nvs_set_str(h, "snmp_comm", g_cfg.snmp_comm);
+    nvs_set_u8 (h, "snmp_ver",  g_cfg.snmp_ver);
+    nvs_set_u32(h, "serial_bd", g_cfg.serial_baud);
+    nvs_set_u8 (h, "poll_sec",  g_cfg.poll_sec);
+    nvs_set_u8 (h, "rot_ang",   g_cfg.rotation_angle);
+    nvs_set_u8 (h, "autodim",   g_cfg.autodim);
+    nvs_set_i8 (h, "tz_off",    (int8_t)g_cfg.timezone);
+    nvs_set_u8 (h, "sata_cnt",  g_cfg.sata_disk_count);
+    nvs_set_u8 (h, "m2_cnt",    g_cfg.m2_disk_count);
+    nvs_set_str(h, "wx_key",    g_cfg.weather_api_key);
+    nvs_set_str(h, "wx_city",   g_cfg.weather_city);
+    nvs_set_u8 (h, "auto_cyc",  g_cfg.auto_cycle_enabled);
+    nvs_set_u8 (h, "auto_cyc_i",g_cfg.auto_cycle_interval_sec);
+    nvs_set_blob(h, "fan", &g_cfg.fan, sizeof(g_cfg.fan));
+
     /* WiFi 配置 */
     nvs_set_str(h, "last_ssid", g_cfg.last_ssid);
-    
+
     /* 提交更改并关闭 NVS */
     nvs_commit(h);
     nvs_close(h);
@@ -827,5 +912,196 @@ size_t app_cfg_get_last_ssid(char *buf, size_t buf_len)
     buf[len] = '\0';
     cfg_unlock();
     return len;
+}
+
+/* ==================== v8: 老 config 系统合并字段 API ==================== */
+
+const char *app_cfg_get_nas_type(void) { return g_cfg.nas_type; }
+const char *app_cfg_get_nas_ip(void)    { return g_cfg.nas_ip; }
+int         app_cfg_get_nas_port(void)  { return g_cfg.nas_port; }
+const char *app_cfg_get_nas_user(void)  { return g_cfg.nas_user; }
+const char *app_cfg_get_nas_pass(void)  { return g_cfg.nas_pass; }
+int         app_cfg_get_nas_https(void) { return g_cfg.nas_https; }
+const char *app_cfg_get_snmp_comm(void) { return g_cfg.snmp_comm; }
+int         app_cfg_get_snmp_ver(void)  { return g_cfg.snmp_ver; }
+int         app_cfg_get_serial_baud(void){ return (int)g_cfg.serial_baud; }
+int         app_cfg_get_poll_sec(void)  { return g_cfg.poll_sec; }
+int         app_cfg_get_rotation_angle(void) { return g_cfg.rotation_angle; }
+int         app_cfg_get_autodim(void)   { return g_cfg.autodim; }
+int         app_cfg_get_timezone(void)  { return g_cfg.timezone; }
+int         app_cfg_get_sata_disk_count(void) { return g_cfg.sata_disk_count; }
+int         app_cfg_get_m2_disk_count(void)   { return g_cfg.m2_disk_count; }
+const char *app_cfg_get_weather_api_key(void) { return g_cfg.weather_api_key; }
+const char *app_cfg_get_weather_city(void)    { return g_cfg.weather_city; }
+int         app_cfg_get_auto_cycle_enabled(void) { return g_cfg.auto_cycle_enabled; }
+int         app_cfg_get_auto_cycle_interval_sec(void) { return g_cfg.auto_cycle_interval_sec; }
+FanConfig   app_cfg_get_fan(void)       { return g_cfg.fan; }
+
+void app_cfg_set_nas_type(const char *v)
+{
+    if (!v) v = "";
+    cfg_lock();
+    strncpy(g_cfg.nas_type, v, sizeof(g_cfg.nas_type) - 1);
+    g_cfg.nas_type[sizeof(g_cfg.nas_type) - 1] = 0;
+    cfg_unlock();
+    cfg_publish(CFG_FIELD_NAS_TYPE);
+    app_cfg_save();
+}
+void app_cfg_set_nas_ip(const char *v)
+{
+    if (!v) v = "";
+    cfg_lock();
+    strncpy(g_cfg.nas_ip, v, sizeof(g_cfg.nas_ip) - 1);
+    g_cfg.nas_ip[sizeof(g_cfg.nas_ip) - 1] = 0;
+    cfg_unlock();
+    cfg_publish(CFG_FIELD_NAS_IP);
+    app_cfg_save();
+}
+void app_cfg_set_nas_port(int v)
+{
+    if (v < 0) v = 0;
+    if (v > 65535) v = 65535;
+    g_cfg.nas_port = (uint16_t)v;
+    cfg_publish(CFG_FIELD_NAS_PORT);
+    app_cfg_save();
+}
+void app_cfg_set_nas_user(const char *v)
+{
+    if (!v) v = "";
+    cfg_lock();
+    strncpy(g_cfg.nas_user, v, sizeof(g_cfg.nas_user) - 1);
+    g_cfg.nas_user[sizeof(g_cfg.nas_user) - 1] = 0;
+    cfg_unlock();
+    cfg_publish(CFG_FIELD_NAS_USER);
+    app_cfg_save();
+}
+void app_cfg_set_nas_pass(const char *v)
+{
+    if (!v) v = "";
+    cfg_lock();
+    strncpy(g_cfg.nas_pass, v, sizeof(g_cfg.nas_pass) - 1);
+    g_cfg.nas_pass[sizeof(g_cfg.nas_pass) - 1] = 0;
+    cfg_unlock();
+    cfg_publish(CFG_FIELD_NAS_PASS);
+    app_cfg_save();
+}
+void app_cfg_set_nas_https(int v)
+{
+    g_cfg.nas_https = v ? 1 : 0;
+    cfg_publish(CFG_FIELD_NAS_HTTPS);
+    app_cfg_save();
+}
+void app_cfg_set_snmp_comm(const char *v)
+{
+    if (!v) v = "";
+    cfg_lock();
+    strncpy(g_cfg.snmp_comm, v, sizeof(g_cfg.snmp_comm) - 1);
+    g_cfg.snmp_comm[sizeof(g_cfg.snmp_comm) - 1] = 0;
+    cfg_unlock();
+    cfg_publish(CFG_FIELD_SNMP_COMM);
+    app_cfg_save();
+}
+void app_cfg_set_snmp_ver(int v)
+{
+    g_cfg.snmp_ver = v ? 1 : 0;
+    cfg_publish(CFG_FIELD_SNMP_VER);
+    app_cfg_save();
+}
+void app_cfg_set_serial_baud(int v)
+{
+    if (v < 0) v = 0;
+    g_cfg.serial_baud = (uint32_t)v;
+    cfg_publish(CFG_FIELD_SERIAL_BAUD);
+    app_cfg_save();
+}
+void app_cfg_set_poll_sec(int v)
+{
+    if (v < 1) v = 1;
+    if (v > 255) v = 255;
+    g_cfg.poll_sec = (uint8_t)v;
+    cfg_publish(CFG_FIELD_POLL_SEC);
+    app_cfg_save();
+}
+void app_cfg_set_rotation_angle(int v)
+{
+    if (v < 0) v = 0;
+    if (v > 270) v = 0;
+    g_cfg.rotation_angle = (uint8_t)(v / 90) * 90;
+    cfg_publish(CFG_FIELD_ROTATION_ANGLE);
+    app_cfg_save();
+}
+void app_cfg_set_autodim(int v)
+{
+    g_cfg.autodim = v ? 1 : 0;
+    cfg_publish(CFG_FIELD_AUTODIM);
+    app_cfg_save();
+}
+void app_cfg_set_timezone(int v)
+{
+    if (v < -14) v = -14;
+    if (v > 14) v = 14;
+    g_cfg.timezone = (int8_t)v;
+    cfg_publish(CFG_FIELD_TIMEZONE);
+    app_cfg_save();
+}
+void app_cfg_set_sata_disk_count(int v)
+{
+    if (v < 0) v = 0;
+    if (v > 16) v = 16;
+    g_cfg.sata_disk_count = (uint8_t)v;
+    cfg_publish(CFG_FIELD_SATA_DISK_COUNT);
+    app_cfg_save();
+}
+void app_cfg_set_m2_disk_count(int v)
+{
+    if (v < 0) v = 0;
+    if (v > 16) v = 16;
+    g_cfg.m2_disk_count = (uint8_t)v;
+    cfg_publish(CFG_FIELD_M2_DISK_COUNT);
+    app_cfg_save();
+}
+void app_cfg_set_weather_api_key(const char *v)
+{
+    if (!v) v = "";
+    cfg_lock();
+    strncpy(g_cfg.weather_api_key, v, sizeof(g_cfg.weather_api_key) - 1);
+    g_cfg.weather_api_key[sizeof(g_cfg.weather_api_key) - 1] = 0;
+    cfg_unlock();
+    cfg_publish(CFG_FIELD_WEATHER_API_KEY);
+    app_cfg_save();
+}
+void app_cfg_set_weather_city(const char *v)
+{
+    if (!v) v = "";
+    cfg_lock();
+    strncpy(g_cfg.weather_city, v, sizeof(g_cfg.weather_city) - 1);
+    g_cfg.weather_city[sizeof(g_cfg.weather_city) - 1] = 0;
+    cfg_unlock();
+    cfg_publish(CFG_FIELD_WEATHER_CITY);
+    app_cfg_save();
+}
+void app_cfg_set_auto_cycle_enabled(int v)
+{
+    g_cfg.auto_cycle_enabled = v ? 1 : 0;
+    cfg_publish(CFG_FIELD_AUTO_CYCLE_EN);
+    app_cfg_save();
+}
+void app_cfg_set_auto_cycle_interval_sec(int v)
+{
+    if (v < 1) v = 1;
+    if (v > 255) v = 255;
+    g_cfg.auto_cycle_interval_sec = (uint8_t)v;
+    cfg_publish(CFG_FIELD_AUTO_CYCLE_INT);
+    app_cfg_save();
+}
+void app_cfg_set_fan(const FanConfig *v)
+{
+    if (!v) return;
+    cfg_lock();
+    memcpy(&g_cfg.fan, v, sizeof(FanConfig));
+    cfg_unlock();
+    cfg_publish(CFG_FIELD_FAN);
+    event_bus_publish(EVENT_FAN_CONFIG_CHANGED, &g_cfg.fan, sizeof(g_cfg.fan));
+    app_cfg_save();
 }
 

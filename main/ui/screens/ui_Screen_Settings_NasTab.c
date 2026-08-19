@@ -56,8 +56,8 @@ static void dialog_keyboard_event_cb(lv_event_t* e);
 static void update_disk_total(void) {
     if (!disk_total_label) return;
 
-    int sata = sata_disk_dropdown ? (int)lv_dropdown_get_selected(sata_disk_dropdown) : g_config.sata_disk_count;
-    int m2 = m2_disk_dropdown ? (int)lv_dropdown_get_selected(m2_disk_dropdown) : g_config.m2_disk_count;
+    int sata = sata_disk_dropdown ? (int)lv_dropdown_get_selected(sata_disk_dropdown) : app_cfg_get_sata_disk_count();
+    int m2 = m2_disk_dropdown ? (int)lv_dropdown_get_selected(m2_disk_dropdown) : app_cfg_get_m2_disk_count();
     int total = sata + m2;
 
     char buf[32];
@@ -75,7 +75,7 @@ static void update_disk_total(void) {
 static void update_sata_dropdown_options(void) {
     if (!sata_disk_dropdown) return;
 
-    int m2 = m2_disk_dropdown ? (int)lv_dropdown_get_selected(m2_disk_dropdown) : g_config.m2_disk_count;
+    int m2 = m2_disk_dropdown ? (int)lv_dropdown_get_selected(m2_disk_dropdown) : app_cfg_get_m2_disk_count();
     int max_sata = MAX_DISKS - m2;
 
     int current_sata_value = -1;
@@ -105,7 +105,7 @@ static void update_sata_dropdown_options(void) {
 static void update_m2_dropdown_options(void) {
     if (!m2_disk_dropdown) return;
 
-    int sata = sata_disk_dropdown ? (int)lv_dropdown_get_selected(sata_disk_dropdown) : g_config.sata_disk_count;
+    int sata = sata_disk_dropdown ? (int)lv_dropdown_get_selected(sata_disk_dropdown) : app_cfg_get_sata_disk_count();
     int max_m2 = MAX_DISKS - sata;
 
     int current_m2_value = -1;
@@ -149,18 +149,23 @@ static void dialog_save_cb(lv_event_t* e) {
         }
         selected_nas_type_idx = dialog_temp_nas_type_idx;
 
-        const char* ip = dialog_ip_input ? lv_textarea_get_text(dialog_ip_input) : g_config.nas_ip;
+        const char* ip = dialog_ip_input ? lv_textarea_get_text(dialog_ip_input) : app_cfg_get_nas_ip();
         const char* port_str = dialog_port_input ? lv_textarea_get_text(dialog_port_input) : "0";
-        const char* username = dialog_username_input ? lv_textarea_get_text(dialog_username_input) : g_config.nas_user;
-        const char* password = dialog_password_input ? lv_textarea_get_text(dialog_password_input) : g_config.nas_pass;
+        const char* username = dialog_username_input ? lv_textarea_get_text(dialog_username_input) : app_cfg_get_nas_user();
+        const char* password = dialog_password_input ? lv_textarea_get_text(dialog_password_input) : app_cfg_get_nas_pass();
         uint16_t port = (uint16_t)atoi(port_str);
 
         ESP_LOGI(TAG, "Saving NAS config: type=%s, ip=%s, port=%d, user=%s",
-                 g_config.nas_type, ip, port, username);
+                 app_cfg_get_nas_type(), ip, port, username);
 
         ESP_LOGI(TAG, "Saving NAS type id: %s", NAS_TYPES[dialog_temp_nas_type_idx].id);
 
-        config_save_nas(g_config.nas_type, ip, port, username, password, g_config.nas_https);
+        app_cfg_set_nas_type(NAS_TYPES[dialog_temp_nas_type_idx].id);
+        app_cfg_set_nas_ip(ip);
+        app_cfg_set_nas_port(port);
+        app_cfg_set_nas_user(username);
+        app_cfg_set_nas_pass(password);
+        app_cfg_set_nas_https(app_cfg_get_nas_https());
 
         ESP_LOGI(TAG, "NAS config saved, switching data source...");
         data_source_switch(NAS_TYPES[dialog_temp_nas_type_idx].id);
@@ -229,8 +234,8 @@ static void dialog_nas_dropdown_cb(lv_event_t* e) {
              dialog_temp_nas_type_idx < DATA_TYPE_COUNT ? NAS_TYPES[dialog_temp_nas_type_idx].display_name : "invalid");
 
     if (dialog_temp_nas_type_idx >= 0 && dialog_temp_nas_type_idx < DATA_TYPE_COUNT) {
-        strlcpy(g_config.nas_type, NAS_TYPES[dialog_temp_nas_type_idx].id, sizeof(g_config.nas_type));
-        ESP_LOGI(TAG, "Auto set monitor mode: %s", g_config.nas_type);
+        app_cfg_set_nas_type(NAS_TYPES[dialog_temp_nas_type_idx].id);
+        ESP_LOGI(TAG, "Auto set monitor mode: %s", app_cfg_get_nas_type());
 
         if (dialog_ip_input) lv_textarea_set_text(dialog_ip_input, "");
         if (dialog_port_input) lv_textarea_set_text(dialog_port_input, "0");
@@ -309,7 +314,7 @@ static void create_dialog_fields(void) {
     lv_textarea_set_one_line(dialog_ip_input, true);
     lv_textarea_set_max_length(dialog_ip_input, 39);
     lv_textarea_set_accepted_chars(dialog_ip_input, "0123456789.");
-    lv_textarea_set_text(dialog_ip_input, g_config.nas_ip);
+    lv_textarea_set_text(dialog_ip_input, app_cfg_get_nas_ip());
     lv_obj_add_event_cb(dialog_ip_input, dialog_ta_clicked_cb, LV_EVENT_CLICKED, NULL);
 
     dialog_port_label = lv_label_create(dialog_ip_row);
@@ -324,7 +329,7 @@ static void create_dialog_fields(void) {
     lv_textarea_set_max_length(dialog_port_input, 5);
     lv_textarea_set_accepted_chars(dialog_port_input, "0123456789");
     char port_buf[6];
-    snprintf(port_buf, sizeof(port_buf), "%d", g_config.nas_port);
+    snprintf(port_buf, sizeof(port_buf), "%d", app_cfg_get_nas_port());
     lv_textarea_set_text(dialog_port_input, port_buf);
     lv_obj_add_event_cb(dialog_port_input, dialog_ta_clicked_cb, LV_EVENT_CLICKED, NULL);
 
@@ -348,7 +353,7 @@ static void create_dialog_fields(void) {
     lv_obj_set_style_text_font(dialog_username_input, &lv_font_montserrat_12, 0);
     lv_textarea_set_one_line(dialog_username_input, true);
     lv_textarea_set_max_length(dialog_username_input, 32);
-    lv_textarea_set_text(dialog_username_input, g_config.nas_user);
+    lv_textarea_set_text(dialog_username_input, app_cfg_get_nas_user());
     lv_obj_add_event_cb(dialog_username_input, dialog_ta_clicked_cb, LV_EVENT_CLICKED, NULL);
 
     dialog_password_label = lv_label_create(dialog_auth_row);
@@ -363,7 +368,7 @@ static void create_dialog_fields(void) {
     lv_textarea_set_one_line(dialog_password_input, true);
     lv_textarea_set_password_mode(dialog_password_input, true);
     lv_textarea_set_max_length(dialog_password_input, 64);
-    lv_textarea_set_text(dialog_password_input, g_config.nas_pass);
+    lv_textarea_set_text(dialog_password_input, app_cfg_get_nas_pass());
     lv_obj_add_event_cb(dialog_password_input, dialog_ta_clicked_cb, LV_EVENT_CLICKED, NULL);
 
     dialog_apiurl_label = lv_label_create(dialog_scroll_container);
@@ -390,7 +395,7 @@ static void create_dialog_fields(void) {
     lv_textarea_set_one_line(dialog_snmp_community_input, true);
     lv_textarea_set_max_length(dialog_snmp_community_input, 32);
     lv_textarea_set_accepted_chars(dialog_snmp_community_input, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-");
-    lv_textarea_set_text(dialog_snmp_community_input, g_config.snmp_comm);
+    lv_textarea_set_text(dialog_snmp_community_input, app_cfg_get_snmp_comm());
     lv_obj_add_event_cb(dialog_snmp_community_input, dialog_ta_clicked_cb, LV_EVENT_CLICKED, NULL);
 
     dialog_snmp_version_label = lv_label_create(dialog_scroll_container);
@@ -433,7 +438,7 @@ static void create_dialog_fields(void) {
     lv_textarea_set_max_length(dialog_serial_baud_input, 7);
     lv_textarea_set_accepted_chars(dialog_serial_baud_input, "0123456789");
     char baud_buf[8];
-    snprintf(baud_buf, sizeof(baud_buf), "%lu", g_config.serial_baud);
+    snprintf(baud_buf, sizeof(baud_buf), "%lu", (unsigned long)app_cfg_get_serial_baud());
     lv_textarea_set_text(dialog_serial_baud_input, baud_buf);
     lv_obj_add_event_cb(dialog_serial_baud_input, dialog_ta_clicked_cb, LV_EVENT_CLICKED, NULL);
 
@@ -447,7 +452,7 @@ static void update_dialog_fields(void) {
     }
 
     create_dialog_fields();
-    NasType current_type = nas_type_from_string(g_config.nas_type);
+    NasType current_type = nas_type_from_string(app_cfg_get_nas_type());
 
     bool show_ip = false;
     bool show_port = false;
@@ -745,7 +750,7 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
 
     selected_nas_type_idx = -1;
     for (int i = 0; i < DATA_TYPE_COUNT; i++) {
-        if (strcmp(g_config.nas_type, NAS_TYPES[i].id) == 0) {
+        if (strcmp(app_cfg_get_nas_type(), NAS_TYPES[i].id) == 0) {
             selected_nas_type_idx = i;
             break;
         }
@@ -755,7 +760,7 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
         selected_nas_type_idx = 3;
     }
 
-    ESP_LOGI(TAG, "Initializing NAS tab, current type=%s, idx=%d", g_config.nas_type, selected_nas_type_idx);
+    ESP_LOGI(TAG, "Initializing NAS tab, current type=%s, idx=%d", app_cfg_get_nas_type(), selected_nas_type_idx);
 
     theme_palette_t theme = theme_get();
 
@@ -812,7 +817,7 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
     lv_label_set_text(sata_label, "SATA:");
     lv_obj_set_style_text_font(sata_label, &lv_font_montserrat_12, 0);
 
-    int initial_m2 = g_config.m2_disk_count;
+    int initial_m2 = app_cfg_get_m2_disk_count();
     int max_sata_initial = 16 - initial_m2;
     static char sata_initial_options[64];
     sata_initial_options[0] = '\0';
@@ -825,7 +830,7 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
 
     sata_disk_dropdown = lv_dropdown_create(disk_count_row);
     lv_dropdown_set_options(sata_disk_dropdown, sata_initial_options);
-    lv_dropdown_set_selected(sata_disk_dropdown, g_config.sata_disk_count);
+    lv_dropdown_set_selected(sata_disk_dropdown, app_cfg_get_sata_disk_count());
     lv_obj_set_width(sata_disk_dropdown, 50);
     lv_obj_set_height(sata_disk_dropdown, 19);
     lv_obj_set_style_text_font(sata_disk_dropdown, &lv_font_montserrat_12, 0);
@@ -835,7 +840,7 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
     lv_label_set_text(m2_label, "M.2:");
     lv_obj_set_style_text_font(m2_label, &lv_font_montserrat_12, 0);
 
-    int initial_sata = g_config.sata_disk_count;
+    int initial_sata = app_cfg_get_sata_disk_count();
     int max_m2_initial = 16 - initial_sata;
     static char m2_initial_options[64];
     m2_initial_options[0] = '\0';
@@ -848,7 +853,7 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
 
     m2_disk_dropdown = lv_dropdown_create(disk_count_row);
     lv_dropdown_set_options(m2_disk_dropdown, m2_initial_options);
-    lv_dropdown_set_selected(m2_disk_dropdown, g_config.m2_disk_count);
+    lv_dropdown_set_selected(m2_disk_dropdown, app_cfg_get_m2_disk_count());
     lv_obj_set_width(m2_disk_dropdown, 50);
     lv_obj_set_height(m2_disk_dropdown, 19);
     lv_obj_set_style_text_font(m2_disk_dropdown, &lv_font_montserrat_12, 0);
@@ -856,7 +861,7 @@ void ui_Screen_Settings_NasTab_init(lv_obj_t *parent)
 
     disk_total_label = lv_label_create(disk_count_row);
     char disk_buf[32];
-    int total_disks = config_get_total_disk_slots();
+    int total_disks = app_cfg_get_sata_disk_count() + app_cfg_get_m2_disk_count();
     snprintf(disk_buf, sizeof(disk_buf), "Total: %d/16", total_disks);
     lv_label_set_text(disk_total_label, disk_buf);
     lv_obj_set_flex_grow(disk_total_label, 1);

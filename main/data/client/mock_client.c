@@ -1,5 +1,5 @@
 #include "mock_client.h"
-#include "config.h"
+#include "app_cfg.h"
 #include "nas_data.h"
 #include "esp_log.h"
 #include <stdio.h>
@@ -75,9 +75,9 @@ static void generate_mock_data(NasData* data)
     data->fan.enabled = true;
     data->fan.stall_alarm = (s_counter % 500 == 0);
 
-    uint8_t sata_count = g_config.sata_disk_count;
-    uint8_t m2_count   = g_config.m2_disk_count;
-    uint8_t total_slots = config_get_total_disk_slots();
+    uint8_t sata_count = (uint8_t)app_cfg_get_sata_disk_count();
+    uint8_t m2_count   = (uint8_t)app_cfg_get_m2_disk_count();
+    uint8_t total_slots = app_cfg_get_sata_disk_count() + app_cfg_get_m2_disk_count();
 
     data->disk_count = total_slots;
     data->disk_slot_count = total_slots;
@@ -216,7 +216,7 @@ static void mock_disconnect(DataSource* self)
 static bool mock_poll(DataSource* self)
 {
     uint32_t now_ms = esp_log_timestamp();
-    uint32_t poll_interval_ms = g_config.poll_sec * 1000UL;
+    uint32_t poll_interval_ms = (uint32_t)app_cfg_get_poll_sec() * 1000UL;
 
     if (self->last_poll_ms > 0 && (now_ms - self->last_poll_ms) < poll_interval_ms) {
         return false;

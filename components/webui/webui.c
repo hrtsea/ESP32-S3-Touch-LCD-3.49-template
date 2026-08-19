@@ -37,7 +37,8 @@
 #include "recorder.h"
 #include "radio.h"
 #include "sdcard_bsp.h"
-#include "config.h"       /* g_config, config_save_* */
+#include "app_cfg.h"      /* 配置唯一权威源 */
+#include "data_source.h"  /* data_source_switch */
 #include "fan_control.h"  /* FanConfig */
 #include "esp_wifi_config.h"  /* WiFi authority: wifi_cfg_* */
 
@@ -1337,7 +1338,6 @@ static esp_err_t h_settings_get(httpd_req_t *r)
     CHECK_AUTH(r);
     char *json = malloc(2048);
     if (!json) return send_str(r, "application/json", "{\"error\":\"oom\"}");
-    const AppConfig *c = &g_config;
     char cur_ssid[33] = {0};
     {
         wifi_network_t nets[1];
@@ -1365,23 +1365,23 @@ static esp_err_t h_settings_get(httpd_req_t *r)
         "{\"temp\":%d,\"pct\":%u},{\"temp\":%d,\"pct\":%u},"
         "{\"temp\":%d,\"pct\":%u}]}",
         cur_ssid,
-        c->nas_type, c->nas_ip, (unsigned)c->nas_port,
-        c->nas_user, (int)c->nas_https,
-        c->snmp_comm, (unsigned)c->snmp_ver, (unsigned long)c->serial_baud,
-        (unsigned)c->poll_sec, (unsigned)c->rotation_angle, (int)c->autodim,
-        (int)c->timezone,
-        (int)c->auto_cycle_enabled, (unsigned)c->auto_cycle_interval_sec,
-        (unsigned)c->sata_disk_count, (unsigned)c->m2_disk_count,
-        c->weather_api_key, c->weather_city,
-        (int)c->fan.enabled, (int)c->fan.mode, (unsigned)c->fan.manual_pwm_pct,
-        (int)c->fan.temp_source, (unsigned)c->fan.hysteresis, (unsigned)c->fan.min_change_pct,
-        (unsigned)c->fan.min_pwm_pct, (int)c->fan.emergency_temp,
-        (unsigned)c->fan.stall_detect_sec, (unsigned)c->fan.ramp_time_ms,
-        (int)c->fan.curve[0].temp, (unsigned)c->fan.curve[0].pwm_pct,
-        (int)c->fan.curve[1].temp, (unsigned)c->fan.curve[1].pwm_pct,
-        (int)c->fan.curve[2].temp, (unsigned)c->fan.curve[2].pwm_pct,
-        (int)c->fan.curve[3].temp, (unsigned)c->fan.curve[3].pwm_pct,
-        (int)c->fan.curve[4].temp, (unsigned)c->fan.curve[4].pwm_pct);
+        app_cfg_get_nas_type(), app_cfg_get_nas_ip(), (unsigned)app_cfg_get_nas_port(),
+        app_cfg_get_nas_user(), (int)app_cfg_get_nas_https(),
+        app_cfg_get_snmp_comm(), (unsigned)app_cfg_get_snmp_ver(), (unsigned long)app_cfg_get_serial_baud(),
+        (unsigned)app_cfg_get_poll_sec(), (unsigned)app_cfg_get_rotation_angle(), (int)app_cfg_get_autodim(),
+        (int)app_cfg_get_timezone(),
+        (int)app_cfg_get_auto_cycle_enabled(), (unsigned)app_cfg_get_auto_cycle_interval_sec(),
+        (unsigned)app_cfg_get_sata_disk_count(), (unsigned)app_cfg_get_m2_disk_count(),
+        app_cfg_get_weather_api_key(), app_cfg_get_weather_city(),
+        (int)app_cfg_get_fan().enabled, (int)app_cfg_get_fan().mode, (unsigned)app_cfg_get_fan().manual_pwm_pct,
+        (int)app_cfg_get_fan().temp_source, (unsigned)app_cfg_get_fan().hysteresis, (unsigned)app_cfg_get_fan().min_change_pct,
+        (unsigned)app_cfg_get_fan().min_pwm_pct, (int)app_cfg_get_fan().emergency_temp,
+        (unsigned)app_cfg_get_fan().stall_detect_sec, (unsigned)app_cfg_get_fan().ramp_time_ms,
+        (int)app_cfg_get_fan().curve[0].temp, (unsigned)app_cfg_get_fan().curve[0].pwm_pct,
+        (int)app_cfg_get_fan().curve[1].temp, (unsigned)app_cfg_get_fan().curve[1].pwm_pct,
+        (int)app_cfg_get_fan().curve[2].temp, (unsigned)app_cfg_get_fan().curve[2].pwm_pct,
+        (int)app_cfg_get_fan().curve[3].temp, (unsigned)app_cfg_get_fan().curve[3].pwm_pct,
+        (int)app_cfg_get_fan().curve[4].temp, (unsigned)app_cfg_get_fan().curve[4].pwm_pct);
     if (n <= 0 || n >= 2048) {
         free(json);
         return send_str(r, "application/json", "{\"error\":\"overflow\"}");
@@ -1438,59 +1438,75 @@ static esp_err_t h_settings_post(httpd_req_t *r)
         form_has(body, "nas_pass") || form_has(body, "nas_https")) {
         char type[16] = {0}, ip[40] = {0}, user[32] = {0}, pass[65] = {0};
         if (form_str(body, "nas_type", tmp, sizeof(tmp))) strncpy(type, tmp, sizeof(type)-1);
-        else strncpy(type, g_config.nas_type, sizeof(type)-1);
+        else strncpy(type, app_cfg_get_nas_type(), sizeof(type)-1);
         if (form_str(body, "nas_ip", tmp, sizeof(tmp))) strncpy(ip, tmp, sizeof(ip)-1);
-        else strncpy(ip, g_config.nas_ip, sizeof(ip)-1);
+        else strncpy(ip, app_cfg_get_nas_ip(), sizeof(ip)-1);
         if (form_str(body, "nas_user", tmp, sizeof(tmp))) strncpy(user, tmp, sizeof(user)-1);
-        else strncpy(user, g_config.nas_user, sizeof(user)-1);
+        else strncpy(user, app_cfg_get_nas_user(), sizeof(user)-1);
         if (form_str(body, "nas_pass", tmp, sizeof(tmp)) && tmp[0]) strncpy(pass, tmp, sizeof(pass)-1);
-        else strncpy(pass, g_config.nas_pass, sizeof(pass)-1);
-        uint16_t port = (uint16_t)form_int(body, "nas_port", g_config.nas_port);
-        bool https = form_has(body, "nas_https") ? form_bool(body, "nas_https", false) : g_config.nas_https;
-        config_save_nas(type, ip, port, user, pass, https);
+        else strncpy(pass, app_cfg_get_nas_pass(), sizeof(pass)-1);
+        uint16_t port = (uint16_t)form_int(body, "nas_port", app_cfg_get_nas_port());
+        bool https = form_has(body, "nas_https") ? form_bool(body, "nas_https", false) : app_cfg_get_nas_https();
+        app_cfg_set_nas_type(type);
+        app_cfg_set_nas_ip(ip);
+        app_cfg_set_nas_port(port);
+        app_cfg_set_nas_user(user);
+        app_cfg_set_nas_pass(pass);
+        app_cfg_set_nas_https(https ? 1 : 0);
+        data_source_switch(type);  /* 运行期重连 */
         reboot_required = true;
     }
 
-    /* SNMP / serial (no dedicated setter — write g_config + config_save) */
+    /* SNMP / serial */
     if (form_has(body, "snmp_comm")) {
-        form_str(body, "snmp_comm", g_config.snmp_comm, sizeof(g_config.snmp_comm));
+        char v[32] = {0};
+        form_str(body, "snmp_comm", v, sizeof(v));
+        app_cfg_set_snmp_comm(v);
         reboot_required = true;
     }
     if (form_has(body, "snmp_ver")) {
-        g_config.snmp_ver = (uint8_t)form_int(body, "snmp_ver", g_config.snmp_ver);
+        app_cfg_set_snmp_ver((int)form_int(body, "snmp_ver", app_cfg_get_snmp_ver()));
         reboot_required = true;
     }
     if (form_has(body, "serial_baud")) {
-        g_config.serial_baud = (uint32_t)form_int(body, "serial_baud", (int)g_config.serial_baud);
+        app_cfg_set_serial_baud((int)form_int(body, "serial_baud", app_cfg_get_serial_baud()));
         reboot_required = true;
     }
 
     /* Display: brightness is managed by the new config system; only rotation/autodim here */
     if (form_has(body, "poll_sec") || form_has(body, "rotation_angle") || form_has(body, "autodim")) {
-        uint8_t rot = (uint8_t)form_int(body, "rotation_angle", g_config.rotation_angle);
-        bool autodim = form_has(body, "autodim") ? form_bool(body, "autodim", false) : g_config.autodim;
-        config_save_display(rot, autodim);
+        uint8_t rot = (uint8_t)form_int(body, "rotation_angle", app_cfg_get_rotation_angle());
+        bool autodim = form_has(body, "autodim") ? form_bool(body, "autodim", false) : app_cfg_get_autodim();
+        app_cfg_set_rotation_angle(rot);
+        app_cfg_set_autodim(autodim ? 1 : 0);
         if (form_has(body, "rotation_angle")) reboot_required = true;
     }
 
     /* Disk slots */
     if (form_has(body, "sata_disk_count") || form_has(body, "m2_disk_count")) {
-        uint8_t sata = (uint8_t)form_int(body, "sata_disk_count", g_config.sata_disk_count);
-        uint8_t m2   = (uint8_t)form_int(body, "m2_disk_count", g_config.m2_disk_count);
-        config_save_disk_config(sata, m2);
+        uint8_t sata = (uint8_t)form_int(body, "sata_disk_count", app_cfg_get_sata_disk_count());
+        uint8_t m2   = (uint8_t)form_int(body, "m2_disk_count", app_cfg_get_m2_disk_count());
+        app_cfg_set_sata_disk_count(sata);
+        app_cfg_set_m2_disk_count(m2);
         reboot_required = true;
     }
 
-    /* Timezone / auto-cycle / weather (no dedicated setter) */
-    if (form_has(body, "timezone")) g_config.timezone = (int8_t)form_int(body, "timezone", g_config.timezone);
+    /* Timezone / auto-cycle / weather */
+    if (form_has(body, "timezone")) app_cfg_set_timezone((int)form_int(body, "timezone", app_cfg_get_timezone()));
     if (form_has(body, "auto_cycle_enabled"))
-        g_config.auto_cycle_enabled = form_bool(body, "auto_cycle_enabled", false);
+        app_cfg_set_auto_cycle_enabled(form_bool(body, "auto_cycle_enabled", false) ? 1 : 0);
     if (form_has(body, "auto_cycle_interval_sec"))
-        g_config.auto_cycle_interval_sec = (uint8_t)form_int(body, "auto_cycle_interval_sec", g_config.auto_cycle_interval_sec);
-    if (form_has(body, "weather_api_key"))
-        form_str(body, "weather_api_key", g_config.weather_api_key, sizeof(g_config.weather_api_key));
-    if (form_has(body, "weather_city"))
-        form_str(body, "weather_city", g_config.weather_city, sizeof(g_config.weather_city));
+        app_cfg_set_auto_cycle_interval_sec((int)form_int(body, "auto_cycle_interval_sec", app_cfg_get_auto_cycle_interval_sec()));
+    if (form_has(body, "weather_api_key")) {
+        char v[65] = {0};
+        form_str(body, "weather_api_key", v, sizeof(v));
+        app_cfg_set_weather_api_key(v);
+    }
+    if (form_has(body, "weather_city")) {
+        char v[32] = {0};
+        form_str(body, "weather_city", v, sizeof(v));
+        app_cfg_set_weather_city(v);
+    }
 
     /* Fan: assemble FanConfig from individual keys, then save */
     bool fan_changed = form_has(body, "fan_enabled") || form_has(body, "fan_mode") ||
@@ -1506,7 +1522,7 @@ static esp_err_t h_settings_post(httpd_req_t *r)
         if (form_has(body, k)) fan_changed = true;
     }
     if (fan_changed) {
-        FanConfig fc = g_config.fan;  /* start from current */
+        FanConfig fc = app_cfg_get_fan();  /* start from current */
         if (form_has(body, "fan_enabled")) fc.enabled = form_bool(body, "fan_enabled", false);
         if (form_has(body, "fan_mode")) fc.mode = (FanMode)form_int(body, "fan_mode", fc.mode);
         if (form_has(body, "fan_manual_pct")) fc.manual_pwm_pct = (uint8_t)form_int(body, "fan_manual_pct", fc.manual_pwm_pct);
@@ -1524,12 +1540,12 @@ static esp_err_t h_settings_post(httpd_req_t *r)
             snprintf(k, sizeof(k), "fan_curve_%d_pct", i);
             if (form_has(body, k)) fc.curve[i].pwm_pct = (uint8_t)form_int(body, k, fc.curve[i].pwm_pct);
         }
-        config_save_fan(&fc);
+        app_cfg_set_fan(&fc);
         fan_control_apply_config(&fc);  /* hot-apply */
     }
 
-    /* Persist fields that lack a dedicated setter */
-    config_save();
+    /* Persist all changed fields */
+    app_cfg_save();
 
     char resp[64];
     snprintf(resp, sizeof(resp), "{\"ok\":true,\"reboot_required\":%d}", (int)reboot_required);

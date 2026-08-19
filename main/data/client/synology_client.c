@@ -1,5 +1,5 @@
 #include "synology_client.h"
-#include "config.h"
+#include "app_cfg.h"
 #include "esp_log.h"
 #include "esp_http_client.h"
 #include "esp_wifi.h"
@@ -235,15 +235,15 @@ static bool syno_init(DataSource* self)
 
     self->priv = priv;
 
-    memcpy(priv->nas_ip, g_config.nas_ip, sizeof(priv->nas_ip));
+    memcpy(priv->nas_ip, app_cfg_get_nas_ip(), sizeof(priv->nas_ip));
     priv->nas_ip[sizeof(priv->nas_ip) - 1] = '\0';
-    priv->nas_port = g_config.nas_port;
+    priv->nas_port = app_cfg_get_nas_port();
     if (priv->nas_port == 0) priv->nas_port = 5000;
-    memcpy(priv->username, g_config.nas_user, sizeof(priv->username));
+    memcpy(priv->username, app_cfg_get_nas_user(), sizeof(priv->username));
     priv->username[sizeof(priv->username) - 1] = '\0';
-    memcpy(priv->password, g_config.nas_pass, sizeof(priv->password));
+    memcpy(priv->password, app_cfg_get_nas_pass(), sizeof(priv->password));
     priv->password[sizeof(priv->password) - 1] = '\0';
-    priv->use_https = g_config.nas_https;
+    priv->use_https = app_cfg_get_nas_https();
     priv->sid[0] = '\0';
     priv->last_poll_ms = 0;
     priv->consecutive_failures = 0;
@@ -298,7 +298,7 @@ static bool syno_poll(DataSource* self)
     if (!priv) return false;
 
     uint32_t now = get_millis();
-    uint32_t poll_interval = g_config.poll_sec * 1000UL;
+    uint32_t poll_interval = app_cfg_get_poll_sec() * 1000UL;
 
     if (priv->consecutive_failures > 0) {
         uint8_t capped = priv->consecutive_failures;

@@ -7,7 +7,7 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "nas_data.h"
-#include "config.h"
+#include "app_cfg.h"
 
 static const char *TAG = "event_bus";
 
@@ -142,7 +142,7 @@ void event_bus_publish_nas_data(const NasData *data)
 
     xSemaphoreTake(s_nas_data_mux, portMAX_DELAY);
     memcpy(&s_nas_data_buffer, data, sizeof(NasData));
-    s_nas_data_buffer.disk_slot_count = config_get_total_disk_slots();
+    s_nas_data_buffer.disk_slot_count = app_cfg_get_sata_disk_count() + app_cfg_get_m2_disk_count();
     xSemaphoreGive(s_nas_data_mux);
 
     event_t evt = {

@@ -16,7 +16,7 @@
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
 #include "nas_data.h"
-#include "config.h"
+#include "app_cfg.h"
 #include <string.h>
 
 static const char *TAG = "event_bus";
@@ -125,7 +125,7 @@ void event_bus_publish_nas_data(const NasData *data)
 
     /* 拷贝到静态缓冲区（与原版一致） */
     memcpy(&s_nas_data_buffer, data, sizeof(NasData));
-    s_nas_data_buffer.disk_slot_count = config_get_total_disk_slots();
+    s_nas_data_buffer.disk_slot_count = app_cfg_get_sata_disk_count() + app_cfg_get_m2_disk_count();
 
     event_t evt = {
         .id = EVENT_NAS_DATA_UPDATE,

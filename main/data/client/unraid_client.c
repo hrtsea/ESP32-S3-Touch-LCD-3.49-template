@@ -1,5 +1,5 @@
 #include "unraid_client.h"
-#include "config.h"
+#include "app_cfg.h"
 #include "esp_log.h"
 #include "esp_http_client.h"
 #include "esp_wifi_config.h"
@@ -399,16 +399,16 @@ static bool unraid_init(DataSource* self)
 
     self->priv = priv;
 
-    memcpy(priv->nas_ip, g_config.nas_ip, sizeof(priv->nas_ip));
+    memcpy(priv->nas_ip, app_cfg_get_nas_ip(), sizeof(priv->nas_ip));
     priv->nas_ip[sizeof(priv->nas_ip) - 1] = '\0';
-    priv->nas_port = g_config.nas_port;
+    priv->nas_port = app_cfg_get_nas_port();
     if (priv->nas_port == 0) priv->nas_port = 80;
 
     /* API Key 存储在 nas_pass 字段 */
-    memcpy(priv->api_key, g_config.nas_pass, sizeof(priv->api_key));
+    memcpy(priv->api_key, app_cfg_get_nas_pass(), sizeof(priv->api_key));
     priv->api_key[sizeof(priv->api_key) - 1] = '\0';
 
-    priv->use_https = g_config.nas_https;
+    priv->use_https = app_cfg_get_nas_https();
     priv->last_poll_ms = 0;
     priv->consecutive_failures = 0;
 
@@ -457,7 +457,7 @@ static bool unraid_poll(DataSource* self)
     if (!priv) return false;
 
     uint32_t now = get_millis();
-    uint32_t poll_interval = g_config.poll_sec * 1000UL;
+    uint32_t poll_interval = app_cfg_get_poll_sec() * 1000UL;
 
     /* 失败时指数退避 */
     if (priv->consecutive_failures > 0) {

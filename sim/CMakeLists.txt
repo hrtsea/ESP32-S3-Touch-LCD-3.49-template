@@ -172,7 +172,6 @@ set(UTILS_SOURCES
 
 # 直接编译原版的配置/事件总线（nvs stub 返回 NOT_FOUND 即可正常工作）
 set(CONFIG_SOURCES
-    ${MAIN_DIR}/config/config.c
     ${MAIN_DIR}/config/app_cfg.c
 )
 

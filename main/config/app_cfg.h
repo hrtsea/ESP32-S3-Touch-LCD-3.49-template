@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include "fan_control.h"   /* FanConfig（从老 config 系统迁入） */
 
 #ifdef __cplusplus
 extern "C" {
@@ -11,7 +12,7 @@ extern "C" {
 
 /* NVS 命名空间定义 */
 #define NVS_NS_CFG   "cfg"      /* 配置存储命名空间 */
-#define CFG_VERSION  7u         /* 配置版本号，用于配置迁移 */
+#define CFG_VERSION  8u         /* 配置版本号，用于配置迁移（v8: 合并老 config 系统字段，升级即重置旧 nasmon 配置） */
 
 /* 默认 WiFi 凭证（可通过 wifi_secret.h 覆盖） */
 #define DEFAULT_WIFI_SSID  ""
@@ -55,6 +56,28 @@ typedef enum {
     CFG_FIELD_QUOTES_REFRESH_S, /* 行情刷新间隔 */
     CFG_FIELD_QUOTES_UP_RGBA,   /* 行情上涨颜色 */
     CFG_FIELD_QUOTES_DOWN_RGBA, /* 行情下跌颜色 */
+
+    /* ---- 以下字段由老 config 系统 (config.c) 合并而来 (v8) ---- */
+    CFG_FIELD_NAS_TYPE,         /* NAS 类型字符串 */
+    CFG_FIELD_NAS_IP,           /* NAS IP */
+    CFG_FIELD_NAS_PORT,         /* NAS 端口 */
+    CFG_FIELD_NAS_USER,         /* NAS 用户名 */
+    CFG_FIELD_NAS_PASS,         /* NAS 密码 */
+    CFG_FIELD_NAS_HTTPS,        /* NAS 是否使用 HTTPS */
+    CFG_FIELD_SNMP_COMM,        /* SNMP community */
+    CFG_FIELD_SNMP_VER,         /* SNMP 版本 */
+    CFG_FIELD_SERIAL_BAUD,      /* 串口波特率 */
+    CFG_FIELD_POLL_SEC,         /* 轮询间隔（秒） */
+    CFG_FIELD_ROTATION_ANGLE,   /* 屏幕旋转角度 */
+    CFG_FIELD_AUTODIM,          /* 自动变暗标志 */
+    CFG_FIELD_TIMEZONE,         /* 时区偏移（分钟，带符号） */
+    CFG_FIELD_SATA_DISK_COUNT,  /* SATA 硬盘槽位数 */
+    CFG_FIELD_M2_DISK_COUNT,    /* M.2 硬盘槽位数 */
+    CFG_FIELD_WEATHER_API_KEY,  /* 天气 API key */
+    CFG_FIELD_WEATHER_CITY,     /* 天气城市 */
+    CFG_FIELD_AUTO_CYCLE_EN,    /* 自动轮播使能 */
+    CFG_FIELD_AUTO_CYCLE_INT,   /* 自动轮播间隔（秒） */
+    CFG_FIELD_FAN,              /* 风扇配置 (FanConfig) */
 } cfg_field_t;
 
 /**
@@ -117,6 +140,28 @@ typedef struct {
     uint16_t quotes_refresh_s;  /* 行情刷新间隔（秒） */
     uint32_t quotes_up_rgba;    /* 行情上涨颜色 (RGBA) */
     uint32_t quotes_down_rgba;  /* 行情下跌颜色 (RGBA) */
+
+    /* ---- 以下字段由老 config 系统 (config.c) 合并而来 (v8) ---- */
+    char     nas_type[16];       /* NAS 类型字符串 (如 "unraid") */
+    char     nas_ip[40];         /* NAS IP 地址 */
+    uint16_t nas_port;           /* NAS 端口 */
+    char     nas_user[32];       /* NAS 用户名 */
+    char     nas_pass[65];       /* NAS 密码 */
+    uint8_t  nas_https;          /* NAS 是否使用 HTTPS (0/1) */
+    char     snmp_comm[32];      /* SNMP community 字符串 */
+    uint8_t  snmp_ver;           /* SNMP 版本 (0=v1, 1=v2c) */
+    uint32_t serial_baud;        /* 串口波特率 */
+    uint8_t  poll_sec;           /* 轮询间隔（秒） */
+    uint8_t  rotation_angle;     /* 屏幕旋转角度 */
+    uint8_t  autodim;            /* 自动变暗标志 */
+    int8_t   timezone;           /* 时区偏移（小时，带符号） */
+    uint8_t  sata_disk_count;    /* SATA 硬盘槽位数 */
+    uint8_t  m2_disk_count;      /* M.2 硬盘槽位数 */
+    char     weather_api_key[65];/* 天气 API key */
+    char     weather_city[32];   /* 天气城市 */
+    uint8_t  auto_cycle_enabled; /* 自动轮播使能 */
+    uint8_t  auto_cycle_interval_sec; /* 自动轮播间隔（秒） */
+    FanConfig fan;               /* 风扇配置 */
 } app_cfg_t;
 
 /**
@@ -197,6 +242,60 @@ void app_cfg_set_audio_enable(int enable);           /* 设置音频使能 */
 void app_cfg_set_audio_volume(int vol);              /* 设置音频音量 */
 void app_cfg_set_theme(int theme);                   /* 设置主题索引 */
 void app_cfg_set_wifi_autoconnect(int enable);       /* 设置 WiFi 自动连接 */
+
+/* ---- 以下 getter/setter 由老 config 系统 (config.c) 合并而来 (v8) ---- */
+const char *app_cfg_get_nas_type(void);
+const char *app_cfg_get_nas_ip(void);
+int         app_cfg_get_nas_port(void);
+const char *app_cfg_get_nas_user(void);
+const char *app_cfg_get_nas_pass(void);
+int         app_cfg_get_nas_https(void);
+const char *app_cfg_get_snmp_comm(void);
+int         app_cfg_get_snmp_ver(void);
+int         app_cfg_get_serial_baud(void);
+int         app_cfg_get_poll_sec(void);
+int         app_cfg_get_rotation_angle(void);
+int         app_cfg_get_autodim(void);
+int         app_cfg_get_timezone(void);
+int         app_cfg_get_sata_disk_count(void);
+int         app_cfg_get_m2_disk_count(void);
+const char *app_cfg_get_weather_api_key(void);
+const char *app_cfg_get_weather_city(void);
+int         app_cfg_get_auto_cycle_enabled(void);
+int         app_cfg_get_auto_cycle_interval_sec(void);
+FanConfig   app_cfg_get_fan(void);
+
+void app_cfg_set_nas_type(const char *v);
+void app_cfg_set_nas_ip(const char *v);
+void app_cfg_set_nas_port(int v);
+void app_cfg_set_nas_user(const char *v);
+void app_cfg_set_nas_pass(const char *v);
+void app_cfg_set_nas_https(int v);
+void app_cfg_set_snmp_comm(const char *v);
+void app_cfg_set_snmp_ver(int v);
+void app_cfg_set_serial_baud(int v);
+void app_cfg_set_poll_sec(int v);
+void app_cfg_set_rotation_angle(int v);
+void app_cfg_set_autodim(int v);
+void app_cfg_set_timezone(int v);
+void app_cfg_set_sata_disk_count(int v);
+void app_cfg_set_m2_disk_count(int v);
+void app_cfg_set_weather_api_key(const char *v);
+void app_cfg_set_weather_city(const char *v);
+void app_cfg_set_auto_cycle_enabled(int v);
+void app_cfg_set_auto_cycle_interval_sec(int v);
+void app_cfg_set_fan(const FanConfig *v);
+
+/* 槽位类型判断（替代老 config.h 的 config_is_sata_slot / config_is_m2_slot） */
+static inline int app_cfg_is_sata_slot(int i)
+{
+    return i >= 0 && i < app_cfg_get_sata_disk_count();
+}
+static inline int app_cfg_is_m2_slot(int i)
+{
+    int sata = app_cfg_get_sata_disk_count();
+    return i >= sata && i < sata + app_cfg_get_m2_disk_count();
+}
 
 
 

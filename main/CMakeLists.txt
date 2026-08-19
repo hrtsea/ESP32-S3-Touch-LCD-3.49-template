@@ -42,7 +42,6 @@ idf_component_register(
         "utils/wifi_adapter.c"
         "utils/wifi_bridge.c"
         "utils/rgb_nas_monitor.c"
-        "config/config.c"
         "data/data_source.c"
         "data/fan_control.c"
         "data/nas_event_loop.c"

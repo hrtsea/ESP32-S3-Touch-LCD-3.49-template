@@ -17,7 +17,7 @@ extern "C" {
 #include "landmask.h"
 
 #include "app_cfg.h"
-#include "config.h"
+#include "app_cfg.h"
 #include "disp_driver.h"
 #include "esp_wifi_config.h"
 #include "theme.h"

@@ -7,7 +7,7 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "event_bus.h"
-#include "config.h"
+#include "app_cfg.h"
 #include "data_source.h"
 
 static const char *TAG = "nas_event_loop";
@@ -65,7 +65,7 @@ static void task_nas_data_loop(void *arg)
 
             case EVENT_WIFI_DISCONNECTED:
             case EVENT_HTTP_STOP:
-                if (nas_type_from_string(g_config.nas_type) == NAS_MOCK) {
+                if (nas_type_from_string(app_cfg_get_nas_type()) == NAS_MOCK) {
                     // mock 数据源为本地模拟，WiFi 状态不影响数据抓取
                     ESP_LOGD(TAG, "Fetch keep enabled (mock source, no WiFi needed)");
                 } else {
@@ -101,8 +101,8 @@ void nas_event_loop_start(void)
     }
 
     const char *type_id;
-    if (strlen(g_config.nas_type) > 0) {
-        type_id = g_config.nas_type;
+    if (strlen(app_cfg_get_nas_type()) > 0) {
+        type_id = app_cfg_get_nas_type();
     } else {
         ESP_LOGW(TAG, "No NAS type configured, using mock");
         type_id = "mock";

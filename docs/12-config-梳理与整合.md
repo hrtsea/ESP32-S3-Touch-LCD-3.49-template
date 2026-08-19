@@ -94,15 +94,16 @@ main.cpp
 - 以 `esp_wifi_config`/`default_networks` 为 WiFi 凭证唯一权威源；废弃老 `config_save_wifi()` 或改为回写 `default_networks`。
 - 确认老系统 `rotation_angle`/`autodim` 是否仍被读，若为死字段一并清理。
 
-**P2（统一配置体系，长期）**
-- 将风扇、磁盘、NAS 连接配置也迁入 `app_cfg` 体系（统一 NVS 命名空间 `"cfg"` + 增量脏字段保存 + `EVENT_CFG_CHANGED` 字段级通知），消除双命名空间与双加载入口。
-- 迁移时注意 `cfg_apply_migration`（`CFG_VERSION` 已为 7）的向前兼容。
+**P2（统一配置体系，长期）— ✅ 已完成（2026-08-19）**
+- 已将风扇、磁盘、NAS 连接、显示、时区、天气、自动轮播等全部配置迁入 `app_cfg` 体系，统一 NVS 命名空间 `"cfg"`，`CFG_VERSION` 升至 8（升级即重置旧 `"nasmon"` 配置，不迁移）。
+- 老系统 `main/config/config.c` + `config.h` 已**彻底删除**，`main/CMakeLists.txt` 移除 `config.c` 源文件，`main/main.cpp` 移除 `config_load()` 调用；`g_config`/`config_save_*`/`config_load`/`config_get_*` 等全部引用已改为 `app_cfg_get/set_*`（固件 + sim 模拟器同步完成）。
+- 原 `config.h` 中的硬件/协议常量宏（`FAN_PWM_GPIO` 等风扇管脚、`DEFAULT_HTTP_PORT` 等协议端口）迁移至 `fan_control.h` 与 `data_source.h`，避免随老系统删除丢失。
+- 老 `config_is_sata_slot`/`config_is_m2_slot`/`config_get_total_disk_slots` 内联函数由 `app_cfg_is_sata_slot`/`app_cfg_is_m2_slot` 及 `app_cfg_get_sata_disk_count()+app_cfg_get_m2_disk_count()` 替代。
+- 验证：`idf.py build` 与 sim `mingw32-make` 均通过。
 
 ---
 
 ## 12.6 现状小结
 
-- `main/config` = 新系统（活跃、字段级事件、增量保存）+ 老系统（活跃但部分字段已死/被新系统覆盖）+ 共享常量 `app_info.h`。
-- **最紧迫**：老系统 `brightness` 死字段会与用户直觉冲突（改了无效）。
-- **最高风险**：双 NVS 命名空间 + WiFi 双凭证源，未来改动易在两套间不一致。
-- 整合优先级 P0 > P1 > P2，P0 可立即做，P1/P2 需评审。
+- `main/config` = 单一 `app_cfg` 系统（活跃、字段级 `EVENT_CFG_CHANGED` 事件、全量保存）。老 `[config.c/h]` 已删除，双 NVS 命名空间与 WiFi 双凭证源问题已在 P0/P1/P2 中消除。
+- P0/P1/P2 全部完成，配置体系已统一。

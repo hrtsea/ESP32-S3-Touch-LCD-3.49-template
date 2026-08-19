@@ -1,6 +1,6 @@
 #include "api_client.h"
-#include "config.h"
-#include "../../config/config.h"
+#include "app_cfg.h"
+#include "app_cfg.h"
 #include "esp_log.h"
 #include "esp_http_client.h"
 #include "esp_wifi.h"
@@ -315,12 +315,12 @@ static bool api_init(DataSource* self)
     self->priv = priv;
     priv->current_type = NET_LINUX_HTTP;
 
-    memcpy(priv->nas_ip, g_config.nas_ip, sizeof(priv->nas_ip));
+    memcpy(priv->nas_ip, app_cfg_get_nas_ip(), sizeof(priv->nas_ip));
     priv->nas_ip[sizeof(priv->nas_ip) - 1] = '\0';
-    priv->nas_port = g_config.nas_port;
+    priv->nas_port = app_cfg_get_nas_port();
     if (priv->nas_port == 0) priv->nas_port = DEFAULT_HTTP_PORT;
 
-    priv->poll_interval_ms = g_config.poll_sec * 1000UL;
+    priv->poll_interval_ms = app_cfg_get_poll_sec() * 1000UL;
     priv->state = API_IDLE;
     priv->last_poll_ms = 0;
     priv->consecutive_failures = 0;

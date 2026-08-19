@@ -47,10 +47,10 @@ static void create_storage_status_bar(lv_obj_t *parent)
     lv_obj_t *label_title = lv_label_create(status_bar);
     LV_OBJ_CHECK(label_title, "label_title");
     static char title_str[32];
-    if (strlen(g_config.nas_user) > 0) {
-        snprintf(title_str, sizeof(title_str), "%s", g_config.nas_user);
-    } else if (strlen(g_config.nas_type) > 0 && strcmp(g_config.nas_type, "mock") != 0) {
-        snprintf(title_str, sizeof(title_str), "%s", g_config.nas_type);
+    if (strlen(app_cfg_get_nas_user()) > 0) {
+        snprintf(title_str, sizeof(title_str), "%s", app_cfg_get_nas_user());
+    } else if (strlen(app_cfg_get_nas_type()) > 0 && strcmp(app_cfg_get_nas_type(), "mock") != 0) {
+        snprintf(title_str, sizeof(title_str), "%s", app_cfg_get_nas_type());
     } else {
         snprintf(title_str, sizeof(title_str), "NAS Monitor");
     }
@@ -128,7 +128,7 @@ static void create_hdd_storage_bars(lv_obj_t *parent)
     lv_obj_add_flag(s_screen.container, LV_OBJ_FLAG_GESTURE_BUBBLE);
     lv_obj_align(s_screen.container, LV_ALIGN_TOP_MID, 0, 37);
 
-    uint8_t total_disks = config_get_total_disk_slots();
+    uint8_t total_disks = app_cfg_get_sata_disk_count() + app_cfg_get_m2_disk_count();
     if (total_disks == 0) total_disks = 1;
 
     uint8_t cols = (total_disks <= 4) ? 1 : (total_disks <= 6) ? 2 : 3;
@@ -146,10 +146,10 @@ static void create_hdd_storage_bars(lv_obj_t *parent)
             int y_offset = row * row_height + 2;
 
             char label_text[16];
-            if (config_is_sata_slot(index)) {
+            if (app_cfg_is_sata_slot(index)) {
                 snprintf(label_text, sizeof(label_text), "HDD%d", index + 1);
             } else {
-                uint8_t m2_index = index - g_config.sata_disk_count;
+                uint8_t m2_index = index - app_cfg_get_sata_disk_count();
                 snprintf(label_text, sizeof(label_text), "M.2%d", m2_index + 1);
             }
 

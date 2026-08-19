@@ -1,5 +1,5 @@
 #include "fan_control.h"
-#include "config.h"
+#include "app_cfg.h"
 #include "event_bus.h"
 #include "esp_log.h"
 #include "esp_err.h"
@@ -167,7 +167,8 @@ static void fan_control_task(void *arg)
         s_current_rpm = fan_pcnt_read_rpm();
 
         /* 读取最新配置副本（线程安全） */
-        memcpy(&cfg_snapshot, &g_config.fan, sizeof(FanConfig));
+        FanConfig fc = app_cfg_get_fan();
+        memcpy(&cfg_snapshot, &fc, sizeof(FanConfig));
 
         if (!cfg_snapshot.enabled) {
             fan_ledc_set_duty_pct(0);
@@ -258,14 +259,15 @@ void fan_control_init(void)
     fan_pcnt_init();
 
     /* 应用初始配置 */
-    fan_ledc_set_duty_pct(g_config.fan.enabled ? g_config.fan.manual_pwm_pct : 0);
+    FanConfig fc0 = app_cfg_get_fan();
+    fan_ledc_set_duty_pct(fc0.enabled ? fc0.manual_pwm_pct : 0);
 
     xTaskCreate(fan_control_task, "fan_ctrl", FAN_TASK_STACK, NULL,
                 FAN_TASK_PRIORITY, &s_fan_task_hdl);
 
     s_inited = true;
     ESP_LOGI(TAG, "fan_control initialized (mode=%d enabled=%d)",
-             g_config.fan.mode, g_config.fan.enabled);
+             fc0.mode, fc0.enabled);
 }
 
 void fan_control_set_pwm(uint8_t pct)
@@ -311,7 +313,7 @@ void fan_control_get_status(FanStatus *out)
     out->pwm_pct     = s_current_pwm;
     out->ctrl_temp   = s_ctrl_temp;
     out->stall_alarm = s_stall_alarm;
-    out->enabled     = g_config.fan.enabled;
+    out->enabled     = app_cfg_get_fan().enabled;
 }
 
 void fan_control_on_nas_data(const NasData *data)

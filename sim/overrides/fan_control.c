@@ -3,7 +3,7 @@
  * PWM/RPM 通过 set_pwm/get_rpm 在内存中维护。
  */
 #include "fan_control.h"
-#include "config.h"
+#include "app_cfg.h"
 #include "nas_data.h"
 #include <string.h>
 
@@ -17,7 +17,7 @@ static FanStatus s_fan_status = {
 
 void fan_control_init(void) {
     /* 同步配置初始值到内存状态 */
-    s_fan_status.enabled = g_config.fan.enabled;
+    s_fan_status.enabled = app_cfg_get_fan().enabled;
 }
 
 void fan_control_set_pwm(uint8_t pct) {
@@ -49,7 +49,7 @@ void fan_control_on_nas_data(const NasData *data) {
     if (t > 0) {
         s_fan_status.ctrl_temp = t;
         /* 简单温度→PWM 映射，模拟自动模式 */
-        if (g_config.fan.mode == FAN_MODE_AUTO) {
+        if (app_cfg_get_fan().mode == FAN_MODE_AUTO) {
             uint8_t pwm = 25;
             if (t >= 65)      pwm = 100;
             else if (t >= 55) pwm = 80;

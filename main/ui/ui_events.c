@@ -150,12 +150,12 @@ static void on_nas_data_update_evt(const NasData *data)
         overview_screen_update_mem((int)data->system.ram_pct);
         overview_screen_update_disk((int)data->system.disk_pct);
 
-        uint8_t total_slots = config_get_total_disk_slots();
+        uint8_t total_slots = app_cfg_get_sata_disk_count() + app_cfg_get_m2_disk_count();
         if (total_slots == 0) total_slots = 1;
 
         ESP_LOGI(TAG, "[ui disk] disk_slot_count=%u total_slots=%u sata=%u m2=%u",
                  data->disk_slot_count, total_slots,
-                 g_config.sata_disk_count, g_config.m2_disk_count);
+                 app_cfg_get_sata_disk_count(), app_cfg_get_m2_disk_count());
 
         for (int i = 0; i < total_slots; i++) {
             if (i < data->disk_slot_count) {
@@ -305,8 +305,11 @@ static void task_ui_event_loop(void *arg)
                 break;
 
             case EVENT_FAN_CONFIG_CHANGED:
-                fan_control_apply_config(&g_config.fan);
+            {
+                FanConfig fc = app_cfg_get_fan();
+                fan_control_apply_config(&fc);
                 break;
+            }
 
             case EVENT_CFG_CHANGED:
                 if (evt.data && evt.data_len >= sizeof(cfg_change_info_t)) {

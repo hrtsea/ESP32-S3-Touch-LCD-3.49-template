@@ -274,7 +274,7 @@ static void emerg_dd_cb(lv_event_t *e)
 void fan_tab_save(lv_event_t *e)
 {
     (void)e;
-    config_save_fan(&s_editing_cfg);
+    app_cfg_set_fan(&s_editing_cfg);
     s_dirty = false;
     if (s_apply_btn) {
         lv_obj_set_style_bg_color(s_apply_btn, theme_get().inactive, 0);
@@ -487,7 +487,7 @@ void ui_Screen_Settings_FanTab_init(lv_obj_t *parent)
     if (s_tab_page) return;
 
     /* 从全局配置加载编辑副本 */
-    memcpy(&s_editing_cfg, &g_config.fan, sizeof(FanConfig));
+    s_editing_cfg = app_cfg_get_fan();
 
     s_tab_page = lv_tabview_add_tab(parent, "Fan");
     lv_obj_set_style_bg_color(s_tab_page, theme_get().bg, 0);

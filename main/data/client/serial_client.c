@@ -1,6 +1,6 @@
 #include "serial_client.h"
-#include "config.h"
-#include "../../config/config.h"
+#include "app_cfg.h"
+#include "app_cfg.h"
 #include "../../config/app_info.h"
 #include "esp_log.h"
 #include "driver/uart.h"
@@ -256,7 +256,7 @@ static bool serial_init(DataSource* self)
 
     self->priv = priv;
 
-    priv->baud_rate = g_config.serial_baud;
+    priv->baud_rate = (uint32_t)app_cfg_get_serial_baud();
     if (priv->baud_rate == 0) priv->baud_rate = DEFAULT_SERIAL_BAUD;
 
     priv->state = SERIAL_IDLE;

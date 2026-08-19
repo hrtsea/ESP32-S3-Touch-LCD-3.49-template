@@ -1,7 +1,7 @@
 #include "ui_Screen_DiskDetail.h"
 #include "../ui.h"
 #include "esp_log.h"
-#include "config.h"
+#include "app_cfg.h"
 #include "theme.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_12);
@@ -361,10 +361,10 @@ void ui_Screen_DiskDetail_screen_init(uint8_t disk_index)
     create_smart_section(ui_Screen_DiskDetail);
 
     char title[24];
-    if (config_is_sata_slot(disk_index)) {
+    if (app_cfg_is_sata_slot(disk_index)) {
         snprintf(title, sizeof(title), "Disk - HDD%u", disk_index + 1);
     } else {
-        uint8_t m2_idx = disk_index - g_config.sata_disk_count;
+        uint8_t m2_idx = disk_index - app_cfg_get_sata_disk_count();
         snprintf(title, sizeof(title), "Disk - M.2%u", m2_idx + 1);
     }
     lv_label_set_text(s_screen.label_title, title);
