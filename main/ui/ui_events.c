@@ -207,6 +207,20 @@ static void on_nas_data_update_evt(const NasData *data)
     }
 }
 
+/*
+ * EVENT_NAS_DATA_UPDATE 同步回调。
+ * 通过 event_bus_subscribe 注册，由发布者线程（nas 数据任务）同步调用，
+ * 不受共享事件队列被其他任务抢占影响，保证 UI 一定能收到最新数据。
+ * LVGL 操作经 UI_UPDATE 宏加锁，安全可重入。
+ */
+static void nas_data_sync_handler(const event_t *evt, void *user_data)
+{
+    (void)user_data;
+    if (!evt || !evt->data || evt->data_len < sizeof(NasData)) return;
+    const NasData *data = (const NasData *)evt->data;
+    UI_UPDATE(on_nas_data_update_evt(data));
+}
+
 static void on_wifi_state_changed(bool connected)
 {
     char ip_buf[16];
@@ -235,11 +249,8 @@ static void task_ui_event_loop(void *arg)
         }
 
         switch (evt.id) {
-            case EVENT_NAS_DATA_UPDATE:
-                if (evt.data && evt.data_len >= sizeof(NasData)) {
-                    UI_UPDATE(on_nas_data_update_evt((const NasData *)evt.data));
-                }
-                break;
+            /* 注: EVENT_NAS_DATA_UPDATE 已改为同步回调 nas_data_sync_handler 处理，
+               不再从共享队列消费，避免与 nas 数据任务竞争同一队列导致事件被抢占丢弃。 */
 
             case EVENT_WIFI_CONNECTED:
                 UI_UPDATE(on_wifi_state_changed(true));
@@ -336,6 +347,8 @@ void ui_events_start(void)
 
     s_running = true;
     xTaskCreate(task_ui_event_loop, "ui_event_loop", 8192, NULL, 1, &s_ui_task_hdl);
+    /* NAS 数据走同步回调，绕过共享事件队列，避免被 nas 数据任务抢占丢弃 */
+    event_bus_subscribe(EVENT_NAS_DATA_UPDATE, nas_data_sync_handler, NULL);
     ui_events_start_time_timer();
 }
 

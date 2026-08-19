@@ -105,16 +105,37 @@ void event_bus_init(void)
 
 void event_bus_subscribe(event_id_t id, event_handler_t handler, void *user_data)
 {
-    (void)id;
-    (void)handler;
-    (void)user_data;
-    ESP_LOGW(TAG, "event_bus_subscribe is deprecated, use event_bus_receive() instead");
+    if (id <= EVENT_NONE || id >= EVENT_MAX || !handler) return;
+    if (!s_inited) event_bus_init();
+
+    xSemaphoreTake(s_mux, portMAX_DELAY);
+    event_slot_t *slot = &s_slots[id];
+    if (slot->count < MAX_HANDLERS_PER_EVENT) {
+        slot->handlers[slot->count].handler = handler;
+        slot->handlers[slot->count].user_data = user_data;
+        slot->count++;
+        ESP_LOGD(TAG, "subscribe %s (slot count=%d)", s_event_names[id], slot->count);
+    } else {
+        ESP_LOGW(TAG, "event slot %d full, handler not registered", id);
+    }
+    xSemaphoreGive(s_mux);
 }
 
 void event_bus_unsubscribe(event_id_t id, event_handler_t handler)
 {
-    (void)id;
-    (void)handler;
+    if (id <= EVENT_NONE || id >= EVENT_MAX || !handler) return;
+    if (!s_inited) return;
+
+    xSemaphoreTake(s_mux, portMAX_DELAY);
+    event_slot_t *slot = &s_slots[id];
+    for (int i = 0; i < slot->count; i++) {
+        if (slot->handlers[i].handler == handler) {
+            slot->handlers[i] = slot->handlers[slot->count - 1];
+            slot->count--;
+            break;
+        }
+    }
+    xSemaphoreGive(s_mux);
 }
 
 void event_bus_publish(event_id_t id, void *data, size_t len)
