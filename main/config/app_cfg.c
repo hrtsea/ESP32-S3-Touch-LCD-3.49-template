@@ -78,7 +78,7 @@ app_cfg_t g_cfg = {
     .quotes_down_rgba  = 0xFF4040FFu,     /* 默认红色下跌 */
 
     /* v8: 由老 config 系统 (config.c) 合并而来 */
-    .nas_type          = "unraid",         /* 默认 NAS 类型 */
+    .nas_type          = "mock",            /* 默认 NAS 类型(本地模拟,便于无 NAS 环境开发调试) */
     .nas_ip            = {0},              /* 无默认 IP */
     .nas_port          = 0,                /* 0 = 使用协议默认端口 */
     .nas_user          = {0},
@@ -98,19 +98,6 @@ app_cfg_t g_cfg = {
     .auto_cycle_enabled = 0,
     .auto_cycle_interval_sec = 10,
 };
-
-/**
- * @brief 静态回调函数存储
- * 
- * 用于保存外部注册的配置变更回调函数
- */
-static struct {
-    void (*on_backlight_changed)(uint8_t brightness); /* 背光亮度变更回调 */
-    void (*on_bg_fetch_ensure)(void);             /* 确保背景图片获取回调 */
-    void (*on_wifi_connect)(const char *ssid, const char *pass); /* WiFi 连接回调 */
-} s_callbacks = {0};
-
-static void on_wifi_connected_evt(const event_t *evt, void *user_data);
 
 /**
  * @brief 发布配置变更事件
@@ -499,9 +486,6 @@ void app_cfg_set_bg_mode(int m)
     cfg_publish(CFG_FIELD_BG_MODE);
     event_bus_publish(EVENT_CLOCK_BG_CHANGED, NULL, 0);
     app_cfg_save();
-    if (m == 2 && s_callbacks.on_bg_fetch_ensure) {
-        s_callbacks.on_bg_fetch_ensure(); /* 如果是图片模式，确保获取背景 */
-    }
 }
 
 /**
@@ -518,9 +502,6 @@ void app_cfg_set_bg_url(const char *url)
     cfg_unlock();
     cfg_publish(CFG_FIELD_BG_URL);
     app_cfg_save();
-    if (g_cfg.bg_mode == 2 && s_callbacks.on_bg_fetch_ensure) {
-        s_callbacks.on_bg_fetch_ensure();
-    }
 }
 
 uint32_t app_cfg_get_bg_color(void) { return g_cfg.bg_color; }
@@ -572,9 +553,6 @@ void app_cfg_clock_bg_reload(void)
 void app_cfg_bg_fetch_now(void)
 {
     if (g_cfg.bg_mode != 2 || !g_cfg.bg_url[0]) return;
-    if (s_callbacks.on_bg_fetch_ensure) {
-        s_callbacks.on_bg_fetch_ensure();
-    }
 }
 
 /* ==================== 行情配置 API ==================== */
@@ -753,9 +731,6 @@ void app_cfg_set_brightness(int v)
     g_cfg.brightness = (uint8_t)v;
     cfg_publish(CFG_FIELD_BRIGHTNESS);
     event_bus_publish(EVENT_BACKLIGHT_CHANGED, &g_cfg.brightness, sizeof(g_cfg.brightness));
-    if (s_callbacks.on_backlight_changed) {
-        s_callbacks.on_backlight_changed(g_cfg.brightness); /* 兼容旧回调 */
-    }
     app_cfg_save();
 }
 
@@ -773,9 +748,6 @@ void app_cfg_set_dim_off(int dim_s, int off_s)
     g_cfg.off_s = (uint16_t)off_s;
     cfg_publish(CFG_FIELD_DIM_S);
     cfg_publish(CFG_FIELD_OFF_S);
-    if (s_callbacks.on_backlight_changed) {
-        s_callbacks.on_backlight_changed(g_cfg.brightness); /* 兼容旧回调 */
-    }
     app_cfg_save();
 }
 
