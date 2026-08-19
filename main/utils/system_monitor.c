@@ -1,4 +1,4 @@
-#include "system_init.h"
+#include "system_monitor.h"
 
 #include "esp_log.h"
 #include "esp_heap_caps.h"
@@ -9,10 +9,11 @@
 #include "disp_driver.h"
 
 /* ============================================================
+ * 系统监控（常驻心跳）
+ *
  * 板级硬件初始化已下沉到 boards/<name>/board.c 的 board_init()；
- * 系统时间由 network 层 sntp_manager 管理（SNTP 同步 + 时区应用），
- * 不再做 RTC 播种（不依赖联网前的时间显示）。
- * 本文件仅保留系统监控：system_monitor_start —— 心跳监控（常驻）。
+ * 系统时间由 network 层 sntp_manager 管理（SNTP 同步 + 时区应用）。
+ * 本文件只负责周期打印系统健康度：heap / DMA / PSRAM / LVGL 帧率。
  * ============================================================ */
 
 static const char *TAG_SYSMON = "sysmon";

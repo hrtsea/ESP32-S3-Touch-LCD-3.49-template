@@ -47,7 +47,7 @@ idf_component_register(
         "utils/i18n.c"
         "utils/theme.c"
         "utils/cli.c"
-        "utils/system_init.c"
+        "utils/system_monitor.c"
         "utils/bg_fetcher.c"
         "network/wifi_manager.c"
         "utils/rgb_nas_monitor.c"

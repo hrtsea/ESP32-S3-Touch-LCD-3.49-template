@@ -1,5 +1,5 @@
-#ifndef SYSTEM_INIT_H
-#define SYSTEM_INIT_H
+#ifndef SYSTEM_MONITOR_H
+#define SYSTEM_MONITOR_H
 
 #ifdef __cplusplus
 extern "C" {
