@@ -6,7 +6,7 @@
 #include "nvs.h"
 #include "esp_wifi.h"
 #include "esp_wifi_config.h"
-#include "wifi_adapter.h"
+#include "wifi_bridge.h"
 #include "app_cfg.h"
 
 static const char *TAG = "ui_Screen_WifiConfig";
@@ -34,6 +34,32 @@ static bool s_styles_inited = false;
 lv_obj_t* ui_Screen_WifiConfig = NULL;
 
 static void wifi_config_refresh_list(void);
+
+/* 组合动作：当前连接 SSID（直调 esp_wifi_config 库 API） */
+static void wifi_config_current_ssid(char *buf, size_t buf_size)
+{
+    if (!buf || buf_size == 0) return;
+    buf[0] = '\0';
+    wifi_status_t st = {0};
+    if (wifi_cfg_get_status(&st) == ESP_OK) {
+        strncpy(buf, st.ssid, buf_size - 1);
+        buf[buf_size - 1] = '\0';
+    }
+}
+
+/* 组合动作：保存凭据并连接（直调 esp_wifi_config 库 API） */
+static void wifi_config_connect(const char *ssid, const char *password)
+{
+    wifi_network_t net = {0};
+    strncpy(net.ssid, ssid, sizeof(net.ssid) - 1);
+    if (password && password[0]) {
+        strncpy(net.password, password, sizeof(net.password) - 1);
+    }
+    net.priority = 10;
+    wifi_cfg_add_network(&net);
+    wifi_cfg_connect(ssid);
+    wifi_mark_connect_attempted();
+}
 
 static void init_wifi_styles(void)
 {
@@ -66,7 +92,7 @@ static void wifi_config_refresh_status(void)
 {
     if (!s_wifi_status_label) return;
     char ssid_buf[33];
-    wifi_cfg_get_current_ssid(ssid_buf, sizeof(ssid_buf));
+    wifi_config_current_ssid(ssid_buf, sizeof(ssid_buf));
     char status_buf[128];
     if (wifi_cfg_is_connected()) {
         snprintf(status_buf, sizeof(status_buf), LV_SYMBOL_OK " %s", ssid_buf);
@@ -140,7 +166,7 @@ static void ui_event_wifi_kb_event(lv_event_t *e)
         ssid[ssid_len] = '\0';
         ESP_LOGI(TAG, "kb: connect ssid=%s pass_len=%u", ssid, (unsigned)strlen(pass_copy));
         app_cfg_set_last_ssid(ssid);
-        wifi_connect(ssid, pass_copy);
+        wifi_config_connect(ssid, pass_copy);
         if (s_wifi_status_label) lv_label_set_text_fmt(s_wifi_status_label, tr(I18N_WIFI_CONNECTING), ssid);
         kb_close();
     } else if (code == LV_EVENT_CANCEL) {
@@ -267,7 +293,7 @@ static void ui_event_wifi_ap(lv_event_t *e)
 {
     if (ui_helpers_menu_input_blocked()) return;
     int idx = (int)(intptr_t)lv_event_get_user_data(e);
-    if (idx < 0 || idx >= (int)wifi_cfg_get_scan_count()) return;
+    if (idx < 0 || idx >= (int)wifi_scan_count()) return;
     g_wifi_sel = idx;
     wifi_config_refresh_list();
 }
@@ -277,12 +303,12 @@ static void ui_event_wifi_connect(lv_event_t *e)
     (void)e;
     if (ui_helpers_menu_input_blocked()) return;
     int idx = g_wifi_sel;
-    if (idx < 0 || idx >= (int)wifi_cfg_get_scan_count()) return;
-    const wifi_scan_ap_t *ap = wifi_cfg_get_scan_ap((uint16_t)idx);
+    if (idx < 0 || idx >= (int)wifi_scan_count()) return;
+    const wifi_scan_result_t *ap = wifi_scan_ap((uint16_t)idx);
     if (!ap) return;
     if (ap->auth == 0) {
         app_cfg_set_last_ssid(ap->ssid);
-        wifi_connect(ap->ssid, "");
+        wifi_config_connect(ap->ssid, "");
         if (s_wifi_status_label) lv_label_set_text_fmt(s_wifi_status_label, tr(I18N_WIFI_CONNECTING), ap->ssid);
         return;
     }
@@ -291,7 +317,7 @@ static void ui_event_wifi_connect(lv_event_t *e)
     if (wifi_cfg_get_network(ap->ssid, &net) == ESP_OK) {
         strncpy(pass, net.password, sizeof(pass) - 1);
         app_cfg_set_last_ssid(ap->ssid);
-        wifi_connect(ap->ssid, pass);
+        wifi_config_connect(ap->ssid, pass);
         if (s_wifi_status_label) lv_label_set_text_fmt(s_wifi_status_label, tr(I18N_WIFI_CONNECTING), ap->ssid);
         return;
     }
@@ -302,8 +328,8 @@ static void ui_event_wifi_forget(lv_event_t *e)
 {
     (void)e;
     int idx = g_wifi_sel;
-    if (idx < 0 || idx >= (int)wifi_cfg_get_scan_count()) return;
-    const wifi_scan_ap_t *ap = wifi_cfg_get_scan_ap((uint16_t)idx);
+    if (idx < 0 || idx >= (int)wifi_scan_count()) return;
+    const wifi_scan_result_t *ap = wifi_scan_ap((uint16_t)idx);
     if (!ap) return;
     wifi_cfg_remove_network(ap->ssid);
     if (strncmp(ap->ssid, g_cfg.last_ssid, sizeof(g_cfg.last_ssid)) == 0) {
@@ -319,7 +345,7 @@ static void ui_event_wifi_provision(lv_event_t *e)
 {
     (void)e;
     ESP_LOGI(TAG, "Starting WiFi AP provisioning");
-    wifi_start_provisioning();
+    wifi_cfg_start_ap(NULL);
     if (s_wifi_status_label) {
         lv_label_set_text(s_wifi_status_label, "AP Started: NAS-Monitor");
     }
@@ -332,7 +358,7 @@ static void wifi_config_refresh_list(void)
     theme_palette_t theme = theme_get();
 
     lv_obj_clean(s_wifi_list);
-    uint16_t scan_n = wifi_cfg_get_scan_count();
+    uint16_t scan_n = wifi_scan_count();
     if (scan_n == 0) {
         lv_obj_t *empty = lv_label_create(s_wifi_list);
         lv_label_set_text(empty, tr(I18N_WIFI_NO_APS));
@@ -341,10 +367,11 @@ static void wifi_config_refresh_list(void)
         return;
     }
     char curr_ssid[33];
-    wifi_cfg_get_current_ssid(curr_ssid, sizeof(curr_ssid));
-    bool connected = wifi_is_connected();
+    wifi_config_current_ssid(curr_ssid, sizeof(curr_ssid));
+    bool connected = wifi_cfg_is_connected();
+
     for (int i = 0; i < (int)scan_n; i++) {
-        const wifi_scan_ap_t *ap = wifi_cfg_get_scan_ap((uint16_t)i);
+        const wifi_scan_result_t *ap = wifi_scan_ap((uint16_t)i);
         if (!ap) continue;
         lv_obj_t *btn = lv_btn_create(s_wifi_list);
         lv_obj_set_width(btn, lv_pct(100));
@@ -379,7 +406,7 @@ static void wifi_config_refresh_list(void)
 static void ui_wifi_scan_refresh_timer_cb(lv_timer_t *tt)
 {
     if (s_wifi_status_label) {
-        lv_label_set_text_fmt(s_wifi_status_label, tr(I18N_WIFI_FOUND_N), (unsigned)wifi_cfg_get_scan_count());
+        lv_label_set_text_fmt(s_wifi_status_label, tr(I18N_WIFI_FOUND_N), (unsigned)wifi_scan_count());
     }
     wifi_config_refresh_list();
     lv_timer_del(tt);
@@ -389,7 +416,7 @@ static void ui_event_wifi_scan_btn(lv_event_t *e)
 {
     (void)e;
     if (s_wifi_status_label) lv_label_set_text(s_wifi_status_label, tr(I18N_WIFI_SCANNING));
-    wifi_cfg_scan_adapter();
+    wifi_scan_start();
     lv_timer_t *t = lv_timer_create(ui_wifi_scan_refresh_timer_cb, 3000, NULL);
     (void)t;
 }
@@ -434,9 +461,9 @@ void ui_Screen_WifiConfig_screen_init(void)
     lv_obj_set_width(s_wifi_status_label, lv_pct(100));
     {
         char ssid_buf[33];
-        wifi_cfg_get_current_ssid(ssid_buf, sizeof(ssid_buf));
+        wifi_config_current_ssid(ssid_buf, sizeof(ssid_buf));
         lv_label_set_text_fmt(s_wifi_status_label, "%s",
-                              wifi_is_connected() ? ssid_buf : tr(I18N_WIFI_NOT_CONN));
+                              wifi_cfg_is_connected() ? ssid_buf : tr(I18N_WIFI_NOT_CONN));
     }
     lv_obj_set_style_text_color(s_wifi_status_label, theme.text_dim, 0);
     lv_obj_set_style_text_font(s_wifi_status_label, i18n_font(), 0);

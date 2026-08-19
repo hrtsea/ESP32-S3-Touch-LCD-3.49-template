@@ -49,7 +49,6 @@ idf_component_register(
         "utils/cli.c"
         "utils/hw_init.c"
         "utils/bg_fetcher.c"
-        "utils/wifi_adapter.c"
         "utils/wifi_bridge.c"
         "utils/rgb_nas_monitor.c"
         "data/data_source.c"

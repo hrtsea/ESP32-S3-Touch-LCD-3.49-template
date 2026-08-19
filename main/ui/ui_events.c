@@ -8,7 +8,7 @@
 #include "freertos/task.h"
 #include "disp_driver.h"
 #include "esp_wifi_config.h"
-#include "wifi_adapter.h"
+#include "wifi_bridge.h"
 #include "app_cfg.h"
 #include "utils/theme.h"
 #include "ui_helpers.h"
@@ -41,6 +41,8 @@ static int s_current_tile_idx = 0;
 
 static TaskHandle_t s_ui_task_hdl = NULL;
 static bool s_running = false;
+
+static void do_wifi_fill_ip(char *buf, size_t buf_size);
 
 static void ip_label_ensure(void)
 {
@@ -224,7 +226,7 @@ static void nas_data_sync_handler(const event_t *evt, void *user_data)
 static void on_wifi_state_changed(bool connected)
 {
     char ip_buf[16];
-    wifi_cfg_get_current_ip(ip_buf, sizeof(ip_buf));
+    do_wifi_fill_ip(ip_buf, sizeof(ip_buf));
     overview_screen_update_ip(ip_buf);
     storage_screen_update_ip(ip_buf);
     overview_screen_update_wifi(connected);
@@ -636,6 +638,39 @@ void resetScreenOffTimer(lv_event_t * e)
     (void)e;
 }
 
+/* WiFi 操作直接调用 esp_wifi_config 库 API（wifi_cfg_*）；
+ * 本文件内组合两个常用动作，避免重复书写。 */
+static void do_wifi_connect(const char *ssid, const char *password)
+{
+    wifi_network_t net = {0};
+    strncpy(net.ssid, ssid, sizeof(net.ssid) - 1);
+    if (password && password[0]) {
+        strncpy(net.password, password, sizeof(net.password) - 1);
+    }
+    net.priority = 10;
+    wifi_cfg_add_network(&net);
+    wifi_cfg_connect(ssid);
+    wifi_mark_connect_attempted();
+}
+
+static void do_wifi_fill_ip(char *buf, size_t buf_size)
+{
+    wifi_status_t st = {0};
+    if (wifi_cfg_get_status(&st) == ESP_OK) {
+        strncpy(buf, st.ip, buf_size - 1);
+        buf[buf_size - 1] = '\0';
+    }
+}
+
+static void do_wifi_fill_ssid(char *buf, size_t buf_size)
+{
+    wifi_status_t st = {0};
+    if (wifi_cfg_get_status(&st) == ESP_OK) {
+        strncpy(buf, st.ssid, buf_size - 1);
+        buf[buf_size - 1] = '\0';
+    }
+}
+
 void saveWiFiCredential(lv_event_t * e)
 {
     char sel_buf[128];
@@ -659,13 +694,13 @@ void saveWiFiCredential(lv_event_t * e)
     if (ssid[0] == '\0') return;
 
     app_cfg_set_last_ssid(ssid);
-    wifi_connect(ssid, password);
+    do_wifi_connect(ssid, password);
 }
 
 void scanNetwork(lv_event_t * e)
 {
     (void)e;
-    wifi_start_scan();
+    wifi_scan_start();
 }
 
 void toggleWiFi(lv_event_t * e)
@@ -673,21 +708,19 @@ void toggleWiFi(lv_event_t * e)
     bool enabled = lv_obj_has_state(ui_Settings_Switch_Wifi, LV_STATE_CHECKED);
 
     if (enabled) {
-        if (!wifi_is_connected() && wifi_has_credentials()) {
+        if (!wifi_cfg_is_connected()) {
             char ssid[33] = {0};
-            char pass[65] = {0};
-            wifi_cfg_get_current_ssid(ssid, sizeof(ssid));
+            do_wifi_fill_ssid(ssid, sizeof(ssid));
             if (ssid[0] == '\0') {
                 app_cfg_get_last_ssid(ssid, sizeof(ssid));
             }
             wifi_network_t net;
             if (ssid[0] && wifi_cfg_get_network(ssid, &net) == ESP_OK) {
-                strncpy(pass, net.password, sizeof(pass) - 1);
-                wifi_connect(ssid, pass);
+                do_wifi_connect(ssid, net.password);
             }
         }
     } else {
-        wifi_disconnect();
+        wifi_cfg_disconnect();
     }
 }
 

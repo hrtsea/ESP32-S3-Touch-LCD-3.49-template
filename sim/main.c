@@ -55,8 +55,8 @@
 #include "screens/ui_Screen_SystemDetail.h"
 #include "screens/ui_Screen_NetDetail.h"
 
-/* WiFi adapter（用于读取当前 IP） */
-#include "wifi_adapter.h"
+/* esp_wifi_config 库（读取当前 IP） */
+#include "esp_wifi_config.h"
 
 /* SDL 后端 */
 #include "sdl/sdl_driver.h"
@@ -123,7 +123,11 @@ static void sim_update_screens(const NasData *data)
 
     /* WiFi 状态/IP 显示 */
     char ip_buf[16] = {0};
-    wifi_cfg_get_current_ip(ip_buf, sizeof(ip_buf));
+    wifi_status_t st = {0};
+    if (wifi_cfg_get_status(&st) == ESP_OK) {
+        strncpy(ip_buf, st.ip, sizeof(ip_buf) - 1);
+        ip_buf[sizeof(ip_buf) - 1] = '\0';
+    }
     if (ui_Screen_Overview) overview_screen_update_ip(ip_buf);
     if (ui_Screen_Storage)  storage_screen_update_ip(ip_buf);
     if (ui_Screen_DiskDetail) ui_Screen_DiskDetail_update_ip(ip_buf);

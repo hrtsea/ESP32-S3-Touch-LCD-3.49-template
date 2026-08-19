@@ -32,7 +32,6 @@
 #include "nvs_flash.h"
 #include "app_cfg.h"
 #include "esp_wifi_config.h"
-#include "wifi_adapter.h"
 
 static const char *TAG = "cli";
 
@@ -62,9 +61,10 @@ static int cmd_wifi(int argc, char **argv)
 {
     (void)argc; (void)argv;
     if (wifi_cfg_is_connected()) {
-        char ssid[33];
-        wifi_cfg_get_current_ssid(ssid, sizeof(ssid));
-        printf("ssid=%s\n", ssid);
+        wifi_status_t st = {0};
+        if (wifi_cfg_get_status(&st) == ESP_OK) {
+            printf("ssid=%s\n", st.ssid);
+        }
     } else {
         printf("not associated\n");
     }
@@ -75,7 +75,7 @@ static int cmd_wifi_clear(int argc, char **argv)
 {
     (void)argc; (void)argv;
     printf("clearing wifi credentials...\n");
-    wifi_cfg_clear_credentials();
+    wifi_cfg_factory_reset();
     app_cfg_set_last_ssid("");
     wifi_cfg_disconnect();
     printf("wifi credentials cleared, restart to enter provisioning mode\n");
@@ -169,7 +169,12 @@ static int cmd_wifi_connect(int argc, char **argv)
                         ? s_wifi_connect_args.pass->sval[0] : "";
     printf("wifi_connect: ssid=%s pass_len=%u\n", ssid, (unsigned)strlen(pass));
     app_cfg_set_last_ssid(ssid);
-    wifi_connect(ssid, pass);
+    wifi_network_t net = {0};
+    strncpy(net.ssid, ssid, sizeof(net.ssid) - 1);
+    if (pass[0]) strncpy(net.password, pass, sizeof(net.password) - 1);
+    net.priority = 10;
+    wifi_cfg_add_network(&net);
+    wifi_cfg_connect(ssid);
     return 0;
 }
 

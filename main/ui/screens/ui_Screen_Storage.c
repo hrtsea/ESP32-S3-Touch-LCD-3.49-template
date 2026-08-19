@@ -2,7 +2,6 @@
 #include "ui_Screen_Storage.h"
 #include "esp_log.h"
 #include "esp_wifi_config.h"
-#include "wifi_adapter.h"
 #include "theme.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_12);

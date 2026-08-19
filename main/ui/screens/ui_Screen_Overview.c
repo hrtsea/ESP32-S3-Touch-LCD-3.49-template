@@ -5,7 +5,6 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_wifi_config.h"
-#include "wifi_adapter.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_12);
 LV_FONT_DECLARE(lv_font_montserrat_32);

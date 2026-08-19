@@ -165,7 +165,6 @@ set(DATA_SOURCES
 set(UTILS_SOURCES
     ${MAIN_DIR}/utils/i18n.c
     ${MAIN_DIR}/utils/theme.c
-    ${MAIN_DIR}/utils/wifi_adapter.c
     ${MAIN_DIR}/utils/format.c
 )
 

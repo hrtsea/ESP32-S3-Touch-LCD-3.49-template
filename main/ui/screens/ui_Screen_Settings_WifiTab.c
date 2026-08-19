@@ -3,7 +3,7 @@
 #include "../../utils/theme.h"
 
 #include "esp_wifi_config.h"
-#include "wifi_adapter.h"
+#include "wifi_bridge.h"
 
 LV_FONT_DECLARE(lv_font_montserrat_32);
 
@@ -29,6 +29,18 @@ static void wifi_tab_refresh_list(void);
 static void wifi_tab_refresh_status(void);
 
 static bool s_event_subscribed = false;
+
+/* 组合动作：当前连接 SSID（直调 esp_wifi_config 库 API） */
+static void wifi_tab_current_ssid(char *buf, size_t buf_size)
+{
+    if (!buf || buf_size == 0) return;
+    buf[0] = '\0';
+    wifi_status_t st = {0};
+    if (wifi_cfg_get_status(&st) == ESP_OK) {
+        strncpy(buf, st.ssid, buf_size - 1);
+        buf[buf_size - 1] = '\0';
+    }
+}
 
 void ui_event_Settings_Tabpage_network(lv_event_t * e)
 {
@@ -81,18 +93,18 @@ static void wifi_tab_refresh_list(void)
 
     lv_dropdown_clear_options(ui_Settings_Dropdown_NetworkList);
 
-    uint16_t scan_n = wifi_cfg_get_scan_count();
+    uint16_t scan_n = wifi_scan_count();
     if (scan_n == 0) {
         lv_dropdown_add_option(ui_Settings_Dropdown_NetworkList, "No AP found", 0);
         return;
     }
 
     char curr_ssid[33];
-    wifi_cfg_get_current_ssid(curr_ssid, sizeof(curr_ssid));
+    wifi_tab_current_ssid(curr_ssid, sizeof(curr_ssid));
     bool connected = wifi_cfg_is_connected();
 
     for (int i = 0; i < (int)scan_n; i++) {
-        const wifi_scan_ap_t *ap = wifi_cfg_get_scan_ap((uint16_t)i);
+        const wifi_scan_result_t *ap = wifi_scan_ap((uint16_t)i);
         if (!ap) continue;
         bool is_connected = connected &&
                             strncmp(ap->ssid, curr_ssid, sizeof(curr_ssid)) == 0;
@@ -110,7 +122,7 @@ static void wifi_tab_refresh_status(void)
     if (!ui_Settings_Label_connectStatus) return;
 
     char ssid_buf[33];
-    wifi_cfg_get_current_ssid(ssid_buf, sizeof(ssid_buf));
+    wifi_tab_current_ssid(ssid_buf, sizeof(ssid_buf));
 
     if (wifi_cfg_is_connected()) {
         char buf[64];
@@ -119,7 +131,7 @@ static void wifi_tab_refresh_status(void)
         lv_obj_set_style_text_color(ui_Settings_Label_connectStatus,
                                     theme_get().ok, LV_PART_MAIN | LV_STATE_DEFAULT);
     } else if (ssid_buf[0]) {
-        uint32_t elapsed = lv_tick_elaps(wifi_get_connect_started_ms());
+        uint32_t elapsed = lv_tick_elaps(wifi_connect_started_ms());
         uint8_t reason = wifi_get_last_reason();
         char buf[128];
         if (reason) {
