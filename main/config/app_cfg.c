@@ -16,9 +16,7 @@
 
 #include "app_cfg.h"
 #include "event_bus.h"
-#include "esp_wifi_config.h"
 #include "esp_bus.h"
-#include "disp_driver.h"
 
 /* 如果存在 wifi_secret.h，则包含它以获取默认 WiFi 凭证 */
 #if __has_include("wifi_secret.h")
@@ -470,8 +468,6 @@ const char *app_cfg_get_clock_text(void) { return g_cfg.clock_text; }
 int app_cfg_get_bg_mode(void) { return g_cfg.bg_mode; }
 int app_cfg_get_bg_refresh_s(void) { return g_cfg.bg_refresh_s; }
 const char *app_cfg_get_bg_url(void) { return g_cfg.bg_url; }
-int app_cfg_get_canvas_w(void) { return disp_driver_get_canvas_w(); }
-int app_cfg_get_canvas_h(void) { return disp_driver_get_canvas_h(); }
 
 /**
  * @brief 设置背景模式
@@ -749,26 +745,6 @@ void app_cfg_set_dim_off(int dim_s, int off_s)
     cfg_publish(CFG_FIELD_DIM_S);
     cfg_publish(CFG_FIELD_OFF_S);
     app_cfg_save();
-}
-
-/**
- * @brief 保存 WiFi 连接信息并触发连接
- * 
- * @param ssid WiFi SSID
- * @param pass WiFi 密码
- */
-void app_cfg_wifi_connect_save(const char *ssid, const char *pass)
-{
-    if (!ssid || !*ssid) return;
-    wifi_network_t network = {0};
-    strncpy(network.ssid, ssid, sizeof(network.ssid) - 1);
-    if (pass && *pass) {
-        strncpy(network.password, pass, sizeof(network.password) - 1);
-    }
-    network.priority = 10;
-    wifi_cfg_add_network(&network);
-    wifi_cfg_connect(ssid);
-    app_cfg_set_last_ssid(ssid);
 }
 
 /**

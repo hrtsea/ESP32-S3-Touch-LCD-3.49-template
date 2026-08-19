@@ -658,7 +658,8 @@ void saveWiFiCredential(lv_event_t * e)
 
     if (ssid[0] == '\0') return;
 
-    app_cfg_wifi_connect_save(ssid, password);
+    app_cfg_set_last_ssid(ssid);
+    wifi_connect(ssid, password);
 }
 
 void scanNetwork(lv_event_t * e)

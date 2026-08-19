@@ -139,7 +139,8 @@ static void ui_event_wifi_kb_event(lv_event_t *e)
         memcpy(ssid, g_kb_ssid, ssid_len);
         ssid[ssid_len] = '\0';
         ESP_LOGI(TAG, "kb: connect ssid=%s pass_len=%u", ssid, (unsigned)strlen(pass_copy));
-        app_cfg_wifi_connect_save(ssid, pass_copy);
+        app_cfg_set_last_ssid(ssid);
+        wifi_connect(ssid, pass_copy);
         if (s_wifi_status_label) lv_label_set_text_fmt(s_wifi_status_label, tr(I18N_WIFI_CONNECTING), ssid);
         kb_close();
     } else if (code == LV_EVENT_CANCEL) {
@@ -280,7 +281,8 @@ static void ui_event_wifi_connect(lv_event_t *e)
     const wifi_scan_ap_t *ap = wifi_cfg_get_scan_ap((uint16_t)idx);
     if (!ap) return;
     if (ap->auth == 0) {
-        app_cfg_wifi_connect_save(ap->ssid, "");
+        app_cfg_set_last_ssid(ap->ssid);
+        wifi_connect(ap->ssid, "");
         if (s_wifi_status_label) lv_label_set_text_fmt(s_wifi_status_label, tr(I18N_WIFI_CONNECTING), ap->ssid);
         return;
     }
@@ -288,7 +290,8 @@ static void ui_event_wifi_connect(lv_event_t *e)
     wifi_network_t net;
     if (wifi_cfg_get_network(ap->ssid, &net) == ESP_OK) {
         strncpy(pass, net.password, sizeof(pass) - 1);
-        app_cfg_wifi_connect_save(ap->ssid, pass);
+        app_cfg_set_last_ssid(ap->ssid);
+        wifi_connect(ap->ssid, pass);
         if (s_wifi_status_label) lv_label_set_text_fmt(s_wifi_status_label, tr(I18N_WIFI_CONNECTING), ap->ssid);
         return;
     }

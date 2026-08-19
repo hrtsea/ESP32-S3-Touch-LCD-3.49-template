@@ -38,6 +38,7 @@
 #include "radio.h"
 #include "sdcard_bsp.h"
 #include "app_cfg.h"      /* 配置唯一权威源 */
+#include "drivers/disp_driver.h"  /* 画布尺寸查询（硬件信息） */
 #include "data_source.h"  /* data_source_switch */
 #include "fan_control.h"  /* FanConfig */
 #include "esp_wifi_config.h"  /* WiFi authority: wifi_cfg_* */
@@ -148,8 +149,6 @@ extern void app_cfg_set_clock_text(const char *s);
 extern int  app_cfg_get_bg_mode(void);
 extern int  app_cfg_get_bg_refresh_s(void);
 extern const char *app_cfg_get_bg_url(void);
-extern int  app_cfg_get_canvas_w(void);
-extern int  app_cfg_get_canvas_h(void);
 extern void app_cfg_set_bg_mode(int m);
 extern void app_cfg_set_bg_url(const char *url);
 extern void app_cfg_set_bg_refresh_s(int s);
@@ -783,8 +782,8 @@ static esp_err_t h_state(httpd_req_t *r)
         app_cfg_get_bg_refresh_s(),
         bgu_esc,
         (unsigned)app_cfg_get_bg_color(),
-        app_cfg_get_canvas_w(),
-        app_cfg_get_canvas_h(),
+        disp_driver_get_canvas_w(),
+        disp_driver_get_canvas_h(),
         app_cfg_get_quotes_sym_l(),
         app_cfg_get_quotes_sym_r(),
         app_cfg_get_quotes_refresh_s(),
@@ -1001,7 +1000,7 @@ static esp_err_t h_bg_upload(httpd_req_t *r)
         httpd_resp_send_err(r, HTTPD_500_INTERNAL_SERVER_ERROR, "sd not mounted");
         return ESP_FAIL;
     }
-    int need = app_cfg_get_canvas_w() * app_cfg_get_canvas_h() * 2;
+    int need = disp_driver_get_canvas_w() * disp_driver_get_canvas_h() * 2;
     if (r->content_len != (size_t)need) {
         char msg[80];
         snprintf(msg, sizeof(msg), "expect %d bytes (RGB565)", need);

@@ -228,7 +228,6 @@ void app_cfg_set_show_ms(int show);                 /* 设置是否显示毫秒 
 void app_cfg_set_lang(int lang);                    /* 设置语言索引 */
 void app_cfg_set_brightness(int v);                 /* 设置背光亮度 */
 void app_cfg_set_dim_off(int dim_s, int off_s);     /* 设置自动变暗和关闭时间 */
-void app_cfg_wifi_connect_save(const char *ssid, const char *pass); /* 保存 WiFi 连接信息并触发连接 */
 void app_cfg_set_last_ssid(const char *ssid);   /* 设置最后连接的 SSID（线程安全，自动保存） */
 void app_cfg_set_active_tile(int idx);              /* 设置当前活动的 Tile 索引 */
 
