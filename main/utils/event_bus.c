@@ -151,6 +151,19 @@ void event_bus_publish(event_id_t id, void *data, size_t len)
 
     ESP_LOGD(TAG, "publish %s", s_event_names[id]);
 
+    /* 同步扇出给订阅者（与 publish_nas_data 一致）。
+     * 此前仅入队不调用 handler，导致 event_bus_subscribe 注册的
+     * handler（如 WiFi 事件驱动的 UI 屏刷新）永远不会执行。 */
+    xSemaphoreTake(s_mux, portMAX_DELAY);
+    event_slot_t slot_copy = s_slots[id];
+    xSemaphoreGive(s_mux);
+
+    for (int i = 0; i < slot_copy.count; i++) {
+        if (slot_copy.handlers[i].handler) {
+            slot_copy.handlers[i].handler(&evt, slot_copy.handlers[i].user_data);
+        }
+    }
+
     if (s_event_queue) {
         xQueueSend(s_event_queue, &evt, 0);
     }
