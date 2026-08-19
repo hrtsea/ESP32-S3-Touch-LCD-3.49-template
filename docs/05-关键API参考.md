@@ -12,7 +12,7 @@
 extern "C" void app_main(void);
 ```
 
-启动顺序：`log_init` → `event_bus_init` → `app_cfg_load` → `hw_init` → `network_init` → `nas_event_loop_start` → `http_timer_init/start` → `ui_init` → `cli_start` → `system_monitor_start`。
+启动顺序：`log_init` → `event_bus_init` → `app_cfg_load` → `hw_init` → `network_init` → `nas_event_loop_start` → `nas_event_loop_timer_init/start` → `ui_init` → `cli_start` → `system_monitor_start`。
 
 ---
 
@@ -294,15 +294,15 @@ void system_time_init(void);
 void bg_fetcher_ensure(void);   // 启动或唤醒任务
 ```
 
-### HTTP 定时器
-文件：[http_timer.h](../main/utils/http_timer.h)
+### NAS 拉取定时器（原 http_timer，已并入 nas_event_loop）
+文件：[nas_event_loop.h](../main/data/nas_event_loop.h)
 ```c
-void     http_timer_init(void);
-void     http_timer_start(void);
-void     http_timer_stop(void);
-void     http_timer_set_interval_ms(uint32_t ms);
-uint32_t http_timer_get_interval_ms(void);
-bool     http_timer_is_running(void);
+void     nas_event_loop_timer_init(void);
+void     nas_event_loop_timer_start(void);
+void     nas_event_loop_timer_stop(void);
+void     nas_event_loop_timer_set_interval_ms(uint32_t ms);
+uint32_t nas_event_loop_timer_get_interval_ms(void);
+bool     nas_event_loop_timer_is_running(void);
 ```
 
 ### WiFi 桥接

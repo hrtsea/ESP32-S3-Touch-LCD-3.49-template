@@ -17,7 +17,7 @@
 - **网络**：WiFi 配网（`esp_wifi_config`）、SNTP、WebUI、HTTPS OTA 预留但**未启用**。
 - **音频**：ES8311 + ES7210 + I2S TDM，radio/recorder/audio_min 组件（存在循环依赖风险，见旧 `REFACTOR_SUGGESTIONS.md`）。
 
-启动序列（`main.cpp::app_main`）：log → event_bus → app_cfg → hw_init → network → nas_event_loop → http_timer → ui → cli → system_monitor。
+启动序列（`main.cpp::app_main`）：log → event_bus → app_cfg → hw_init → network → nas_event_loop → nas_event_loop_timer → ui → cli → system_monitor。
 
 ---
 

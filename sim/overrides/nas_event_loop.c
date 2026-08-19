@@ -13,3 +13,11 @@ bool nas_event_loop_switch_source(const char *nas_type_id) {
     (void)nas_type_id;
     return false;
 }
+
+/* 拉取定时器 no-op：PC 模拟器由 main.c 主循环按 poll_sec 直接驱动 mock 轮询 */
+void nas_event_loop_timer_init(void) {}
+void nas_event_loop_timer_start(void) {}
+void nas_event_loop_timer_stop(void) {}
+void nas_event_loop_timer_set_interval_ms(uint32_t ms) { (void)ms; }
+uint32_t nas_event_loop_timer_get_interval_ms(void) { return 0; }
+bool nas_event_loop_timer_is_running(void) { return false; }

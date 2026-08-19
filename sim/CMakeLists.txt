@@ -100,7 +100,6 @@ add_library(sim_overrides STATIC
     ${SIM_DIR}/overrides/bg_fetcher.c
     ${SIM_DIR}/overrides/hw_init.c
     ${SIM_DIR}/overrides/cli.c
-    ${SIM_DIR}/overrides/http_timer.c
     ${SIM_DIR}/overrides/nas_event_loop.c
     ${SIM_DIR}/overrides/sntp_manager.c
     ${SIM_DIR}/overrides/wifi_bridge.c

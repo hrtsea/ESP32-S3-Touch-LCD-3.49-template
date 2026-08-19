@@ -120,7 +120,6 @@ main/
 │   ├── bg_fetcher.c/h   # 背景图片获取
 │   ├── cli.c/h          # 命令行接口
 │   ├── event_bus.c/h    # 事件总线
-│   ├── http_timer.c/h   # HTTP 请求定时器
 │   ├── hw_init.c/h      # 硬件初始化
 │   ├── i18n.c/h         # 国际化
 │   ├── i18n_strings.h   # 多语言字符串
@@ -176,7 +175,7 @@ app_main()
 │   ├── wifi_provision_init() # SoftAP 配网初始化
 │   └── webui_start()       # WebUI 启动
 ├── 5. nas_event_loop_start() # NAS 数据采集循环启动
-├── 6. http_timer_init() / http_timer_start() # HTTP 请求定时器
+├── 6. nas_event_loop_timer_init() / nas_event_loop_timer_start() # NAS 拉取定时器（原 http_timer 并入）
 ├── 7. ui_init()            # UI 初始化
 │   ├── 创建 FPS 标签
 │   ├── 创建 Boot 屏幕

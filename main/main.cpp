@@ -44,7 +44,6 @@
 #include "ui.h"
 #include "ui_events.h"
 #include "nas_event_loop.h"
-#include "http_timer.h"
 #include "event_bus.h"
 #include "rgb_nas_monitor.h"
 
@@ -129,8 +128,8 @@ extern "C" void app_main(void)
 
     nas_event_loop_start();
 
-    http_timer_init();
-    http_timer_start();
+    nas_event_loop_timer_init();
+    nas_event_loop_timer_start();
 
     ui_init();
 
