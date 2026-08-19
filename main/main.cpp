@@ -35,13 +35,12 @@
 
 #include "app_cfg.h"
 #include "disp_driver.h"
-#include "esp_wifi_config.h"
-#include "esp_bus.h"
-#include "wifi_bridge.h"
-#include "esp_http_server.h"
 #include "sntp_manager.h"
 #include "hw_init.h"
+#include "board.h"
+#include "network_init.h"
 #include "ui.h"
+#include "ui_helpers.h"
 #include "ui_events.h"
 #include "nas_event_loop.h"
 #include "event_bus.h"
@@ -62,51 +61,15 @@ static void log_init(void)
     esp_log_level_set("lcd_panel.io.spi", ESP_LOG_VERBOSE);
 }
 
-static void network_init(void)
+/* 板级初始化进度 → 启动画面文本（board 层不直接依赖 UI，通过回调解耦） */
+static void boot_status_cb(const char *line)
 {
-    esp_bus_init();
-
-    wifi_cfg_config_t cfg = {
-        .default_networks = (wifi_network_t[]){
-            { DEFAULT_WIFI_SSID, DEFAULT_WIFI_PASS, 10 },
-        },
-        .default_network_count = (DEFAULT_WIFI_SSID[0] && DEFAULT_WIFI_PASS[0]) ? 1 : 0,
-        .max_retry_per_network = 3,
-        .retry_interval_ms = 5000,
-        .retry_max_interval_ms = 30000,
-        .max_reconnect_attempts = 5,
-        .on_reconnect_exhausted = WIFI_ON_RECONNECT_EXHAUSTED_RESTART,
-        .provisioning_mode = WIFI_PROV_ON_FAILURE,
-        .stop_provisioning_on_connect = true,
-        .http_post_prov_mode = WIFI_HTTP_API_ONLY,
-        .default_ap = {
-            .ssid = DEFAULT_AP_SSID,
-            .password = DEFAULT_AP_PASSWORD,
-        },
-        .enable_ap = true,
-        .http = {
-            .api_base_path = "/api/wifi",
-            .enable_auth = true,
-            .auth_username = WEBUI_AUTH_USER,
-            .auth_password = WEBUI_AUTH_PASSWORD,
-        },
-    };
-    wifi_cfg_init(&cfg);
-
-    wifi_bridge_init();
-
-    webui_set_auth(WEBUI_AUTH_USER, WEBUI_AUTH_PASSWORD);
-
-    httpd_handle_t srv = wifi_cfg_get_httpd();
-    if (srv) {
-        if (webui_start_with_httpd(srv) != ESP_OK) {
-            ESP_LOGW(TAG, "webui_start_with_httpd failed");
-        }
-    } else {
-        if (webui_start() != ESP_OK) {
-            ESP_LOGW(TAG, "webui_start failed");
-        }
-    }
+    char buf[256];
+    ui_helpers_get_status_text(buf, sizeof(buf));
+    int pos = (int)strlen(buf);
+    if (pos >= (int)sizeof(buf) - 1) return;
+    strncat(buf, line, sizeof(buf) - pos - 1);
+    ui_helpers_set_status_text(buf);
 }
 
 extern "C" void app_main(void)
@@ -122,7 +85,10 @@ extern "C" void app_main(void)
              EXAMPLE_LCD_H_RES, EXAMPLE_LCD_V_RES,
              LVGL_DMA_BUFF_LEN, LVGL_SPIRAM_BUFF_LEN);
 
-    hw_init();
+    /* 硬件初始化（随板内聚，见 boards/<name>/board.c） */
+    board_set_status_cb(boot_status_cb);
+    board_init();
+    system_time_init();
 
     network_init();
 

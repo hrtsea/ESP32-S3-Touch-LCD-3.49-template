@@ -2314,6 +2314,12 @@ CONFIG_WIFI_PROV_STA_ALL_CHANNEL_SCAN=y
 # end of Wi-Fi Provisioning Manager
 
 #
+# Board Configuration
+#
+CONFIG_BOARD_NAME="esp32s3_touch_lcd_3_49"
+# end of Board Configuration
+
+#
 # SensorLib Configuration
 #
 CONFIG_SENSORLIB_ESP_IDF_NEW_API=y

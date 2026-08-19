@@ -1,6 +1,7 @@
 /* sim/stubs/esp_timer.h - ESP-IDF 定时器 stub */
 #pragma once
 #include <stdint.h>
+#include <stdbool.h>
 #include <time.h>
 
 typedef void *esp_timer_handle_t;
@@ -10,6 +11,7 @@ typedef struct {
     esp_timer_cb_t callback;
     void *arg;
     const char *name;
+    bool skip_unhandled_events;
 } esp_timer_create_args_t;
 
 static inline int64_t esp_timer_get_time(void) {

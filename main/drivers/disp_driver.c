@@ -20,6 +20,7 @@
 #include "driver/i2c_master.h"
 #include "user_config.h"
 #include "i2c_bsp.h"
+#include "board.h"
 
 #include "disp_driver.h"
 #include "event_bus.h"
@@ -48,8 +49,8 @@ lv_obj_t *g_fps_label = NULL;
 static esp_lcd_panel_io_handle_t s_panel_io = NULL;
 static esp_lcd_panel_handle_t s_panel = NULL;
 int g_rot_state = 1;
-int g_canvas_w = UI_CANVAS_W;
-int g_canvas_h = UI_CANVAS_H;
+int g_canvas_w = 0;
+int g_canvas_h = 0;
 static lv_disp_drv_t *s_disp_drv = NULL;
 
 static const axs15231b_lcd_init_cmd_t s_lcd_init_cmds[] = {
@@ -79,7 +80,7 @@ static bool notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t io,
 
 static void lvgl_tick_inc_cb(void *arg)
 {
-    lv_tick_inc(EXAMPLE_LVGL_TICK_PERIOD_MS);
+    lv_tick_inc(board_get()->lvgl_timing.tick_period_ms);
 }
 
 static void flush_rot0(uint16_t *dst, const uint16_t *src,
@@ -329,14 +330,15 @@ static void lvgl_touch_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
 
 static void lvgl_port_task(void *arg)
 {
-    uint32_t delay_ms = EXAMPLE_LVGL_TASK_MAX_DELAY_MS;
+    const lvgl_timing_t *lt = &board_get()->lvgl_timing;
+    uint32_t delay_ms = (uint32_t)lt->task_max_delay_ms;
     for (;;) {
         if (lvgl_lock(-1)) {
             delay_ms = lv_timer_handler();
             lvgl_unlock();
         }
-        if (delay_ms > EXAMPLE_LVGL_TASK_MAX_DELAY_MS) delay_ms = EXAMPLE_LVGL_TASK_MAX_DELAY_MS;
-        else if (delay_ms < EXAMPLE_LVGL_TASK_MIN_DELAY_MS) delay_ms = EXAMPLE_LVGL_TASK_MIN_DELAY_MS;
+        if (delay_ms > (uint32_t)lt->task_max_delay_ms) delay_ms = (uint32_t)lt->task_max_delay_ms;
+        else if (delay_ms < (uint32_t)lt->task_min_delay_ms) delay_ms = (uint32_t)lt->task_min_delay_ms;
         vTaskDelay(pdMS_TO_TICKS(delay_ms));
     }
 }
@@ -425,8 +427,8 @@ static void lvgl_init(esp_lcd_panel_handle_t panel)
     }
     assert(s_fb1);
 
-    webui_set_framebuffer(s_fb1, UI_CANVAS_W, UI_CANVAS_H);
-    lv_disp_draw_buf_init(&s_disp_buf, s_fb1, NULL, UI_CANVAS_W * UI_CANVAS_H);
+    webui_set_framebuffer(s_fb1, g_canvas_w, g_canvas_h);
+    lv_disp_draw_buf_init(&s_disp_buf, s_fb1, NULL, (size_t)g_canvas_w * g_canvas_h);
 
     lv_disp_drv_init(&disp_drv);
     disp_drv.hor_res = g_canvas_w;
@@ -444,7 +446,8 @@ static void lvgl_init(esp_lcd_panel_handle_t panel)
     tick_args.name = "lvgl_tick";
     esp_timer_handle_t tick_timer = NULL;
     ESP_ERROR_CHECK(esp_timer_create(&tick_args, &tick_timer));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(tick_timer, EXAMPLE_LVGL_TICK_PERIOD_MS * 1000));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(tick_timer,
+                     (uint64_t)board_get()->lvgl_timing.tick_period_ms * 1000));
 
     lv_indev_drv_init(&indev_drv);
     indev_drv.type = LV_INDEV_TYPE_POINTER;
@@ -479,6 +482,11 @@ void disp_driver_update_resolution(void)
 
 void disp_driver_init(void)
 {
+    const board_desc_t *bd = board_get();
+    g_canvas_w = bd->canvas_w;
+    g_canvas_h = bd->canvas_h;
+    g_rot_state = bd->default_rotation;
+
     esp_lcd_panel_handle_t panel = lcd_init();
     lvgl_init(panel);
 }

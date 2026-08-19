@@ -1,8 +1,17 @@
 string(TIMESTAMP BUILD_EPOCH_UTC "%s" UTC)
 
+# Board selection (Kconfig: CONFIG_BOARD_NAME). Fallback keeps existing
+# builds working before sdkconfig is regenerated.
+if(NOT DEFINED CONFIG_BOARD_NAME OR CONFIG_BOARD_NAME STREQUAL "")
+    set(BOARD_NAME "esp32s3_touch_lcd_3_49")
+else()
+    set(BOARD_NAME "${CONFIG_BOARD_NAME}")
+endif()
+
 idf_component_register(
     SRCS
         "main.cpp"
+        "boards/${BOARD_NAME}/board.c"
         "ui/ui.c"
         "ui/ui_helpers.c"
         "ui/ui_widgets.c"
@@ -31,6 +40,7 @@ idf_component_register(
         "drivers/disp_driver.c"
         "drivers/fan_control.c"
         "network/sntp_manager.c"
+        "network/network_init.c"
         "config/app_cfg.c"
         "utils/event_bus.c"
         "utils/format.c"
@@ -61,6 +71,7 @@ idf_component_register(
         "ui/fonts/font_cjk_14.c"
     INCLUDE_DIRS
         "."
+        "boards"
         "ui"
         "drivers"
         "network"

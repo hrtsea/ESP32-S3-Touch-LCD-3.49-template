@@ -1,0 +1,12 @@
+menu "Board Configuration"
+
+    config BOARD_NAME
+        string "Target board name"
+        default "esp32s3_touch_lcd_3_49"
+        help
+            Board directory name under main/boards/ to compile at build time.
+            Must match the board implementation subfolder
+            (e.g. esp32s3_touch_lcd_3_49). Each board can also provide
+            sdkconfig.defaults.<board> for board-specific settings.
+
+endmenu

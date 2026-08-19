@@ -2,122 +2,34 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <stdarg.h>
 #include <time.h>
 #include <sys/time.h>
 #include "esp_log.h"
 #include "esp_heap_caps.h"
 
-#include "ui.h"
-#include "ui_helpers.h"
-#include "esp_io_expander_tca9554.h"
-#include "driver/i2c_master.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include "user_config.h"
-#include "i2c_bsp.h"
 #include "i2c_equipment.h"
-#include "lcd_bl_pwm_bsp.h"
-#include "adc_bsp.h"
-#include "sdcard_bsp.h"
-#include "button_bsp.h"
-#include "audio_min.h"
-
 #include "app_cfg.h"
+#include "i18n.h"
 #include "disp_driver.h"
-#include "../drivers/fan_control.h"
 
 #define TM_YEAR_OFFSET 1900
 #define TM_MONTH_OFFSET 1
 
 static const char *TAG = "hw_init";
 
-#define BL_MAX_BRIGHTNESS 255u
+/* ============================================================
+ * 板级硬件初始化已下沉到 boards/<name>/board.c 的 board_init()
+ * （I2C / TCA9554 / 背光 / 显示+LVGL / RTC / IMU / ADC / 音频 /
+ *  风扇 / SD / 按键，按 periph 能力裁剪）。
+ * 本文件仅保留系统级初始化：
+ *   system_time_init()   —— 读 RTC 播种系统时间 + 应用时区
+ *   system_monitor_start —— 心跳监控（常驻）
+ * ============================================================ */
 
-static void system_time_init(void);
-#define TCA9554_POWER_DELAY_MS 50u
-
-#define STATUS_TEXT_BUF_SIZE 256
-
-static void status_text_append(const char *fmt, ...)
-{
-    char buf[STATUS_TEXT_BUF_SIZE];
-    ui_helpers_get_status_text(buf, sizeof(buf));
-    int pos = (int)strlen(buf);
-    if (pos >= (int)sizeof(buf) - 1) return;
-    va_list args;
-    va_start(args, fmt);
-    int n = vsnprintf(buf + pos, 
-                      sizeof(buf) - pos, fmt, args);
-    va_end(args);
-    if (n > 0) {
-        ui_helpers_set_status_text(buf);
-    }
-}
-
-void hw_init(void)
-{
-    status_text_append("Drivers:\n");
-    ESP_LOGI(TAG, "[1/9] I2C buses");
-    i2c_master_Init();
-    ESP_LOGI(TAG, "      esp_i2c_bus_handle=%p", esp_i2c_bus_handle);
-    status_text_append("I2C OK\n");
-
-    ESP_LOGI(TAG, "[2/9] TCA9554 power rails P6+P7=HIGH");
-    {
-        esp_io_expander_handle_t io_expander = NULL;
-        esp_err_t er = esp_io_expander_new_i2c_tca9554(
-            esp_i2c_bus_handle, ESP_IO_EXPANDER_I2C_TCA9554_ADDRESS_000, &io_expander);
-        ESP_LOGI(TAG, "      tca9554 new=%s handle=%p", esp_err_to_name(er), io_expander);
-        ESP_ERROR_CHECK(esp_io_expander_set_dir(io_expander,
-            IO_EXPANDER_PIN_NUM_7 | IO_EXPANDER_PIN_NUM_6, IO_EXPANDER_OUTPUT));
-        ESP_ERROR_CHECK(esp_io_expander_set_level(io_expander,
-            IO_EXPANDER_PIN_NUM_7 | IO_EXPANDER_PIN_NUM_6, 1));
-        esp_io_expander_print_state(io_expander);
-        vTaskDelay(pdMS_TO_TICKS(TCA9554_POWER_DELAY_MS));
-    }
-    status_text_append("TCA9554 OK\n");
-
-    ESP_LOGI(TAG, "[3/9] LCD backlight PWM (from cfg)");
-    lcd_bl_pwm_bsp_init((uint16_t)(BL_MAX_BRIGHTNESS - g_cfg.brightness));
-    status_text_append("BL OK\n");
-
-    ESP_LOGI(TAG, "[4/10] LCD panel + LVGL");
-    disp_driver_init();
-    status_text_append("LCD/Touch OK\n");
-
-    ESP_LOGI(TAG, "[5/10] RTC + IMU");
-    i2c_rtc_setup();
-    i2c_imu_setup();
-    status_text_append("RTC/IMU OK\n");
-
-    ESP_LOGI(TAG, "[6/10] ADC battery");
-    adc_bsp_init();
-    status_text_append("ADC OK\n");
-
-    ESP_LOGI(TAG, "[7/10] Audio MIDI (ES8311 + ES7210 + I2S TDM)");
-    if (audio_min_init() == ESP_OK) {
-        audio_min_set_volume(g_cfg.audio_volume);
-        status_text_append("MIDI OK\n");
-    } else {
-        status_text_append("MIDI FAIL\n");
-    }
-
-    ESP_LOGI(TAG, "[8/10] Fan control (PWM + TACH)");
-    fan_control_init();
-    status_text_append("FAN OK\n");
-
-    ESP_LOGI(TAG, "[9/10] SD card + Buttons");
-    _sdcard_init();
-    button_Init();
-    status_text_append("SD/Btn OK\n");
-
-    ESP_LOGI(TAG, "[10/10] System time");
-    system_time_init();
-}
-
-static void system_time_init(void)
+void system_time_init(void)
 {
     setenv("TZ", "UTC0", 1);
     tzset();

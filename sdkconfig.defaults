@@ -2,6 +2,8 @@
 # Espressif IoT Development Framework (ESP-IDF) 5.3.2 Project Minimal Configuration
 #
 CONFIG_IDF_TARGET="esp32s3"
+# Board selection (boards/<name>/ under main/)
+CONFIG_BOARD_NAME="esp32s3_touch_lcd_3_49"
 CONFIG_COMPILER_OPTIMIZATION_PERF=y
 CONFIG_APP_RETRIEVE_LEN_ELF_SHA=16
 CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
