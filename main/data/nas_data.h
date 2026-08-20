@@ -14,11 +14,11 @@ typedef enum NasType {
     NAS_TRUENAS,
     NAS_FNOS,
     NAS_UNRAID,
-    NET_LINUX_HTTP,
-    NET_LINUX_SERIAL,
-    NET_WINDOWS,
-    NET_NETDATA,
-    NET_SNMP,
+    NAS_LINUX_HTTP,
+    NAS_LINUX_SERIAL,
+    NAS_WINDOWS,
+    NAS_NETDATA,
+    NAS_SNMP,
     NAS_MOCK,
     NAS_TYPE_ENUM_COUNT
 } NasType;

@@ -23,6 +23,8 @@ typedef struct {
 } ApiClientPriv;
 
 DataSource* api_client_create(NasType type);
+DataSource* api_client_linux_http_create(void);
+DataSource* api_client_windows_create(void);
 
 #ifdef __cplusplus
 }

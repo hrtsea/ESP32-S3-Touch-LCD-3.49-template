@@ -514,7 +514,7 @@ static const char* unraid_get_conn_icon(DataSource* self)
     return "wifi";
 }
 
-static NasTypeConfig unraid_get_config(DataSource* self)
+static const NasTypeEntry* unraid_get_config(DataSource* self)
 {
     (void)self;
     return nas_type_config_get_defaults(NAS_UNRAID);

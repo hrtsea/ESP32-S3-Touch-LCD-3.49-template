@@ -255,7 +255,7 @@ static const char* mock_get_conn_icon(DataSource* self)
     return "wifi";
 }
 
-static NasTypeConfig mock_get_config(DataSource* self)
+static const NasTypeEntry* mock_get_config(DataSource* self)
 {
     MockClientPriv* priv = (MockClientPriv*)self->priv;
     if (priv) return nas_type_config_get_defaults(priv->type);
@@ -309,4 +309,10 @@ DataSource* mock_client_create_with_type(NasType type, const char* type_name, co
     self->last_poll_ms = 0;
     self->consecutive_failures = 0;
     return self;
+}
+
+/* 无参包装：FNOS 复用 mock client（固定 type/展示名/图标），供 NAS_TYPES[].create 绑定。 */
+DataSource* mock_client_fnos_create(void)
+{
+    return mock_client_create_with_type(NAS_FNOS, "FNOS", "wifi");
 }

@@ -91,7 +91,14 @@ extern "C" void app_main(void)
 
     network_init();
 
-    nas_event_loop_start();
+    /* 启动数据源：从配置取类型，未配置则退回 mock；事件循环只接收 type_id，
+     * 不耦合 app_cfg 解析逻辑（解析责任上移到 main 启动编排） */
+    const char* nas_type = (strlen(app_cfg_get_nas_type()) > 0)
+                               ? app_cfg_get_nas_type() : "mock";
+    if (strlen(app_cfg_get_nas_type()) == 0) {
+        ESP_LOGW(TAG, "No NAS type configured, using mock");
+    }
+    nas_event_loop_start(nas_type);
 
     ui_init();
 

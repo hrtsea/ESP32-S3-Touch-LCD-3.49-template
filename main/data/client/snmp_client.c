@@ -503,10 +503,10 @@ static const char* snmp_get_conn_icon(DataSource* self)
     return "wifi";
 }
 
-static NasTypeConfig snmp_get_config(DataSource* self)
+static const NasTypeEntry* snmp_get_config(DataSource* self)
 {
     (void)self;
-    return nas_type_config_get_defaults(NET_SNMP);
+    return nas_type_config_get_defaults(NAS_SNMP);
 }
 
 static void snmp_destroy(DataSource* self)

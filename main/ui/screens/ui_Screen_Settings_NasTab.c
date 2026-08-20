@@ -168,7 +168,7 @@ static void dialog_save_cb(lv_event_t* e) {
         app_cfg_set_nas_https(app_cfg_get_nas_https());
 
         ESP_LOGI(TAG, "NAS config saved, switching data source...");
-        data_source_switch(NAS_TYPES[dialog_temp_nas_type_idx].id);
+        data_source_set_type(NAS_TYPES[dialog_temp_nas_type_idx].id);
 
         ESP_LOGI(TAG, "Data source switch initiated");
     }
@@ -463,7 +463,7 @@ static void update_dialog_fields(void) {
     bool show_serial = false;
 
     switch (current_type) {
-        case NET_LINUX_HTTP:
+        case NAS_LINUX_HTTP:
             if (dialog_ip_input) {
                 const char* current_ip = lv_textarea_get_text(dialog_ip_input);
                 if (current_ip[0] == '\0') {
@@ -480,17 +480,17 @@ static void update_dialog_fields(void) {
             show_port = true;
             break;
 
-        case NET_LINUX_SERIAL:
+        case NAS_LINUX_SERIAL:
             show_serial = true;
             break;
 
-        case NET_NETDATA:
+        case NAS_NETDATA:
             show_ip = true;
             show_port = true;
             show_apiurl = true;
             break;
 
-        case NET_SNMP:
+        case NAS_SNMP:
             show_ip = true;
             show_port = true;
             show_snmp = true;
@@ -574,7 +574,7 @@ static void update_dialog_fields(void) {
             show_apiurl = true;
             break;
 
-        case NET_WINDOWS:
+        case NAS_WINDOWS:
             show_ip = true;
             show_user = true;
             show_pass = true;

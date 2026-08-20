@@ -7,7 +7,6 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "event_bus.h"
-#include "app_cfg.h"
 #include "data_source.h"
 
 /* =====================================================================
@@ -105,13 +104,9 @@ static bool data_source_fetch_and_publish(void)
         s_prev_connected = connected;
     }
 
-    if (!connected) {
-        /* 未连接：每次抓数周期都会检查，DEBUG 级别避免刷屏 */
-        ESP_LOGD(TAG, "Fetch skipped - data source not connected (type=%s)",
-                 data_source_get_type_name());
-        return false;
-    }
-
+    /* 不再在未连接时跳过 poll：未连接也允许调用 poll()，由各 client 的 poll()
+     * 内部重连逻辑自行恢复连接（连接自愈内聚在 client，而非事件循环）。
+     * 事件循环的"连接门卫"职责上移——仅在不在线时不发布数据。 */
     if (data_source_poll()) {
         const NasData *data = data_source_get_data();
         if (data && data->is_online) {
@@ -189,7 +184,7 @@ static void task_nas_data_loop(void *arg)
  *   3. 创建抓数任务（失败则回滚已建资源）；
  *   4. 创建并启动 2s 周期定时器（失败则抓数停摆，但不影响事件循环本体）。
  *   注：数据源访问锁由 data_source 模块内部懒创建，本模块不参与。 */
-void nas_event_loop_start(void)
+void nas_event_loop_start(const char* type_id)
 {
     if (s_running) {
         ESP_LOGW(TAG, "NAS event loop already running");
@@ -206,22 +201,12 @@ void nas_event_loop_start(void)
         return;
     }
 
-    /* 2. 数据源：优先取配置的类型 id；为空则退回 mock */
-    const char *type_id;
-    if (strlen(app_cfg_get_nas_type()) > 0) {
-        type_id = app_cfg_get_nas_type();
-    } else {
-        ESP_LOGW(TAG, "No NAS type configured, using mock");
-        type_id = "mock";
-    }
-
-    ESP_LOGI(TAG, "Creating data source for type: %s", type_id);
-    if (!data_source_init(type_id)) {
-        ESP_LOGE(TAG, "Failed to init data source");
-    } else {
-        /* connect 失败不致命：数据源内部维护 is_online，后续 poll 会自动重连。
-         * mock 源 connect 恒成功，无需任何特判即可开始抓数。 */
-        data_source_connect();
+    /* 2. 数据源：type_id 由调用方（main）从配置解析后传入，事件循环不耦合 app_cfg。
+     * 连接自愈内聚在各 client 的 poll() 中，此处不显式 connect。 */
+    ESP_LOGI(TAG, "Creating data source for type: %s", type_id ? type_id : "(null)");
+    if (!data_source_set_type(type_id)) {
+        ESP_LOGE(TAG, "Failed to create data source");
+        /* 创建失败（协议不支持/内存不足）致命：数据源不可用，后续 poll 恒跳过 */
     }
 
     /* 3. 抓数任务：失败则清理已建资源并回滚，保证可再次 start */

@@ -512,7 +512,7 @@ static const char* truenas_get_conn_icon(DataSource* self)
     return "wifi";
 }
 
-static NasTypeConfig truenas_get_config(DataSource* self)
+static const NasTypeEntry* truenas_get_config(DataSource* self)
 {
     (void)self;
     return nas_type_config_get_defaults(NAS_TRUENAS);

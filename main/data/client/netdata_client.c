@@ -452,10 +452,10 @@ static const char* netdata_get_conn_icon(DataSource* self)
     return "wifi";
 }
 
-static NasTypeConfig netdata_get_config(DataSource* self)
+static const NasTypeEntry* netdata_get_config(DataSource* self)
 {
     (void)self;
-    return nas_type_config_get_defaults(NET_NETDATA);
+    return nas_type_config_get_defaults(NAS_NETDATA);
 }
 
 static void netdata_destroy(DataSource* self)

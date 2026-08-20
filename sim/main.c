@@ -185,13 +185,9 @@ int main(int argc, char **argv)
     ui_events_start_dim_timer();
     ui_events_start_tile_monitor();
 
-    /* 7. 数据源：mock client */
-    if (!data_source_init("mock")) {
-        ESP_LOGE(TAG, "data_source_init(mock) failed");
-        return 1;
-    }
-    if (!data_source_connect()) {
-        ESP_LOGE(TAG, "data_source_connect failed");
+    /* 7. 数据源：mock client（连接自愈内聚在 client 的 poll()，此处不显式 connect） */
+    if (!data_source_set_type("mock")) {
+        ESP_LOGE(TAG, "data_source_set_type(mock) failed");
         return 1;
     }
     ESP_LOGI(TAG, "mock data source connected");

@@ -40,7 +40,7 @@
 #include "app_cfg.h"      /* 配置唯一权威源 */
 #include "drivers/disp_driver.h"  /* 画布尺寸查询（硬件信息） */
 #include "utils/bg_fetcher.h"  /* bg_fetcher_ensure */
-#include "data_source.h"  /* data_source_switch */
+#include "data_source.h"  /* data_source_set_type */
 #include "fan_control.h"  /* FanConfig */
 #include "esp_wifi_config.h"  /* WiFi authority: wifi_cfg_* */
 
@@ -1452,7 +1452,7 @@ static esp_err_t h_settings_post(httpd_req_t *r)
         app_cfg_set_nas_user(user);
         app_cfg_set_nas_pass(pass);
         app_cfg_set_nas_https(https ? 1 : 0);
-        data_source_switch(type);  /* 运行期重连 */
+        data_source_set_type(type);  /* 运行期重连 */
         reboot_required = true;
     }
 

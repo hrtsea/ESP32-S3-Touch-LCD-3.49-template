@@ -174,7 +174,7 @@ static inline bool ds_is_connected(DataSource* s);
 static inline const NasData* ds_get_data(DataSource* s);
 static inline const char* ds_get_type_name(DataSource* s);
 static inline const char* ds_get_conn_icon(DataSource* s);
-static inline NasTypeConfig ds_get_config(DataSource* s);
+static inline const NasTypeEntry* ds_get_config(DataSource* s);
 static inline void ds_destroy(DataSource* s);
 ```
 
@@ -183,8 +183,7 @@ static inline void ds_destroy(DataSource* s);
 NasType        nas_type_from_string(const char* str);
 const char*    nas_type_to_string(NasType t);
 const char*    get_display_type_name(NasType t);
-NasTypeConfig  nas_type_config_get_defaults(NasType t);
-NasTypeConfig  nas_type_config_get_defaults_by_id(const char* type_id);
+const NasTypeEntry* nas_type_config_get_defaults(NasType t);
 float          data_source_get_rx_speed_mbps(void);
 float          data_source_get_tx_speed_mbps(void);
 ```

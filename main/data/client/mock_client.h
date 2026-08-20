@@ -8,6 +8,7 @@ extern "C" {
 
 DataSource* mock_client_create(void);
 DataSource* mock_client_create_with_type(NasType type, const char* type_name, const char* conn_icon);
+DataSource* mock_client_fnos_create(void);
 
 #ifdef __cplusplus
 }

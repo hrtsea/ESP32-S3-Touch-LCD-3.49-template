@@ -392,10 +392,10 @@ static const char* serial_get_conn_icon(DataSource* self)
     return "usb";
 }
 
-static NasTypeConfig serial_get_config(DataSource* self)
+static const NasTypeEntry* serial_get_config(DataSource* self)
 {
     (void)self;
-    return nas_type_config_get_defaults(NET_LINUX_SERIAL);
+    return nas_type_config_get_defaults(NAS_LINUX_SERIAL);
 }
 
 static void serial_destroy(DataSource* self)

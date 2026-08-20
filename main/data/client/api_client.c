@@ -313,7 +313,7 @@ static bool api_init(DataSource* self)
     if (!priv) return false;
 
     self->priv = priv;
-    priv->current_type = NET_LINUX_HTTP;
+    priv->current_type = NAS_LINUX_HTTP;
 
     memcpy(priv->nas_ip, app_cfg_get_nas_ip(), sizeof(priv->nas_ip));
     priv->nas_ip[sizeof(priv->nas_ip) - 1] = '\0';
@@ -462,10 +462,10 @@ static const char* api_get_conn_icon(DataSource* self)
     return "wifi";
 }
 
-static NasTypeConfig api_get_config(DataSource* self)
+static const NasTypeEntry* api_get_config(DataSource* self)
 {
     ApiClientData* priv = (ApiClientData*)self->priv;
-    NasType type = priv ? priv->current_type : NET_LINUX_HTTP;
+    NasType type = priv ? priv->current_type : NAS_LINUX_HTTP;
     return nas_type_config_get_defaults(type);
 }
 
@@ -505,6 +505,18 @@ DataSource* api_client_create(NasType type)
     self->last_poll_ms = 0;
     self->consecutive_failures = 0;
     return self;
+}
+
+/* 无参包装：将 NAS_LINUX_HTTP / NAS_WINDOWS 的参数固化进各 client 自身的
+ * 创建入口，供 NAS_TYPES[].create 函数指针直接绑定（消除 data_source 的 switch 映射）。 */
+DataSource* api_client_linux_http_create(void)
+{
+    return api_client_create(NAS_LINUX_HTTP);
+}
+
+DataSource* api_client_windows_create(void)
+{
+    return api_client_create(NAS_WINDOWS);
 }
 
 

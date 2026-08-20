@@ -564,7 +564,7 @@ static const char* qnap_get_conn_icon(DataSource* self)
     return "wifi";
 }
 
-static NasTypeConfig qnap_get_config(DataSource* self)
+static const NasTypeEntry* qnap_get_config(DataSource* self)
 {
     (void)self;
     return nas_type_config_get_defaults(NAS_QNAP);

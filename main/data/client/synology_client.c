@@ -370,7 +370,7 @@ static const char* syno_get_conn_icon(DataSource* self)
     return "wifi";
 }
 
-static NasTypeConfig syno_get_config(DataSource* self)
+static const NasTypeEntry* syno_get_config(DataSource* self)
 {
     (void)self;
     return nas_type_config_get_defaults(NAS_SYNOLOGY);

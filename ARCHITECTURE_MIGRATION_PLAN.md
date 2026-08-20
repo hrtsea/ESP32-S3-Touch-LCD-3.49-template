@@ -66,7 +66,7 @@ typedef struct DataSourceVTable {
     const NasData* (*get_data)(DataSource* self);
     const char* (*get_type_name)(DataSource* self);
     const char* (*get_conn_icon)(DataSource* self);
-    NasTypeConfig (*get_config)(DataSource* self);
+    const NasTypeEntry* (*get_config)(DataSource* self);
     void (*destroy)(DataSource* self);
 } DataSourceVTable;
 

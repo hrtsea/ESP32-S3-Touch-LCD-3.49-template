@@ -13,59 +13,39 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include <string.h>
-#include <stdlib.h>
 
 static const char* TAG = "data_source";
 
 const NasTypeEntry NAS_TYPES[] = {
-    {"synology",     "Synology DSM",   NAS_SYNOLOGY,    true},
-    {"qnap",         "QNAP QTS",       NAS_QNAP,        true},
-    {"truenas",      "TrueNAS",        NAS_TRUENAS,     true},
-    {"fnos",         "FNOS",           NAS_FNOS,        true},
-    {"unraid",       "Unraid",         NAS_UNRAID,      true},
-    {"netdata",      "Netdata",        NET_NETDATA,     true},
-    {"snmp",         "SNMP",           NET_SNMP,        true},
-    {"linux_http",   "Linux (HTTP)",   NET_LINUX_HTTP,  true},
-    {"linux_serial", "Linux (Serial)", NET_LINUX_SERIAL,true},
-    {"windows",      "Windows",        NET_WINDOWS,     true},
-    {"mock",         "Mock (测试)",    NAS_MOCK,        true},
+    /* create 字段绑定各 client 的无参构造入口；带参特例（linux_http/windows/fnos）
+     * 由对应 client 提供的包装函数固化参数，避免本文件维护 enum→client 的 switch。 */
+    {"synology",     "Synology DSM",   NAS_SYNOLOGY,    true, "192.168.1.100", 5000,   "admin", true,  true,  false, false, synology_client_create},
+    {"qnap",         "QNAP QTS",       NAS_QNAP,        true, "192.168.1.100", 8080,   "admin", true,  true,  false, false, qnap_client_create},
+    {"truenas",      "TrueNAS",        NAS_TRUENAS,     true, "192.168.1.100", 80,     "root",  true,  true,  false, false, truenas_client_create},
+    /* FNOS 当前无独立 client，复用 mock client（固定 type/展示名/图标），由 mock_client_fnos_create 包装 */
+    {"fnos",         "FNOS",           NAS_FNOS,        true, "192.168.1.100", 3000,   "",      false, true,  false, false, mock_client_fnos_create},
+    {"unraid",       "Unraid",         NAS_UNRAID,      true, "192.168.1.100", 80,     "",      true,  false, false, false, unraid_client_create},
+    {"netdata",      "Netdata",        NAS_NETDATA,     true, "192.168.1.100", 19999,  "",      false, true,  false, false, netdata_client_create},
+    {"snmp",         "SNMP",           NAS_SNMP,        true, "192.168.1.100", 161,    "",      false, false, true,  false, snmp_client_create},
+    {"linux_http",   "Linux (HTTP)",   NAS_LINUX_HTTP,  true, "192.168.1.100", 8099,   "",      false, false, false, false, api_client_linux_http_create},
+    {"linux_serial", "Linux (Serial)", NAS_LINUX_SERIAL,true, "/dev/ttyUSB0",  115200, "",      false, false, false, true,  serial_client_create},
+    {"windows",      "Windows",        NAS_WINDOWS,     true, "192.168.1.100", 0,      "admin", true,  false, false, false, api_client_windows_create},
+    {"mock",         "Mock (测试)",    NAS_MOCK,        true, "",              0,      "",      false, false, false, false, mock_client_create},
 };
 
 const int DATA_TYPE_COUNT = sizeof(NAS_TYPES) / sizeof(NAS_TYPES[0]);
 
-static const NasTypeConfig s_nas_type_configs[] = {
-    {NAS_SYNOLOGY,     "192.168.1.100", 5000,   "admin", true,  true,  false, false},
-    {NAS_QNAP,         "192.168.1.100", 8080,   "admin", true,  true,  false, false},
-    {NAS_TRUENAS,      "192.168.1.100", 80,     "root",  true,  true,  false, false},
-    {NAS_FNOS,         "192.168.1.100", 3000,   "",      false, true,  false, false},
-    {NAS_UNRAID,       "192.168.1.100", 80,     "",      true,  false, false, false},
-    {NET_LINUX_HTTP,   "192.168.1.100", 8099,   "",      false, false, false, false},
-    {NET_LINUX_SERIAL, "/dev/ttyUSB0",  115200, "",      false, false, false, true},
-    {NET_NETDATA,      "192.168.1.100", 19999,  "",      false, true,  false, false},
-    {NET_SNMP,         "192.168.1.100", 161,    "",      false, false, true,  false},
-    {NET_WINDOWS,      "192.168.1.100", 0,      "admin", true,  false, false, false},
-    {NAS_MOCK,         "",              0,      "",      false, false, false, false},
-};
-static const int s_nas_type_configs_count = sizeof(s_nas_type_configs) / sizeof(s_nas_type_configs[0]);
-
-NasTypeConfig nas_type_config_get_defaults(NasType type)
+const NasTypeEntry* nas_type_config_get_defaults(NasType type)
 {
-    for (int i = 0; i < s_nas_type_configs_count; i++) {
-        if (s_nas_type_configs[i].type == type) {
-            return s_nas_type_configs[i];
+    for (int i = 0; i < DATA_TYPE_COUNT; i++) {
+        if (NAS_TYPES[i].nas_type_enum == type) {
+            return &NAS_TYPES[i];
         }
     }
-    NasTypeConfig empty = {0};
-    return empty;
+    return NULL;
 }
 
-NasTypeConfig nas_type_config_get_defaults_by_id(const char* type_id)
-{
-    NasType type = nas_type_from_string(type_id);
-    return nas_type_config_get_defaults(type);
-}
-
-const char* get_display_type_name(const char* nas_type_id)
+static const char* get_display_type_name(const char* nas_type_id)
 {
     for (int i = 0; i < DATA_TYPE_COUNT; i++) {
         if (strcmp(NAS_TYPES[i].id, nas_type_id) == 0) {
@@ -77,16 +57,16 @@ const char* get_display_type_name(const char* nas_type_id)
 
 NasType nas_type_from_string(const char* nas_type_id)
 {
-    if (nas_type_id == NULL) return NET_LINUX_HTTP;
+    if (nas_type_id == NULL) return NAS_LINUX_HTTP;
     for (int i = 0; i < DATA_TYPE_COUNT; i++) {
         if (strcmp(NAS_TYPES[i].id, nas_type_id) == 0) {
             return NAS_TYPES[i].nas_type_enum;
         }
     }
-    return NET_LINUX_HTTP;
+    return NAS_LINUX_HTTP;
 }
 
-const char* nas_type_to_string(NasType type)
+static const char* nas_type_to_string(NasType type)
 {
     for (int i = 0; i < DATA_TYPE_COUNT; i++) {
         if (NAS_TYPES[i].nas_type_enum == type) {
@@ -130,23 +110,15 @@ static void ds_unlock(void)
 
 static DataSource* ds_create_by_type(NasType type)
 {
-    switch (type) {
-        case NAS_SYNOLOGY:     return synology_client_create();
-        case NAS_QNAP:         return qnap_client_create();
-        case NAS_TRUENAS:      return truenas_client_create();
-        case NAS_FNOS:         return mock_client_create_with_type(NAS_FNOS, "FNOS", "wifi");
-        case NAS_UNRAID:       return unraid_client_create();
-        case NET_NETDATA:      return netdata_client_create();
-        case NET_SNMP:         return snmp_client_create();
-        case NET_LINUX_HTTP:   return api_client_create(NET_LINUX_HTTP);
-        case NET_LINUX_SERIAL: return serial_client_create();
-        case NET_WINDOWS:      return api_client_create(NET_WINDOWS);
-        case NAS_MOCK:         return mock_client_create();
-        default:               return NULL;
+    for (int i = 0; i < DATA_TYPE_COUNT; i++) {
+        if (NAS_TYPES[i].nas_type_enum == type && NAS_TYPES[i].create != NULL) {
+            return NAS_TYPES[i].create();
+        }
     }
+    return NULL;
 }
 
-DataSource* data_source_create(const char* nas_type_id)
+static DataSource* data_source_create(const char* nas_type_id)
 {
     for (int i = 0; i < DATA_TYPE_COUNT; i++) {
         if (strcmp(NAS_TYPES[i].id, nas_type_id) == 0) {
@@ -176,26 +148,48 @@ static bool ds_create_and_init(const char* nas_type_id)
     return true;
 }
 
-bool data_source_init(const char* nas_type_id)
+/* 统一数据源入口：创建/切换/清空都走这里，消除 init 与 switch 双入口。
+ * - 已是同类型：no-op 返回 true
+ * - 不同类型或当前为 NULL：销毁旧的、建新的、init（连接自愈交给 poll，不显式 connect）
+ * - none/空：销毁当前置 NULL 返回 true
+ * 连接失败非致命：对象已建好，poll 周期会自动重连。 */
+bool data_source_set_type(const char* nas_type_id)
 {
-    bool result = false;
     ds_lock();
-    if (g_data_source != NULL) {
-        ESP_LOGW(TAG, "Data source already initialized, switch first");
-    } else {
-        result = ds_create_and_init(nas_type_id);
-    }
-    ds_unlock();
-    return result;
-}
 
-bool data_source_connect(void)
-{
-    bool result = false;
-    ds_lock();
-    if (g_data_source != NULL) result = ds_connect(g_data_source);
+    bool is_clear = (nas_type_id == NULL || strlen(nas_type_id) == 0 ||
+                     strcmp(nas_type_id, "none") == 0);
+
+    if (!is_clear && g_data_source != NULL &&
+        strcmp(ds_get_type_name(g_data_source), nas_type_id) == 0) {
+        ESP_LOGI(TAG, "Data source already %s, no-op", nas_type_id);
+        ds_unlock();
+        return true;
+    }
+
+    if (g_data_source != NULL) {
+        ESP_LOGI(TAG, "Tearing down existing data source (%s)",
+                 ds_get_type_name(g_data_source));
+        ds_disconnect(g_data_source);
+        ds_destroy(g_data_source);
+        g_data_source = NULL;
+    }
+
+    if (is_clear) {
+        ESP_LOGI(TAG, "Data source cleared (no type specified)");
+        ds_unlock();
+        return true;
+    }
+
+    ESP_LOGI(TAG, "Creating data source for type: %s", nas_type_id);
+    if (!ds_create_and_init(nas_type_id)) {
+        ds_unlock();
+        return false;
+    }
+    /* 不在此 connect：连接自愈内聚在各 client 的 poll() 中 */
+
     ds_unlock();
-    return result;
+    return true;
 }
 
 void data_source_disconnect(void)
@@ -261,38 +255,4 @@ void data_source_lock(void)
 void data_source_unlock(void)
 {
     ds_unlock();
-}
-
-bool data_source_switch(const char* nas_type_id)
-{
-    ds_lock();
-
-    if (g_data_source != NULL) {
-        ESP_LOGI(TAG, "Switching from %s, disconnecting...", ds_get_type_name(g_data_source));
-        ds_disconnect(g_data_source);
-        ds_destroy(g_data_source);
-        g_data_source = NULL;
-    }
-
-    if (nas_type_id == NULL || strlen(nas_type_id) == 0 ||
-        strcmp(nas_type_id, "none") == 0) {
-        ESP_LOGI(TAG, "Data source cleared (no type specified)");
-        ds_unlock();
-        return true;
-    }
-
-    ESP_LOGI(TAG, "Creating new data source for type: %s", nas_type_id);
-    if (!ds_create_and_init(nas_type_id)) {
-        ds_unlock();
-        return false;
-    }
-
-    if (!ds_connect(g_data_source)) {
-        ESP_LOGW(TAG, "Failed to connect data source for type: %s", nas_type_id);
-        ds_unlock();
-        return false;
-    }
-
-    ds_unlock();
-    return true;
 }
