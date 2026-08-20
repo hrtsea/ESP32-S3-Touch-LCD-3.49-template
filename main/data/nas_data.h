@@ -8,21 +8,6 @@
 extern "C" {
 #endif
 
-typedef enum NasType {
-    NAS_SYNOLOGY,
-    NAS_QNAP,
-    NAS_TRUENAS,
-    NAS_FNOS,
-    NAS_UNRAID,
-    NAS_LINUX_HTTP,
-    NAS_LINUX_SERIAL,
-    NAS_WINDOWS,
-    NAS_NETDATA,
-    NAS_SNMP,
-    NAS_MOCK,
-    NAS_TYPE_ENUM_COUNT
-} NasType;
-
 typedef enum HealthStatus {
     HEALTH_OK,
     HEALTH_WARNING,

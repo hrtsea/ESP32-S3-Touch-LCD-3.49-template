@@ -5,6 +5,22 @@
 #include <stddef.h>
 #include "nas_data.h"
 
+/* NAS 类型协议枚举：与 NasTypeEntry 同源于类型主表，置于此处使数据源抽象层自包含 */
+typedef enum NasType {
+    NAS_SYNOLOGY,
+    NAS_QNAP,
+    NAS_TRUENAS,
+    NAS_FNOS,
+    NAS_UNRAID,
+    NAS_LINUX_HTTP,
+    NAS_LINUX_SERIAL,
+    NAS_WINDOWS,
+    NAS_NETDATA,
+    NAS_SNMP,
+    NAS_MOCK,
+    NAS_TYPE_ENUM_COUNT
+} NasType;
+
 /* 前向声明：NasTypeEntry.create 字段需要 DataSource*，置于其定义之前 */
 typedef struct DataSource DataSource;
 typedef struct NasTypeEntry NasTypeEntry;
