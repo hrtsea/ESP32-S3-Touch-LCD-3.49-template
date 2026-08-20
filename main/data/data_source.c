@@ -125,7 +125,6 @@ static DataSource* ds_create_by_entry(const NasTypeEntry* e)
     p.use_https        = e->default_https;
     p.serial_baud      = e->default_serial_baud;
     p.poll_sec         = e->default_poll_sec;
-    p.snmp_ver         = 1; /* 全局默认 v2c（snmp client 未消费，保留） */
 
     const char* ip   = app_cfg_get_nas_ip();
     int         port = app_cfg_get_nas_port();
@@ -137,6 +136,7 @@ static DataSource* ds_create_by_entry(const NasTypeEntry* e)
     int         poll = app_cfg_get_poll_sec();
     int         sata = app_cfg_get_sata_disk_count();
     int         m2   = app_cfg_get_m2_disk_count();
+    int         snmp_ver = app_cfg_get_snmp_ver();
 
     if (ip   && ip[0])   strncpy(p.nas_ip,   ip,   sizeof(p.nas_ip)   - 1);
     if (port > 0)        p.nas_port        = (uint16_t)port;
@@ -145,6 +145,7 @@ static DataSource* ds_create_by_entry(const NasTypeEntry* e)
     if (https)           p.use_https        = true;
     if (comm && comm[0]) strncpy(p.snmp_comm, comm, sizeof(p.snmp_comm) - 1);
     if (baud > 0)        p.serial_baud      = (uint32_t)baud;
+    if (snmp_ver > 0)    p.snmp_ver         = (uint8_t)snmp_ver;
     if (poll > 0)        p.poll_sec         = (uint8_t)poll;
     if (sata > 0)        p.sata_disk_count  = (uint8_t)sata;
     if (m2   > 0)        p.m2_disk_count    = (uint8_t)m2;
