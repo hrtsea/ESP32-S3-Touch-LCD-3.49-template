@@ -1,5 +1,4 @@
 #include "unraid_client.h"
-#include "app_cfg.h"
 #include "esp_log.h"
 #include "esp_http_client.h"
 #include "esp_wifi_config.h"
@@ -394,21 +393,9 @@ static bool graphql_fetch(UnraidClientData* priv)
 
 static bool unraid_init(DataSource* self)
 {
-    UnraidClientData* priv = (UnraidClientData*)calloc(1, sizeof(UnraidClientData));
+    UnraidClientData* priv = (UnraidClientData*)self->priv;
     if (!priv) return false;
 
-    self->priv = priv;
-
-    memcpy(priv->nas_ip, app_cfg_get_nas_ip(), sizeof(priv->nas_ip));
-    priv->nas_ip[sizeof(priv->nas_ip) - 1] = '\0';
-    priv->nas_port = app_cfg_get_nas_port();
-    if (priv->nas_port == 0) priv->nas_port = 80;
-
-    /* API Key 存储在 nas_pass 字段 */
-    memcpy(priv->api_key, app_cfg_get_nas_pass(), sizeof(priv->api_key));
-    priv->api_key[sizeof(priv->api_key) - 1] = '\0';
-
-    priv->use_https = app_cfg_get_nas_https();
     priv->last_poll_ms = 0;
     priv->consecutive_failures = 0;
 
@@ -457,7 +444,7 @@ static bool unraid_poll(DataSource* self)
     if (!priv) return false;
 
     uint32_t now = get_millis();
-    uint32_t poll_interval = app_cfg_get_poll_sec() * 1000UL;
+    uint32_t poll_interval = self->poll_interval_ms;
 
     /* 失败时指数退避 */
     if (priv->consecutive_failures > 0) {
@@ -543,12 +530,20 @@ static const DataSourceVTable s_unraid_vtable = {
     .destroy = unraid_destroy,
 };
 
-DataSource* unraid_client_create(void)
+DataSource* unraid_client_create(const DataSourceParams* params)
 {
     DataSource* self = (DataSource*)calloc(1, sizeof(DataSource));
     if (!self) return NULL;
     self->vtable = &s_unraid_vtable;
     self->last_poll_ms = 0;
     self->consecutive_failures = 0;
+
+    UnraidClientData* priv = (UnraidClientData*)calloc(1, sizeof(UnraidClientData));
+    if (!priv) { free(self); return NULL; }
+    strncpy(priv->nas_ip,   params->nas_ip,   sizeof(priv->nas_ip)   - 1);
+    priv->nas_port   = params->nas_port;
+    strncpy(priv->api_key, params->nas_pass, sizeof(priv->api_key) - 1);
+    priv->use_https  = params->use_https;
+    self->priv = priv;
     return self;
 }

@@ -1,6 +1,4 @@
 #include "snmp_client.h"
-#include "app_cfg.h"
-#include "app_cfg.h"
 #include "esp_log.h"
 #include "esp_wifi.h"
 #include "esp_wifi_config.h"
@@ -274,22 +272,8 @@ static bool find_value_in_response(SnmpClientData* priv, const uint8_t* target_o
 
 static bool snmp_init(DataSource* self)
 {
-    SnmpClientData* priv = (SnmpClientData*)calloc(1, sizeof(SnmpClientData));
+    SnmpClientData* priv = (SnmpClientData*)self->priv;
     if (!priv) return false;
-
-    self->priv = priv;
-
-    memcpy(priv->nas_ip, app_cfg_get_nas_ip(), sizeof(priv->nas_ip));
-    priv->nas_ip[sizeof(priv->nas_ip) - 1] = '\0';
-    priv->nas_port = app_cfg_get_nas_port();
-    if (priv->nas_port == 0) priv->nas_port = 161;
-
-    if (app_cfg_get_snmp_comm()[0] != '\0') {
-        memcpy(priv->community, app_cfg_get_snmp_comm(), sizeof(priv->community) - 1);
-        priv->community[sizeof(priv->community) - 1] = '\0';
-    } else {
-        memcpy(priv->community, "public", sizeof("public"));
-    }
 
     priv->state = SNMP_IDLE;
     priv->last_query = SNMP_IDLE;
@@ -348,7 +332,7 @@ static bool snmp_poll(DataSource* self)
     }
 
     uint32_t now = get_millis();
-    if (priv->last_poll_ms > 0 && (now - priv->last_poll_ms) < app_cfg_get_poll_sec() * 1000UL) {
+    if (priv->last_poll_ms > 0 && (now - priv->last_poll_ms) < self->poll_interval_ms) {
         return false;
     }
 
@@ -535,13 +519,20 @@ static const DataSourceVTable s_snmp_vtable = {
     .destroy = snmp_destroy,
 };
 
-DataSource* snmp_client_create(void)
+DataSource* snmp_client_create(const DataSourceParams* params)
 {
     DataSource* self = (DataSource*)calloc(1, sizeof(DataSource));
     if (!self) return NULL;
     self->vtable = &s_snmp_vtable;
     self->last_poll_ms = 0;
     self->consecutive_failures = 0;
+
+    SnmpClientData* priv = (SnmpClientData*)calloc(1, sizeof(SnmpClientData));
+    if (!priv) { free(self); return NULL; }
+    strncpy(priv->nas_ip, params->nas_ip, sizeof(priv->nas_ip) - 1);
+    priv->nas_port = params->nas_port;
+    strncpy(priv->community, params->snmp_comm, sizeof(priv->community) - 1);
+    self->priv = priv;
     return self;
 }
 

@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-DataSource* snmp_client_create(void);
+DataSource* snmp_client_create(const DataSourceParams* params);
 
 #ifdef __cplusplus
 }

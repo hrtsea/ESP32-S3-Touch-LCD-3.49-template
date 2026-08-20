@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-DataSource* truenas_client_create(void);
+DataSource* truenas_client_create(const DataSourceParams* params);
 
 #ifdef __cplusplus
 }

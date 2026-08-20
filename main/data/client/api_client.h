@@ -13,18 +13,8 @@ typedef enum {
     API_DONE
 } ApiState;
 
-typedef struct {
-    NasType current_type;
-    char nas_ip[40];
-    uint16_t nas_port;
-    ApiState state;
-    uint32_t poll_interval_ms;
-    NasData data;
-} ApiClientPriv;
-
-DataSource* api_client_create(NasType type);
-DataSource* api_client_linux_http_create(void);
-DataSource* api_client_windows_create(void);
+/* 由 data_source 组包连接参数后调用，client 不再依赖 app_cfg */
+DataSource* api_client_create(const DataSourceParams* params);
 
 #ifdef __cplusplus
 }

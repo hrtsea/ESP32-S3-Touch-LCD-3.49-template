@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-DataSource* qnap_client_create(void);
+DataSource* qnap_client_create(const DataSourceParams* params);
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,4 @@
 #include "qnap_client.h"
-#include "app_cfg.h"
 #include "esp_log.h"
 #include "esp_http_client.h"
 #include "esp_wifi.h"
@@ -373,20 +372,8 @@ static bool fetch_network(QnapClientData* priv)
 
 static bool qnap_init(DataSource* self)
 {
-    QnapClientData* priv = (QnapClientData*)calloc(1, sizeof(QnapClientData));
+    QnapClientData* priv = (QnapClientData*)self->priv;
     if (!priv) return false;
-
-    self->priv = priv;
-
-    memcpy(priv->nas_ip, app_cfg_get_nas_ip(), sizeof(priv->nas_ip));
-    priv->nas_ip[sizeof(priv->nas_ip) - 1] = '\0';
-    priv->nas_port = app_cfg_get_nas_port();
-    if (priv->nas_port == 0) priv->nas_port = 8080;
-
-    memcpy(priv->username, app_cfg_get_nas_user(), sizeof(priv->username));
-    priv->username[sizeof(priv->username) - 1] = '\0';
-    memcpy(priv->password, app_cfg_get_nas_pass(), sizeof(priv->password));
-    priv->password[sizeof(priv->password) - 1] = '\0';
 
     priv->sid[0] = '\0';
     priv->state = QNAP_IDLE;
@@ -440,7 +427,7 @@ static bool qnap_poll(DataSource* self)
     QnapClientData* priv = (QnapClientData*)self->priv;
     uint32_t now = get_millis();
 
-    uint32_t poll_interval = app_cfg_get_poll_sec() * 1000UL;
+    uint32_t poll_interval = self->poll_interval_ms;
     if (priv->consecutive_failures > 0) {
         uint8_t capped = priv->consecutive_failures;
         if (capped > 3) capped = 3;
@@ -596,13 +583,21 @@ static const DataSourceVTable s_qnap_vtable = {
     .destroy = qnap_destroy,
 };
 
-DataSource* qnap_client_create(void)
+DataSource* qnap_client_create(const DataSourceParams* params)
 {
     DataSource* self = (DataSource*)calloc(1, sizeof(DataSource));
     if (!self) return NULL;
     self->vtable = &s_qnap_vtable;
     self->last_poll_ms = 0;
     self->consecutive_failures = 0;
+
+    QnapClientData* priv = (QnapClientData*)calloc(1, sizeof(QnapClientData));
+    if (!priv) { free(self); return NULL; }
+    strncpy(priv->nas_ip,   params->nas_ip,   sizeof(priv->nas_ip)   - 1);
+    priv->nas_port   = params->nas_port;
+    strncpy(priv->username, params->nas_user, sizeof(priv->username) - 1);
+    strncpy(priv->password, params->nas_pass, sizeof(priv->password) - 1);
+    self->priv = priv;
     return self;
 }
 

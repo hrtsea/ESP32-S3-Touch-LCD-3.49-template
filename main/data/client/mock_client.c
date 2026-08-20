@@ -1,5 +1,4 @@
 #include "mock_client.h"
-#include "app_cfg.h"
 #include "nas_data.h"
 #include "esp_log.h"
 #include <stdio.h>
@@ -11,14 +10,15 @@
 static const char* TAG = "mock_client";
 
 typedef struct {
-    NasType type;
-    const char* type_name;
+    const NasTypeEntry* entry;  /* 类型表条目：提供 display_name / get_config 返回，不再依赖 NasType 枚举 */
     const char* conn_icon;
+    uint8_t sata_disk_count;
+    uint8_t m2_disk_count;
 } MockClientPriv;
 
 static uint32_t s_counter = 0;
 
-static void generate_mock_data(NasData* data)
+static void generate_mock_data(MockClientPriv* priv, NasData* data)
 {
     s_counter++;
 
@@ -75,8 +75,8 @@ static void generate_mock_data(NasData* data)
     data->fan.enabled = true;
     data->fan.stall_alarm = (s_counter % 500 == 0);
 
-    uint8_t sata_count = (uint8_t)app_cfg_get_sata_disk_count();
-    uint8_t m2_count   = (uint8_t)app_cfg_get_m2_disk_count();
+    uint8_t sata_count = priv->sata_disk_count;
+    uint8_t m2_count   = priv->m2_disk_count;
     uint8_t total_slots = sata_count + m2_count;
 
     data->disk_count = total_slots;
@@ -195,8 +195,9 @@ static void generate_mock_data(NasData* data)
 
 static bool mock_init(DataSource* self)
 {
+    MockClientPriv* priv = (MockClientPriv*)self->priv;
     ESP_LOGI(TAG, "Init: Mock Data Source");
-    generate_mock_data(&self->data);
+    generate_mock_data(priv, &self->data);
     return true;
 }
 
@@ -215,14 +216,15 @@ static void mock_disconnect(DataSource* self)
 
 static bool mock_poll(DataSource* self)
 {
+    MockClientPriv* priv = (MockClientPriv*)self->priv;
     uint32_t now_ms = esp_log_timestamp();
-    uint32_t poll_interval_ms = (uint32_t)app_cfg_get_poll_sec() * 1000UL;
+    uint32_t poll_interval_ms = self->poll_interval_ms;
 
     if (self->last_poll_ms > 0 && (now_ms - self->last_poll_ms) < poll_interval_ms) {
         return false;
     }
 
-    generate_mock_data(&self->data);
+    generate_mock_data(priv, &self->data);
     self->data.is_online = true;
     self->data.last_update_ms = now_ms;
     self->data.has_update = true;
@@ -244,8 +246,8 @@ static const NasData* mock_get_data(DataSource* self)
 static const char* mock_get_type_name(DataSource* self)
 {
     MockClientPriv* priv = (MockClientPriv*)self->priv;
-    if (priv && priv->type_name) return priv->type_name;
-    return "Mock Data Source";
+    if (!priv || !priv->entry) return "Mock";
+    return priv->entry->display_name ? priv->entry->display_name : "Mock";
 }
 
 static const char* mock_get_conn_icon(DataSource* self)
@@ -258,8 +260,7 @@ static const char* mock_get_conn_icon(DataSource* self)
 static const NasTypeEntry* mock_get_config(DataSource* self)
 {
     MockClientPriv* priv = (MockClientPriv*)self->priv;
-    if (priv) return nas_type_config_get_defaults(priv->type);
-    return nas_type_config_get_defaults(NAS_MOCK);
+    return (priv && priv->entry) ? priv->entry : nas_type_config_get_defaults(NAS_MOCK);
 }
 
 static void mock_destroy(DataSource* self)
@@ -285,34 +286,27 @@ static const DataSourceVTable s_mock_vtable = {
     .destroy = mock_destroy,
 };
 
-DataSource* mock_client_create(void)
+DataSource* mock_client_create(const DataSourceParams* params)
 {
-    return mock_client_create_with_type(NAS_MOCK, "Mock Data Source", "wifi");
-}
-
-DataSource* mock_client_create_with_type(NasType type, const char* type_name, const char* conn_icon)
-{
+    if (!params) return NULL;
     DataSource* self = (DataSource*)calloc(1, sizeof(DataSource));
     if (!self) return NULL;
 
+    /* 展示名由 NAS_TYPES 表的 display_name 驱动（get_type_name 取表），
+     * mock 与 fnos 复用本 client，无需在此特判类型。 */
     MockClientPriv* priv = (MockClientPriv*)calloc(1, sizeof(MockClientPriv));
     if (!priv) {
         free(self);
         return NULL;
     }
-    priv->type = type;
-    priv->type_name = type_name;
-    priv->conn_icon = conn_icon;
+    priv->entry = params->entry;
+    priv->conn_icon = "wifi";
+    priv->sata_disk_count = params->sata_disk_count;
+    priv->m2_disk_count   = params->m2_disk_count;
 
     self->vtable = &s_mock_vtable;
     self->priv = priv;
     self->last_poll_ms = 0;
     self->consecutive_failures = 0;
     return self;
-}
-
-/* 无参包装：FNOS 复用 mock client（固定 type/展示名/图标），供 NAS_TYPES[].create 绑定。 */
-DataSource* mock_client_fnos_create(void)
-{
-    return mock_client_create_with_type(NAS_FNOS, "FNOS", "wifi");
 }

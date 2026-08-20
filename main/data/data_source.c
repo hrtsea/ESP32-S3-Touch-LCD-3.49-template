@@ -8,6 +8,7 @@
 #include "client/serial_client.h"
 #include "client/snmp_client.h"
 #include "client/unraid_client.h"
+#include "config/app_cfg.h"
 #include "esp_log.h"
 #include "event_bus.h"
 #include "freertos/FreeRTOS.h"
@@ -17,20 +18,20 @@
 static const char* TAG = "data_source";
 
 const NasTypeEntry NAS_TYPES[] = {
-    /* create 字段绑定各 client 的无参构造入口；带参特例（linux_http/windows/fnos）
-     * 由对应 client 提供的包装函数固化参数，避免本文件维护 enum→client 的 switch。 */
-    {"synology",     "Synology DSM",   NAS_SYNOLOGY,    true, "192.168.1.100", 5000,   "admin", true,  true,  false, false, synology_client_create},
-    {"qnap",         "QNAP QTS",       NAS_QNAP,        true, "192.168.1.100", 8080,   "admin", true,  true,  false, false, qnap_client_create},
-    {"truenas",      "TrueNAS",        NAS_TRUENAS,     true, "192.168.1.100", 80,     "root",  true,  true,  false, false, truenas_client_create},
-    /* FNOS 当前无独立 client，复用 mock client（固定 type/展示名/图标），由 mock_client_fnos_create 包装 */
-    {"fnos",         "FNOS",           NAS_FNOS,        true, "192.168.1.100", 3000,   "",      false, true,  false, false, mock_client_fnos_create},
-    {"unraid",       "Unraid",         NAS_UNRAID,      true, "192.168.1.100", 80,     "",      true,  false, false, false, unraid_client_create},
-    {"netdata",      "Netdata",        NAS_NETDATA,     true, "192.168.1.100", 19999,  "",      false, true,  false, false, netdata_client_create},
-    {"snmp",         "SNMP",           NAS_SNMP,        true, "192.168.1.100", 161,    "",      false, false, true,  false, snmp_client_create},
-    {"linux_http",   "Linux (HTTP)",   NAS_LINUX_HTTP,  true, "192.168.1.100", 8099,   "",      false, false, false, false, api_client_linux_http_create},
-    {"linux_serial", "Linux (Serial)", NAS_LINUX_SERIAL,true, "/dev/ttyUSB0",  115200, "",      false, false, false, true,  serial_client_create},
-    {"windows",      "Windows",        NAS_WINDOWS,     true, "192.168.1.100", 0,      "admin", true,  false, false, false, api_client_windows_create},
-    {"mock",         "Mock (测试)",    NAS_MOCK,        true, "",              0,      "",      false, false, false, false, mock_client_create},
+    /* create 字段绑定各 client 的带参构造入口 (const DataSourceParams*)；
+     * 由 data_source 组包（NAS_TYPES 出厂默认 + g_cfg 运行时覆盖）后传入，client 不再依赖 app_cfg。 */
+    {"synology",     "Synology DSM",   NAS_SYNOLOGY,    true, "192.168.1.100", 5000,   "admin", true,  true,  false, false, synology_client_create,     false, NULL,    0,      10},
+    {"qnap",         "QNAP QTS",       NAS_QNAP,        true, "192.168.1.100", 8080,   "admin", true,  true,  false, false, qnap_client_create,         false, NULL,    0,      10},
+    {"truenas",      "TrueNAS",        NAS_TRUENAS,     true, "192.168.1.100", 80,     "root",  true,  true,  false, false, truenas_client_create,      false, NULL,    0,      10},
+    /* FNOS 当前无独立 client，复用 mock client（固定 type/展示名/图标） */
+    {"fnos",         "FNOS",           NAS_FNOS,        true, "192.168.1.100", 3000,   "",      false, true,  false, false, mock_client_create,         false, NULL,    0,      10},
+    {"unraid",       "Unraid",         NAS_UNRAID,      true, "192.168.1.100", 80,     "",      true,  false, false, false, unraid_client_create,        false, NULL,    0,      10},
+    {"netdata",      "Netdata",        NAS_NETDATA,     true, "192.168.1.100", 19999,  "",      false, true,  false, false, netdata_client_create,      false, NULL,    0,      10},
+    {"snmp",         "SNMP",           NAS_SNMP,        true, "192.168.1.100", 161,    "",      false, false, true,  false, snmp_client_create,         false, "public", 0,      10},
+    {"linux_http",   "Linux (HTTP)",   NAS_LINUX_HTTP,  true, "192.168.1.100", 8099,   "",      false, false, false, false, api_client_create,          false, NULL,    0,      10},
+    {"linux_serial", "Linux (Serial)", NAS_LINUX_SERIAL,true, "/dev/ttyUSB0",  115200, "",      false, false, false, true,  serial_client_create,      false, NULL,    115200, 10},
+    {"windows",      "Windows",        NAS_WINDOWS,     true, "192.168.1.100", 0,      "admin", true,  false, false, false, api_client_create,          false, NULL,    0,      10},
+    {"mock",         "Mock (测试)",    NAS_MOCK,        true, "",              0,      "",      false, false, false, false, mock_client_create,         false, NULL,    0,      10},
 };
 
 const int DATA_TYPE_COUNT = sizeof(NAS_TYPES) / sizeof(NAS_TYPES[0]);
@@ -108,26 +109,67 @@ static void ds_unlock(void)
     }
 }
 
-static DataSource* ds_create_by_type(NasType type)
+static DataSource* ds_create_by_entry(const NasTypeEntry* e)
 {
-    for (int i = 0; i < DATA_TYPE_COUNT; i++) {
-        if (NAS_TYPES[i].nas_type_enum == type && NAS_TYPES[i].create != NULL) {
-            return NAS_TYPES[i].create();
-        }
-    }
-    return NULL;
+    if (e == NULL || e->create == NULL) return NULL;
+
+    /* 组包：NAS_TYPES 出厂默认 作为基础，g_cfg 运行时值 非0/非空 时覆盖。
+     * 这就是原来散落在各 client init 里的 "app_cfg_get_* 回退 defaults" 逻辑，
+     * 现统一上提到 data_source，client 不再接触 app_cfg。 */
+    DataSourceParams p;
+    memset(&p, 0, sizeof(p));
+    p.entry          = e;
+    strncpy(p.nas_ip,   e->default_ip,   sizeof(p.nas_ip)   - 1);
+    p.nas_port        = e->default_port;
+    strncpy(p.nas_user, e->default_user, sizeof(p.nas_user) - 1);
+    p.use_https        = e->default_https;
+    p.serial_baud      = e->default_serial_baud;
+    p.poll_sec         = e->default_poll_sec;
+    p.snmp_ver         = 1; /* 全局默认 v2c（snmp client 未消费，保留） */
+
+    const char* ip   = app_cfg_get_nas_ip();
+    int         port = app_cfg_get_nas_port();
+    const char* user = app_cfg_get_nas_user();
+    const char* pass = app_cfg_get_nas_pass();
+    int         https= app_cfg_get_nas_https();
+    const char* comm = app_cfg_get_snmp_comm();
+    int         baud = app_cfg_get_serial_baud();
+    int         poll = app_cfg_get_poll_sec();
+    int         sata = app_cfg_get_sata_disk_count();
+    int         m2   = app_cfg_get_m2_disk_count();
+
+    if (ip   && ip[0])   strncpy(p.nas_ip,   ip,   sizeof(p.nas_ip)   - 1);
+    if (port > 0)        p.nas_port        = (uint16_t)port;
+    if (user && user[0]) strncpy(p.nas_user, user, sizeof(p.nas_user) - 1);
+    if (pass && pass[0]) strncpy(p.nas_pass, pass, sizeof(p.nas_pass) - 1);
+    if (https)           p.use_https        = true;
+    if (comm && comm[0]) strncpy(p.snmp_comm, comm, sizeof(p.snmp_comm) - 1);
+    if (baud > 0)        p.serial_baud      = (uint32_t)baud;
+    if (poll > 0)        p.poll_sec         = (uint8_t)poll;
+    if (sata > 0)        p.sata_disk_count  = (uint8_t)sata;
+    if (m2   > 0)        p.m2_disk_count    = (uint8_t)m2;
+
+    DataSource* ds = e->create(&p);
+    if (ds) ds->poll_interval_ms = (uint32_t)p.poll_sec * 1000u;
+    return ds;
 }
 
 static DataSource* data_source_create(const char* nas_type_id)
 {
     for (int i = 0; i < DATA_TYPE_COUNT; i++) {
         if (strcmp(NAS_TYPES[i].id, nas_type_id) == 0) {
-            return ds_create_by_type(NAS_TYPES[i].nas_type_enum);
+            return ds_create_by_entry(&NAS_TYPES[i]);
         }
     }
 
-    ESP_LOGW(TAG, "Unsupported type: %s, fallback to mock", nas_type_id);
-    return mock_client_create();
+    /* 回退到 mock：按 id 定位，避免硬编码 mock 在表中的下标 */
+    for (int i = 0; i < DATA_TYPE_COUNT; i++) {
+        if (strcmp(NAS_TYPES[i].id, "mock") == 0) {
+            ESP_LOGW(TAG, "Unsupported type: %s, fallback to mock", nas_type_id);
+            return ds_create_by_entry(&NAS_TYPES[i]);
+        }
+    }
+    return NULL;
 }
 
 static bool ds_create_and_init(const char* nas_type_id)

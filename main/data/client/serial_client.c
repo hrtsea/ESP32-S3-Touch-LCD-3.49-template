@@ -1,6 +1,4 @@
 #include "serial_client.h"
-#include "app_cfg.h"
-#include "app_cfg.h"
 #include "../../config/app_info.h"
 #include "esp_log.h"
 #include "driver/uart.h"
@@ -251,13 +249,8 @@ static void clear_data(SerialClientData* priv)
 
 static bool serial_init(DataSource* self)
 {
-    SerialClientData* priv = (SerialClientData*)calloc(1, sizeof(SerialClientData));
+    SerialClientData* priv = (SerialClientData*)self->priv;
     if (!priv) return false;
-
-    self->priv = priv;
-
-    priv->baud_rate = (uint32_t)app_cfg_get_serial_baud();
-    if (priv->baud_rate == 0) priv->baud_rate = DEFAULT_SERIAL_BAUD;
 
     priv->state = SERIAL_IDLE;
     priv->last_frame_ms = 0;
@@ -424,12 +417,17 @@ static const DataSourceVTable s_serial_vtable = {
     .destroy = serial_destroy,
 };
 
-DataSource* serial_client_create(void)
+DataSource* serial_client_create(const DataSourceParams* params)
 {
     DataSource* self = (DataSource*)calloc(1, sizeof(DataSource));
     if (!self) return NULL;
     self->vtable = &s_serial_vtable;
     self->last_poll_ms = 0;
     self->consecutive_failures = 0;
+
+    SerialClientData* priv = (SerialClientData*)calloc(1, sizeof(SerialClientData));
+    if (!priv) { free(self); return NULL; }
+    priv->baud_rate = params->serial_baud;
+    self->priv = priv;
     return self;
 }

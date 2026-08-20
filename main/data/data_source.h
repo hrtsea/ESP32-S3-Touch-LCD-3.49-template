@@ -7,6 +7,24 @@
 
 /* 前向声明：NasTypeEntry.create 字段需要 DataSource*，置于其定义之前 */
 typedef struct DataSource DataSource;
+typedef struct NasTypeEntry NasTypeEntry;
+
+/* 数据源创建参数：由 data_source 从 NAS_TYPES[] 出厂默认 + g_cfg 运行时配置组包后传入，
+ * client 不再直接依赖 app_cfg，彻底解耦配置层与采集层。 */
+typedef struct DataSourceParams {
+    const NasTypeEntry* entry;        /* 对应的 NAS 类型表条目，提供类型标识/展示名；client 不再依赖 NasType 枚举 */
+    char      nas_ip[40];             /* NAS IP 地址（已回退默认值） */
+    uint16_t  nas_port;               /* NAS 端口（已回退默认值） */
+    char      nas_user[32];           /* 用户名（已回退默认值） */
+    char      nas_pass[65];           /* 密码 */
+    bool      use_https;              /* 是否 HTTPS（已回退默认值） */
+    char      snmp_comm[32];          /* SNMP community（已回退默认值） */
+    uint8_t   snmp_ver;               /* SNMP 版本 (0=v1,1=v2c) */
+    uint32_t  serial_baud;            /* 串口波特率（已回退默认值） */
+    uint8_t   poll_sec;               /* 轮询间隔秒（已回退默认值） */
+    uint8_t   sata_disk_count;       /* SATA 槽位数 */
+    uint8_t   m2_disk_count;          /* M.2 槽位数 */
+} DataSourceParams;
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,7 +45,12 @@ typedef struct NasTypeEntry {
     bool need_apiurl;        /* 是否需要填写 API 基址（如 HTTP API） */
     bool need_snmp;          /* 是否走 SNMP 采集（需要 community 等） */
     bool need_serial;        /* 是否走串口采集（如 Linux 串口设备） */
-    DataSource* (*create)(void); /* 构造对应 client 实例；消除 ds_create_by_type 的 switch 与表的重复映射 */
+    DataSource* (*create)(const DataSourceParams* params); /* 构造对应 client 实例，参数由 data_source 组包传入；消除 factory switch 与表的重复映射 */
+    /* 以下为各类型出厂默认参数，作为 NVS/g_cfg 缺省时的统一回退（与 nas_ip/port/user 同机制） */
+    bool default_https;          /* 是否默认 HTTPS */
+    const char* default_snmp_comm;/* 默认 SNMP community（仅 snmp 类型有效） */
+    uint32_t default_serial_baud; /* 默认串口波特率（仅 serial 类型有效） */
+    uint8_t default_poll_sec;     /* 默认轮询间隔（秒） */
 } NasTypeEntry;
 
 extern const NasTypeEntry NAS_TYPES[];
@@ -50,6 +73,7 @@ struct DataSource {
     const DataSourceVTable* vtable;
     NasData data;
     uint32_t last_poll_ms;
+    uint32_t poll_interval_ms;   /* 由 data_source 组包 params 后写入，client poll 直接读取，不再依赖 app_cfg */
     uint8_t consecutive_failures;
     void* priv;
 };
@@ -101,20 +125,6 @@ void data_source_unlock(void);
 
 NasType nas_type_from_string(const char* nas_type_id);
 const NasTypeEntry* nas_type_config_get_defaults(NasType type);
-
-/* 协议默认端口与参数（原位于已废弃的 config.h，迁移至此） */
-#define DEFAULT_HTTP_PORT      8099
-#define DEFAULT_SYNOLOGY_PORT  5000
-#define DEFAULT_QNAP_PORT      8080
-#define DEFAULT_TRUENAS_PORT   80
-#define DEFAULT_NETDATA_PORT   19999
-#define DEFAULT_SNMP_PORT      161
-#define DEFAULT_SERIAL_BAUD    115200
-#define DEFAULT_POLL_SEC       5
-#define MIN_POLL_SEC           1
-#define MAX_POLL_SEC           30
-#define DEFAULT_SATA_DISK_COUNT     6
-#define DEFAULT_M2_DISK_COUNT       3
 
 #ifdef __cplusplus
 }

@@ -1,5 +1,4 @@
 #include "synology_client.h"
-#include "app_cfg.h"
 #include "esp_log.h"
 #include "esp_http_client.h"
 #include "esp_wifi.h"
@@ -230,20 +229,9 @@ static bool fetch_storage(SynologyClientData* priv)
 
 static bool syno_init(DataSource* self)
 {
-    SynologyClientData* priv = (SynologyClientData*)calloc(1, sizeof(SynologyClientData));
+    SynologyClientData* priv = (SynologyClientData*)self->priv;
     if (!priv) return false;
 
-    self->priv = priv;
-
-    memcpy(priv->nas_ip, app_cfg_get_nas_ip(), sizeof(priv->nas_ip));
-    priv->nas_ip[sizeof(priv->nas_ip) - 1] = '\0';
-    priv->nas_port = app_cfg_get_nas_port();
-    if (priv->nas_port == 0) priv->nas_port = 5000;
-    memcpy(priv->username, app_cfg_get_nas_user(), sizeof(priv->username));
-    priv->username[sizeof(priv->username) - 1] = '\0';
-    memcpy(priv->password, app_cfg_get_nas_pass(), sizeof(priv->password));
-    priv->password[sizeof(priv->password) - 1] = '\0';
-    priv->use_https = app_cfg_get_nas_https();
     priv->sid[0] = '\0';
     priv->last_poll_ms = 0;
     priv->consecutive_failures = 0;
@@ -298,7 +286,7 @@ static bool syno_poll(DataSource* self)
     if (!priv) return false;
 
     uint32_t now = get_millis();
-    uint32_t poll_interval = app_cfg_get_poll_sec() * 1000UL;
+    uint32_t poll_interval = self->poll_interval_ms;
 
     if (priv->consecutive_failures > 0) {
         uint8_t capped = priv->consecutive_failures;
@@ -399,13 +387,22 @@ static const DataSourceVTable s_syno_vtable = {
     .destroy = syno_destroy,
 };
 
-DataSource* synology_client_create(void)
+DataSource* synology_client_create(const DataSourceParams* params)
 {
     DataSource* self = (DataSource*)calloc(1, sizeof(DataSource));
     if (!self) return NULL;
     self->vtable = &s_syno_vtable;
     self->last_poll_ms = 0;
     self->consecutive_failures = 0;
+
+    SynologyClientData* priv = (SynologyClientData*)calloc(1, sizeof(SynologyClientData));
+    if (!priv) { free(self); return NULL; }
+    strncpy(priv->nas_ip,   params->nas_ip,   sizeof(priv->nas_ip)   - 1);
+    priv->nas_port   = params->nas_port;
+    strncpy(priv->username, params->nas_user, sizeof(priv->username) - 1);
+    strncpy(priv->password, params->nas_pass, sizeof(priv->password) - 1);
+    priv->use_https  = params->use_https;
+    self->priv = priv;
     return self;
 }
 

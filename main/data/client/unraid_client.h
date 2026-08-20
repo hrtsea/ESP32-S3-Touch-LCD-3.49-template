@@ -14,7 +14,7 @@ extern "C" {
  * - 认证: x-api-key 请求头（API Key 存储在 g_config.nas_pass 中）
  * - 单次 POST 查询获取 CPU/内存/磁盘/阵列/Docker/VM 等全部数据
  */
-DataSource* unraid_client_create(void);
+DataSource* unraid_client_create(const DataSourceParams* params);
 
 #ifdef __cplusplus
 }

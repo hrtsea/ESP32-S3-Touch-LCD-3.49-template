@@ -1,5 +1,4 @@
 #include "netdata_client.h"
-#include "app_cfg.h"
 #include "esp_log.h"
 #include "esp_http_client.h"
 #include "esp_wifi.h"
@@ -280,15 +279,8 @@ static bool fetch_storage(NetdataClientData* priv)
 
 static bool netdata_init(DataSource* self)
 {
-    NetdataClientData* priv = (NetdataClientData*)calloc(1, sizeof(NetdataClientData));
+    NetdataClientData* priv = (NetdataClientData*)self->priv;
     if (!priv) return false;
-
-    self->priv = priv;
-
-    memcpy(priv->nas_ip, app_cfg_get_nas_ip(), sizeof(priv->nas_ip));
-    priv->nas_ip[sizeof(priv->nas_ip) - 1] = '\0';
-    priv->nas_port = app_cfg_get_nas_port();
-    if (priv->nas_port == 0) priv->nas_port = 19999;
 
     priv->state = NETDATA_IDLE;
     priv->last_poll_ms = 0;
@@ -340,7 +332,7 @@ static bool netdata_poll(DataSource* self)
     NetdataClientData* priv = (NetdataClientData*)self->priv;
     uint32_t now = get_millis();
 
-    uint32_t poll_interval = app_cfg_get_poll_sec() * 1000UL;
+    uint32_t poll_interval = self->poll_interval_ms;
     if (priv->consecutive_failures > 0) {
         uint8_t capped = priv->consecutive_failures;
         if (capped > 3) capped = 3;
@@ -484,13 +476,19 @@ static const DataSourceVTable s_netdata_vtable = {
     .destroy = netdata_destroy,
 };
 
-DataSource* netdata_client_create(void)
+DataSource* netdata_client_create(const DataSourceParams* params)
 {
     DataSource* self = (DataSource*)calloc(1, sizeof(DataSource));
     if (!self) return NULL;
     self->vtable = &s_netdata_vtable;
     self->last_poll_ms = 0;
     self->consecutive_failures = 0;
+
+    NetdataClientData* priv = (NetdataClientData*)calloc(1, sizeof(NetdataClientData));
+    if (!priv) { free(self); return NULL; }
+    strncpy(priv->nas_ip, params->nas_ip, sizeof(priv->nas_ip) - 1);
+    priv->nas_port = params->nas_port;
+    self->priv = priv;
     return self;
 }
 

@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-DataSource* serial_client_create(void);
+DataSource* serial_client_create(const DataSourceParams* params);
 
 #ifdef __cplusplus
 }

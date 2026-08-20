@@ -1,5 +1,4 @@
 #include "truenas_client.h"
-#include "app_cfg.h"
 #include "esp_log.h"
 #include "esp_http_client.h"
 #include "esp_wifi.h"
@@ -336,18 +335,8 @@ static bool fetch_interfaces(TrueNASClientData* priv)
 
 static bool truenas_init(DataSource* self)
 {
-    TrueNASClientData* priv = (TrueNASClientData*)calloc(1, sizeof(TrueNASClientData));
+    TrueNASClientData* priv = (TrueNASClientData*)self->priv;
     if (!priv) return false;
-
-    self->priv = priv;
-
-    memcpy(priv->nas_ip, app_cfg_get_nas_ip(), sizeof(priv->nas_ip));
-    priv->nas_ip[sizeof(priv->nas_ip) - 1] = '\0';
-    priv->nas_port = app_cfg_get_nas_port();
-    if (priv->nas_port == 0) priv->nas_port = 80;
-
-    memcpy(priv->api_key, app_cfg_get_nas_pass(), sizeof(priv->api_key));
-    priv->api_key[sizeof(priv->api_key) - 1] = '\0';
 
     priv->state = TRUENAS_IDLE;
     priv->last_poll_ms = 0;
@@ -399,7 +388,7 @@ static bool truenas_poll(DataSource* self)
     TrueNASClientData* priv = (TrueNASClientData*)self->priv;
     uint32_t now = get_millis();
 
-    uint32_t poll_interval = app_cfg_get_poll_sec() * 1000UL;
+    uint32_t poll_interval = self->poll_interval_ms;
     if (priv->consecutive_failures > 0) {
         uint8_t capped = priv->consecutive_failures;
         if (capped > 3) capped = 3;
@@ -544,13 +533,20 @@ static const DataSourceVTable s_truenas_vtable = {
     .destroy = truenas_destroy,
 };
 
-DataSource* truenas_client_create(void)
+DataSource* truenas_client_create(const DataSourceParams* params)
 {
     DataSource* self = (DataSource*)calloc(1, sizeof(DataSource));
     if (!self) return NULL;
     self->vtable = &s_truenas_vtable;
     self->last_poll_ms = 0;
     self->consecutive_failures = 0;
+
+    TrueNASClientData* priv = (TrueNASClientData*)calloc(1, sizeof(TrueNASClientData));
+    if (!priv) { free(self); return NULL; }
+    strncpy(priv->nas_ip,   params->nas_ip,   sizeof(priv->nas_ip)   - 1);
+    priv->nas_port   = params->nas_port;
+    strncpy(priv->api_key, params->nas_pass, sizeof(priv->api_key) - 1);
+    self->priv = priv;
     return self;
 }
 

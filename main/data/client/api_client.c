@@ -1,6 +1,4 @@
 #include "api_client.h"
-#include "app_cfg.h"
-#include "app_cfg.h"
 #include "esp_log.h"
 #include "esp_http_client.h"
 #include "esp_wifi.h"
@@ -15,11 +13,10 @@ static const char* TAG = "api_client";
 #define HTTP_BUF_SIZE 2048
 
 typedef struct {
-    NasType current_type;
+    const NasTypeEntry* entry;  /* 类型表条目：linux_http / windows 复用本 client，由 entry 区分；不再依赖 NasType 枚举 */
     char nas_ip[40];
     uint16_t nas_port;
     ApiState state;
-    uint32_t poll_interval_ms;
     esp_http_client_handle_t http;
     char* http_buf;
     uint32_t last_poll_ms;
@@ -309,26 +306,19 @@ static bool fetch_all(ApiClientData* priv)
 
 static bool api_init(DataSource* self)
 {
-    ApiClientData* priv = (ApiClientData*)calloc(1, sizeof(ApiClientData));
-    if (!priv) return false;
+    ApiClientData* priv = (ApiClientData*)self->priv;
+    if (!priv) {
+        ESP_LOGE(TAG, "api_init: priv not allocated");
+        return false;
+    }
 
-    self->priv = priv;
-    priv->current_type = NAS_LINUX_HTTP;
-
-    memcpy(priv->nas_ip, app_cfg_get_nas_ip(), sizeof(priv->nas_ip));
-    priv->nas_ip[sizeof(priv->nas_ip) - 1] = '\0';
-    priv->nas_port = app_cfg_get_nas_port();
-    if (priv->nas_port == 0) priv->nas_port = DEFAULT_HTTP_PORT;
-
-    priv->poll_interval_ms = app_cfg_get_poll_sec() * 1000UL;
+    /* 配置已在 create 时由 params 拷入 priv，此处仅做状态复位与缓冲分配 */
     priv->state = API_IDLE;
     priv->last_poll_ms = 0;
     priv->consecutive_failures = 0;
 
     priv->http_buf = (char*)malloc(HTTP_BUF_SIZE);
     if (!priv->http_buf) {
-        free(priv);
-        self->priv = NULL;
         return false;
     }
 
@@ -378,11 +368,11 @@ static bool api_poll(DataSource* self)
 
     uint32_t now = get_millis();
 
-    uint32_t current_interval = priv->poll_interval_ms;
+    uint32_t current_interval = self->poll_interval_ms;
     if (priv->consecutive_failures > 0) {
         uint8_t capped = priv->consecutive_failures;
         if (capped > 3) capped = 3;
-        uint32_t backoff = priv->poll_interval_ms * (1u << capped);
+        uint32_t backoff = self->poll_interval_ms * (1u << capped);
         if (backoff > 60000) backoff = 60000;
         current_interval = backoff;
     }
@@ -465,8 +455,7 @@ static const char* api_get_conn_icon(DataSource* self)
 static const NasTypeEntry* api_get_config(DataSource* self)
 {
     ApiClientData* priv = (ApiClientData*)self->priv;
-    NasType type = priv ? priv->current_type : NAS_LINUX_HTTP;
-    return nas_type_config_get_defaults(type);
+    return (priv && priv->entry) ? priv->entry : nas_type_config_get_defaults(NAS_LINUX_HTTP);
 }
 
 static void api_destroy(DataSource* self)
@@ -497,26 +486,28 @@ static const DataSourceVTable s_api_vtable = {
     .destroy = api_destroy,
 };
 
-DataSource* api_client_create(NasType type)
+DataSource* api_client_create(const DataSourceParams* params)
 {
+    if (!params) return NULL;
     DataSource* self = (DataSource*)calloc(1, sizeof(DataSource));
     if (!self) return NULL;
     self->vtable = &s_api_vtable;
     self->last_poll_ms = 0;
     self->consecutive_failures = 0;
+
+    /* 构造阶段即把 data_source 组包好的连接参数拷入 priv，
+     * linux_http / windows 等复用 ApiClient 的类型由 params->entry 区分。 */
+    ApiClientData* priv = (ApiClientData*)calloc(1, sizeof(ApiClientData));
+    if (!priv) {
+        free(self);
+        return NULL;
+    }
+    priv->entry = params->entry;
+    strncpy(priv->nas_ip, params->nas_ip, sizeof(priv->nas_ip) - 1);
+    priv->nas_port = params->nas_port;
+    self->priv = priv;
+
     return self;
-}
-
-/* 无参包装：将 NAS_LINUX_HTTP / NAS_WINDOWS 的参数固化进各 client 自身的
- * 创建入口，供 NAS_TYPES[].create 函数指针直接绑定（消除 data_source 的 switch 映射）。 */
-DataSource* api_client_linux_http_create(void)
-{
-    return api_client_create(NAS_LINUX_HTTP);
-}
-
-DataSource* api_client_windows_create(void)
-{
-    return api_client_create(NAS_WINDOWS);
 }
 
 

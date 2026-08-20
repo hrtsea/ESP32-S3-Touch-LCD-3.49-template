@@ -83,10 +83,10 @@ app_cfg_t g_cfg = {
     .nas_user          = {0},
     .nas_pass          = {0},
     .nas_https         = 0,
-    .snmp_comm         = "public",
-    .snmp_ver          = 1,                /* 默认 v2c */
-    .serial_baud       = 115200,
-    .poll_sec          = 10,
+    .snmp_comm         = {0},              /* 空 = 回退到 NAS_TYPES[] 的类型默认 "public" */
+    .snmp_ver          = 1,                /* 默认 v2c（snmp client 未消费，保留全局默认） */
+    .serial_baud       = 0,               /* 0 = 回退到 NAS_TYPES[] 的类型默认波特率 */
+    .poll_sec          = 0,               /* 0 = 回退到 NAS_TYPES[] 的类型默认轮询间隔 */
     .rotation_angle    = 0,
     .autodim           = 1,
     .timezone          = 0,
@@ -180,7 +180,7 @@ static void cfg_validate(void)
     g_cfg.nas_https = g_cfg.nas_https ? 1 : 0;
     g_cfg.autodim = g_cfg.autodim ? 1 : 0;
     g_cfg.snmp_ver = g_cfg.snmp_ver ? 1 : 0;  /* 仅 0/1 */
-    if (g_cfg.poll_sec == 0) g_cfg.poll_sec = 10;
+    /* poll_sec 留 0：由 client init 回退到 NAS_TYPES[] 的类型默认间隔，不在此预填 */
     if (g_cfg.rotation_angle > 270) g_cfg.rotation_angle = 0; /* 仅支持 0/90/180/270 */
     if (g_cfg.sata_disk_count > 16) g_cfg.sata_disk_count = 16;
     if (g_cfg.m2_disk_count > 16) g_cfg.m2_disk_count = 16;

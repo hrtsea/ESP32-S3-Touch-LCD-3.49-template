@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-DataSource* netdata_client_create(void);
+DataSource* netdata_client_create(const DataSourceParams* params);
 
 #ifdef __cplusplus
 }
