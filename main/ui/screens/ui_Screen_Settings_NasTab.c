@@ -453,6 +453,10 @@ static void update_dialog_fields(void) {
 
     create_dialog_fields();
     NasType current_type = nas_type_from_string(app_cfg_get_nas_type());
+    if (current_type == NAS_TYPE_ENUM_COUNT) {
+        ESP_LOGE(TAG, "Unknown nas_type from config: '%s'", app_cfg_get_nas_type());
+        return;
+    }
 
     bool show_ip = false;
     bool show_port = false;

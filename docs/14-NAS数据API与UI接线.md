@@ -105,7 +105,6 @@ float data_source_get_tx_speed_mbps(void);            // TX 速率 MB/s
 const NasTypeEntry* /* NAS_TYPES[] */;               // 支持类型表
 int /* DATA_TYPE_COUNT */;
 NasType nas_type_from_string(const char *id);        // "synology" → NAS_SYNOLOGY
-const char* nas_type_to_string(NasType type);
 const char* get_display_type_name(const char *id);   // UI 下拉列表用
 ```
 

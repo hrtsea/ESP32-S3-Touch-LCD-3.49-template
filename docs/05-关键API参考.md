@@ -181,7 +181,6 @@ static inline void ds_destroy(DataSource* s);
 ### 类型查询
 ```c
 NasType        nas_type_from_string(const char* str);
-const char*    nas_type_to_string(NasType t);
 const char*    get_display_type_name(NasType t);
 const NasTypeEntry* nas_type_config_get_defaults(NasType t);
 float          data_source_get_rx_speed_mbps(void);

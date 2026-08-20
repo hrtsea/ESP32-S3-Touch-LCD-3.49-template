@@ -401,8 +401,6 @@ static bool unraid_init(DataSource* self)
 
     priv->http_buf = (char*)malloc(UNRAID_HTTP_BUF_SIZE);
     if (!priv->http_buf) {
-        free(priv);
-        self->priv = NULL;
         return false;
     }
 

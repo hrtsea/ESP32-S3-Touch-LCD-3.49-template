@@ -58,23 +58,13 @@ static const char* get_display_type_name(const char* nas_type_id)
 
 NasType nas_type_from_string(const char* nas_type_id)
 {
-    if (nas_type_id == NULL) return NAS_LINUX_HTTP;
+    if (nas_type_id == NULL) return NAS_TYPE_ENUM_COUNT;
     for (int i = 0; i < DATA_TYPE_COUNT; i++) {
         if (strcmp(NAS_TYPES[i].id, nas_type_id) == 0) {
             return NAS_TYPES[i].nas_type_enum;
         }
     }
-    return NAS_LINUX_HTTP;
-}
-
-static const char* nas_type_to_string(NasType type)
-{
-    for (int i = 0; i < DATA_TYPE_COUNT; i++) {
-        if (NAS_TYPES[i].nas_type_enum == type) {
-            return NAS_TYPES[i].id;
-        }
-    }
-    return "linux_http";
+    return NAS_TYPE_ENUM_COUNT;
 }
 
 static DataSource* g_data_source = NULL;
@@ -163,7 +153,7 @@ static DataSource* data_source_create(const char* nas_type_id)
         }
     }
 
-    /* 回退到 mock：按 id 定位，避免硬编码 mock 在表中的下标 */
+    /* 安全网：出厂默认配置损坏/未知类型时回退 mock，保证设备始终有数据源可运行 */
     for (int i = 0; i < DATA_TYPE_COUNT; i++) {
         if (strcmp(NAS_TYPES[i].id, "mock") == 0) {
             ESP_LOGW(TAG, "Unsupported type: %s, fallback to mock", nas_type_id);
